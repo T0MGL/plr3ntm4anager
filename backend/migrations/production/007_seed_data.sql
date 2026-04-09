@@ -1,0 +1,42 @@
+-- ============================================================================
+-- 007_seed_data.sql
+-- OPTIONAL seed data for production bootstrap.
+--
+-- This file intentionally does NOT create real units or bookings. Do not copy
+-- rows from the dev project sihmsvosvonafxpjebuu, they contain test data that
+-- would pollute the Bancard certification audit trail.
+--
+-- Usage:
+--   1. Create an admin user via Supabase dashboard (Auth -> Users -> Add user)
+--      or the CLI. Email should be an alias Gaston monitors.
+--   2. The admin dashboard uses Supabase Auth; no extra admin table is
+--      required in this project. The `approved_by` column on booking_requests
+--      references auth.users(id) directly.
+--   3. Uncomment the block below only if you need to pre-load the first real
+--      Park Lofts unit for Bancard testing before the admin UI is wired up.
+-- ============================================================================
+
+-- Example, keep commented until confirmed by Gaston:
+-- insert into public.units (
+--   name,
+--   description,
+--   nightly_rate_usd,
+--   max_guests,
+--   bedrooms,
+--   beds,
+--   airbnb_listing_url,
+--   airbnb_ical_url,
+--   image_urls,
+--   status
+-- ) values (
+--   'Park Loft - Unit 01',
+--   'Loft moderno en Asuncion, 1 dormitorio, vista al parque.',
+--   65.00,
+--   2,
+--   1,
+--   1,
+--   'https://www.airbnb.com/rooms/REPLACE_ME',
+--   'https://www.airbnb.com/calendar/ical/REPLACE_ME.ics',
+--   array[]::text[],
+--   'active'
+-- );

@@ -1,0 +1,251 @@
+/* DatePicker.css - Fix for vertical day layout */
+
+/* Ensure the container uses proper layout */
+.date-picker-container {
+    width: 100%;
+}
+
+/* Override react-day-picker default styles to ensure horizontal layout */
+.date-picker-container .rdp {
+    --rdp-accent-color: #222222;
+    --rdp-background-color: #f7f7f7;
+    margin: 0;
+}
+
+/* Months container */
+.date-picker-container .rdp-months {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 3rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.date-picker-container .rdp-month {
+    flex: 1;
+    min-width: 280px;
+    max-width: 350px;
+}
+
+/* Caption styles */
+.date-picker-container .rdp-caption {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 1.5rem;
+}
+
+.date-picker-container .rdp-caption_label {
+    font-size: 16px;
+    font-weight: 700;
+    color: #222222;
+}
+
+/* Table structure - CRITICAL for horizontal layout */
+.date-picker-container .rdp-month_grid {
+    width: 100%;
+    border-collapse: collapse;
+    display: table !important;
+}
+
+/* Weekday headers - Must be horizontal */
+.date-picker-container .rdp-weekdays {
+    display: table-header-group !important;
+}
+
+.date-picker-container .rdp-weekdays .rdp-weekday {
+    display: table-cell !important;
+    text-align: center;
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #9ca3af;
+    padding: 0.5rem 0;
+    width: 44px;
+}
+
+/* Week rows - Must display as table rows */
+.date-picker-container .rdp-week {
+    display: table-row !important;
+    flex-direction: row !important;
+}
+
+/* Day cells - Must display as table cells for horizontal layout */
+.date-picker-container .rdp-day {
+    display: table-cell !important;
+    text-align: center;
+    padding: 2px !important;
+    position: relative;
+    width: 44px;
+    height: 44px;
+}
+
+/* Day button styling */
+.date-picker-container .rdp-day_button {
+    width: 44px;
+    height: 44px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    color: #222222;
+    border: none;
+    background: transparent;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.date-picker-container .rdp-day_button:hover:not([disabled]) {
+    background-color: #f3f4f6;
+}
+
+/* Selected state */
+/* Selected state - specifically for start, end and single selections */
+.date-picker-container .rdp-day_button[aria-selected="true"] {
+    color: white !important;
+}
+
+.date-picker-container .rdp-range_start .rdp-day_button,
+.date-picker-container .rdp-range_end .rdp-day_button,
+.date-picker-container .rdp-selected:not(.rdp-range_middle) .rdp-day_button {
+    background-color: #222222 !important;
+    color: white !important;
+    font-weight: 700;
+    border-radius: 50% !important;
+}
+
+/* Range Middle state - specifically for dates between start and end */
+.date-picker-container .rdp-range_middle .rdp-day_button,
+.date-picker-container .rdp-day_button.rdp-range_middle {
+    background-color: #f7f7f7 !important;
+    color: #222222 !important;
+    border-radius: 0 !important;
+    font-weight: 700;
+}
+
+.date-picker-container .rdp-range_middle {
+    background-color: #f7f7f7 !important;
+}
+
+.date-picker-container .rdp-day_button[aria-selected="true"]:not(.rdp-range_middle):hover {
+    background-color: #000000 !important;
+    color: white !important;
+}
+
+/* Today indicator */
+.date-picker-container .rdp-today .rdp-day_button::after {
+    content: '';
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    background-color: #222222;
+    border-radius: 50%;
+}
+
+.date-picker-container .rdp-today.rdp-day_button[aria-selected="true"]::after {
+    background-color: white;
+}
+
+/* Outside days */
+.date-picker-container .rdp-outside .rdp-day_button {
+    color: #d1d5db;
+    opacity: 0.5;
+}
+
+/* Disabled days */
+.date-picker-container .rdp-day_button:disabled {
+    color: #e5e7eb;
+    text-decoration: line-through;
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.date-picker-container .rdp-day_button:disabled:hover {
+    background-color: transparent;
+}
+
+/* Hidden days */
+.date-picker-container .rdp-hidden {
+    visibility: hidden;
+}
+
+/* Navigation (if shown) */
+.date-picker-container .rdp-nav {
+    display: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .date-picker-container .rdp-months {
+        flex-direction: column !important;
+        gap: 2rem;
+    }
+
+    .date-picker-container .rdp-month {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .date-picker-container .rdp-day,
+    .date-picker-container .rdp-weekday {
+        width: 40px;
+    }
+
+    .date-picker-container .rdp-day_button {
+        width: 40px;
+        height: 40px;
+        font-size: 13px;
+    }
+}
+
+/* Force table layout - Additional specificity */
+.date-picker-container .rdp-month_grid tbody {
+    display: table-row-group !important;
+}
+
+.date-picker-container .rdp-month_grid thead {
+    display: table-header-group !important;
+}
+
+.date-picker-container .rdp-month_grid tr {
+    display: table-row !important;
+}
+
+.date-picker-container .rdp-month_grid th,
+.date-picker-container .rdp-month_grid td {
+    display: table-cell !important;
+}
+
+/* Accessibility - ensure focus states are visible */
+.date-picker-container .rdp-day_button:focus-visible {
+    outline: 2px solid #222222;
+    outline-offset: 2px;
+}
+
+/* Loading state styling */
+.date-picker-container .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}

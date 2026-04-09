@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+out/
+.next/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Environment files (NEVER commit)
+.env
+.env.*
+!.env.schema
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+*.local
+
+# Vercel (deploy specific)
+.vercel/
+
+# Railway
+.railway/
+
+# Coverage
+coverage/
+*.lcov
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Secrets & sensitive docs
+*.pem
+*.key
+secrets/
+credentials/
+
+# Private docs (contracts, PDFs, internal)
+*.pdf
+Contrato*
+
+# Git backups
+.git.backup*
+
+# Claude Code local settings
+.claude/
