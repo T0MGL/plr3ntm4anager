@@ -42,13 +42,14 @@ router.post('/booking-request', bookingRateLimit, validate(bookingSchema), async
       specialRequests: payload.special_requests
     });
 
-    await sendEmail(
+    // Respond immediately, email is non-blocking (SMTP may timeout).
+    res.json({ booking_id: result.bookingId, status: 'pending' });
+
+    sendEmail(
       payload.guest_email,
       'Booking request received',
       `<p>Thanks ${payload.guest_name}, your request is pending approval.</p>`
-    );
-
-    return res.json({ booking_id: result.bookingId, status: 'pending' });
+    ).catch(() => { /* logged inside sendEmail */ });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create booking request';
     return res.status(400).json({ error: message });
