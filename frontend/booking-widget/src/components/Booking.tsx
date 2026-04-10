@@ -92,7 +92,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
         special_requests: "",
       };
 
-      const bookingRes = await api.post("/bookings/booking-request", bookingPayload);
+      const bookingRes = await api.post("/booking-request", bookingPayload);
       const bookingId = bookingRes.data.booking_id;
 
       if (paymentMethod === "cash") {
