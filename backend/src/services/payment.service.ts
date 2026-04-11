@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../config/supabase';
 import { env } from '../config/env';
 import { BookingStatus, PaymentStatus } from '../types';
 import { logger } from '../config/logger';
+import { sendEmail } from './email.service';
 
 // Bancard VPOS 2.0 Token Generation (MD5)
 // Spec: Token is always MD5 (32 chars). Numbers must be strings with 2 decimals.
@@ -400,8 +401,6 @@ export function processBancardConfirmationBackground(
   payload: BancardConfirmationPayload,
   result: BancardConfirmationResult
 ): void {
-  // Fire and forget. Never throw into the caller, errors only go to logger.
-  // Deliberately not awaited; the Bancard webhook has already responded 200.
   setImmediate(async () => {
     try {
       logger.info('Bancard confirmation processed', {
@@ -410,7 +409,45 @@ export function processBancardConfirmationBackground(
         booking_id: result.bookingId,
         response_code: payload.operation.response_code
       });
-      // Future: email notification, iCal resync, analytics, Slack webhook.
+
+      const { data: booking } = await supabaseAdmin
+        .from('booking_requests')
+        .select('guest_email, guest_name, check_in_date, check_out_date, total_price_usd, unit_id')
+        .eq('id', result.bookingId)
+        .single();
+
+      if (!booking?.guest_email) {
+        logger.warn('No guest email for payment confirmation', { booking_id: result.bookingId });
+        return;
+      }
+
+      const { data: unit } = await supabaseAdmin
+        .from('units')
+        .select('name')
+        .eq('id', booking.unit_id)
+        .single();
+
+      const unitName = unit?.name ?? 'Park Lofts';
+
+      if (result.approved) {
+        await sendEmail(
+          booking.guest_email,
+          'Payment confirmed',
+          buildPaymentConfirmationHtml({
+            guestName: booking.guest_name,
+            unitName,
+            checkIn: booking.check_in_date,
+            checkOut: booking.check_out_date,
+            totalUsd: booking.total_price_usd
+          })
+        );
+      } else {
+        await sendEmail(
+          booking.guest_email,
+          'Payment was not processed',
+          buildPaymentFailedHtml({ guestName: booking.guest_name })
+        );
+      }
     } catch (err) {
       logger.error('Bancard confirmation background job failed', {
         error: err instanceof Error ? err.message : 'unknown',
@@ -418,6 +455,54 @@ export function processBancardConfirmationBackground(
       });
     }
   });
+}
+
+function buildPaymentConfirmationHtml(params: {
+  guestName: string;
+  unitName: string;
+  checkIn: string;
+  checkOut: string;
+  totalUsd: number;
+}): string {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #1a1a1a;">
+      <h2 style="margin: 0 0 24px; font-size: 22px; font-weight: 600;">Payment confirmed</h2>
+      <p style="margin: 0 0 16px; line-height: 1.6;">Hi ${params.guestName},</p>
+      <p style="margin: 0 0 24px; line-height: 1.6;">Your payment has been processed successfully. Here are your reservation details:</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 0 0 24px;">
+        <tr>
+          <td style="padding: 10px 0; border-bottom: 1px solid #e5e5e5; color: #666; font-size: 14px;">Unit</td>
+          <td style="padding: 10px 0; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: 500;">${params.unitName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 0; border-bottom: 1px solid #e5e5e5; color: #666; font-size: 14px;">Check-in</td>
+          <td style="padding: 10px 0; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: 500;">${params.checkIn}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 0; border-bottom: 1px solid #e5e5e5; color: #666; font-size: 14px;">Check-out</td>
+          <td style="padding: 10px 0; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: 500;">${params.checkOut}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 0; color: #666; font-size: 14px;">Total</td>
+          <td style="padding: 10px 0; text-align: right; font-weight: 600; font-size: 16px;">$${params.totalUsd.toFixed(2)} USD</td>
+        </tr>
+      </table>
+      <p style="margin: 0 0 8px; line-height: 1.6;">We look forward to hosting you.</p>
+      <p style="margin: 0; line-height: 1.6; color: #666; font-size: 13px;">Park Lofts Paraguay</p>
+    </div>
+  `.trim();
+}
+
+function buildPaymentFailedHtml(params: { guestName: string }): string {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #1a1a1a;">
+      <h2 style="margin: 0 0 24px; font-size: 22px; font-weight: 600;">Payment not processed</h2>
+      <p style="margin: 0 0 16px; line-height: 1.6;">Hi ${params.guestName},</p>
+      <p style="margin: 0 0 16px; line-height: 1.6;">Your payment could not be processed. This can happen if the card was declined or the transaction timed out.</p>
+      <p style="margin: 0 0 8px; line-height: 1.6;">You can try again from your booking link, or contact us if you need assistance.</p>
+      <p style="margin: 0; line-height: 1.6; color: #666; font-size: 13px;">Park Lofts Paraguay</p>
+    </div>
+  `.trim();
 }
 
 // Confirm Preauthorization (Capture)

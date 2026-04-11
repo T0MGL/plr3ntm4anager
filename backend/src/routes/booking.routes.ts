@@ -48,7 +48,15 @@ router.post('/booking-request', bookingRateLimit, validate(bookingSchema), async
     sendEmail(
       payload.guest_email,
       'Booking request received',
-      `<p>Thanks ${payload.guest_name}, your request is pending approval.</p>`
+      [
+        '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #1a1a1a;">',
+        '<h2 style="margin: 0 0 24px; font-size: 22px; font-weight: 600;">Request received</h2>',
+        `<p style="margin: 0 0 16px; line-height: 1.6;">Hi ${payload.guest_name},</p>`,
+        '<p style="margin: 0 0 16px; line-height: 1.6;">We received your booking request and it is now pending review. You will receive an email once it has been approved.</p>',
+        '<p style="margin: 0 0 8px; line-height: 1.6;">Thank you for choosing Park Lofts.</p>',
+        '<p style="margin: 0; line-height: 1.6; color: #666; font-size: 13px;">Park Lofts Paraguay</p>',
+        '</div>'
+      ].join('')
     ).catch(() => { /* logged inside sendEmail */ });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create booking request';

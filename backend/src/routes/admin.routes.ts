@@ -110,8 +110,16 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
 
   await sendEmail(
     booking.guest_email,
-    'Booking approved - payment processing',
-    `<p>Hi ${booking.guest_name}, your booking was approved. Your payment authorization has been captured.</p>`
+    'Booking approved',
+    [
+      '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #1a1a1a;">',
+      '<h2 style="margin: 0 0 24px; font-size: 22px; font-weight: 600;">Booking approved</h2>',
+      `<p style="margin: 0 0 16px; line-height: 1.6;">Hi ${booking.guest_name},</p>`,
+      '<p style="margin: 0 0 16px; line-height: 1.6;">Your booking has been approved and your payment has been processed.</p>',
+      '<p style="margin: 0 0 8px; line-height: 1.6;">We look forward to hosting you.</p>',
+      '<p style="margin: 0; line-height: 1.6; color: #666; font-size: 13px;">Park Lofts Paraguay</p>',
+      '</div>'
+    ].join('')
   );
 
   return res.json({ success: true });
@@ -164,8 +172,16 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
 
   await sendEmail(
     booking.guest_email,
-    'Booking request rejected',
-    `<p>Hi ${booking.guest_name}, unfortunately your request was rejected. Reason: ${req.body.rejection_reason}</p>`
+    'Booking update',
+    [
+      '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #1a1a1a;">',
+      '<h2 style="margin: 0 0 24px; font-size: 22px; font-weight: 600;">Booking update</h2>',
+      `<p style="margin: 0 0 16px; line-height: 1.6;">Hi ${booking.guest_name},</p>`,
+      `<p style="margin: 0 0 16px; line-height: 1.6;">Unfortunately, we are unable to accommodate your booking request. Reason: ${req.body.rejection_reason}</p>`,
+      '<p style="margin: 0 0 8px; line-height: 1.6;">If you have any questions, please do not hesitate to reach out.</p>',
+      '<p style="margin: 0; line-height: 1.6; color: #666; font-size: 13px;">Park Lofts Paraguay</p>',
+      '</div>'
+    ].join('')
   );
 
   return res.json({ success: true });
