@@ -79,33 +79,33 @@ const BookingPopup: React.FC<BookingPopupProps> = ({ open, bookingData, onClose 
             <section className="rounded-2xl border border-neutral-200 p-5">
               <h3 className="text-lg font-semibold">1. Choose when to pay</h3>
               <div className="mt-4 space-y-3">
-                <button type="button" onClick={() => setPaymentOption("full")} className={`w-full rounded-xl border p-4 text-left ${paymentOption === "full" ? "border-[#A36D3A] bg-[#fdfaf7]" : "border-neutral-200"}`}>
+                <button type="button" onClick={() => setPaymentOption("full")} className={`w-full rounded-xl border p-4 text-left ${paymentOption === "full" ? "border-[#1A1A1A] bg-[#F6F2EC]" : "border-neutral-200"}`}>
                   <p className="font-semibold">Pay ${totalPrice.toFixed(2)} now</p>
                   <p className="text-sm text-neutral-500">Pay the total to finalize your reservation.</p>
                 </button>
-                <button type="button" onClick={() => setPaymentOption("part")} className={`w-full rounded-xl border p-4 text-left ${paymentOption === "part" ? "border-[#A36D3A] bg-[#fdfaf7]" : "border-neutral-200"}`}>
+                <button type="button" onClick={() => setPaymentOption("part")} className={`w-full rounded-xl border p-4 text-left ${paymentOption === "part" ? "border-[#1A1A1A] bg-[#F6F2EC]" : "border-neutral-200"}`}>
                   <p className="font-semibold">Pay part now, part later</p>
                   <p className="text-sm text-neutral-500">Split payment into two charges.</p>
                 </button>
               </div>
               <div className="mt-4 text-right">
-                <button type="button" disabled={!canProceed} onClick={() => setStep(2)} className="rounded-xl bg-[#A36D3A] px-6 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Next</button>
+                <button type="button" disabled={!canProceed} onClick={() => setStep(2)} className="rounded-xl bg-[#1A1A1A] px-6 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Next</button>
               </div>
             </section>
 
             <section className={`rounded-2xl border border-neutral-200 p-5 ${step < 2 ? "opacity-70" : ""}`}>
               <h3 className="text-lg font-semibold">2. Add a payment method</h3>
               <div className="mt-4 space-y-3">
-                <button type="button" onClick={() => setPaymentMethod("bancard")} className={`w-full rounded-xl border p-4 text-left ${paymentMethod === "bancard" ? "border-[#A36D3A] bg-[#fdfaf7]" : "border-neutral-200"}`}>
+                <button type="button" onClick={() => setPaymentMethod("bancard")} className={`w-full rounded-xl border p-4 text-left ${paymentMethod === "bancard" ? "border-[#1A1A1A] bg-[#F6F2EC]" : "border-neutral-200"}`}>
                   <p className="font-semibold">Bancard</p>
                   <p className="text-sm text-neutral-500">Pay securely using Bancard.</p>
                 </button>
-                <button type="button" onClick={() => setPaymentMethod("cash")} className={`w-full rounded-xl border p-4 text-left ${paymentMethod === "cash" ? "border-[#A36D3A] bg-[#fdfaf7]" : "border-neutral-200"}`}>
+                <button type="button" onClick={() => setPaymentMethod("cash")} className={`w-full rounded-xl border p-4 text-left ${paymentMethod === "cash" ? "border-[#1A1A1A] bg-[#F6F2EC]" : "border-neutral-200"}`}>
                   <p className="font-semibold">Cash</p>
                   <p className="text-sm text-neutral-500">Pay in person at check-in.</p>
                 </button>
               </div>
-                <button type="button" disabled={!canProceed} onClick={() => setStep(3)} className="rounded-xl bg-[#A36D3A] px-6 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Next</button>
+                <button type="button" disabled={!canProceed} onClick={() => setStep(3)} className="rounded-xl bg-[#1A1A1A] px-6 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Next</button>
               <div className="mt-4 text-right">
               </div>
             </section>
@@ -113,7 +113,7 @@ const BookingPopup: React.FC<BookingPopupProps> = ({ open, bookingData, onClose 
             <section className={`rounded-2xl border border-neutral-200 p-5 ${step < 3 ? "opacity-70" : ""}`}>
               <h3 className="text-lg font-semibold">3. Review your request</h3>
               <p className="mt-3 text-sm text-neutral-600">By confirming, you agree to house rules, safety disclosures, cancellation policy, and guest refund policy.</p>
-              <button type="button" disabled={!canProceed} className="mt-5 w-full rounded-xl bg-[#A36D3A] px-6 py-4 text-lg font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Confirm and Pay</button>
+              <button type="button" disabled={!canProceed} className="mt-5 w-full rounded-xl bg-[#1A1A1A] px-6 py-4 text-lg font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Confirm and Pay</button>
             </section>
           </div>
 

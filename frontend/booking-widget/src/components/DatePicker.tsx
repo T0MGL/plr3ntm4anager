@@ -4,10 +4,13 @@ import type { DateRange, Matcher } from "react-day-picker";
 import {
   addDays,
   addMonths,
+  isAfter,
+  isBefore,
   parseISO,
   startOfDay,
   startOfMonth,
 } from "date-fns";
+import toast from "react-hot-toast";
 import { getUnitAvailability } from "../api/units";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import "react-day-picker/dist/style.css";
@@ -85,6 +88,29 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
 
   const disabledDays = useMemo<Matcher[]>(() => [{ before: today }, { after: maxDate }, ...blockedDates], [blockedDates, maxDate, today]);
 
+  // react-day-picker lets users span a range across disabled days. Validate the
+  // range before committing and reset to the new endpoint if it crosses any
+  // blocked date. This matches the Airbnb UX where picking across an
+  // unavailable gap starts a new range.
+  const handleSelectRange = (newRange: DateRange | undefined) => {
+    if (!newRange?.from || !newRange?.to) {
+      onSelectRange(newRange);
+      return;
+    }
+
+    const crossesBlocked = blockedDates.some(
+      (d) => isAfter(d, newRange.from!) && isBefore(d, newRange.to!)
+    );
+
+    if (crossesBlocked) {
+      toast.error("Those dates cross an unavailable range. Pick shorter dates.");
+      onSelectRange({ from: newRange.to, to: undefined });
+      return;
+    }
+
+    onSelectRange(newRange);
+  };
+
   return (
     <div className="w-full bg-white date-picker-container">
       {!hideHeader && (
@@ -119,8 +145,9 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
           onMonthChange={setMonth}
           numberOfMonths={isLg ? 2 : 1}
           selected={range}
-          onSelect={onSelectRange}
+          onSelect={handleSelectRange}
           disabled={disabledDays}
+          excludeDisabled
           showOutsideDays
           hideNavigation
           classNames={{
@@ -155,7 +182,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
             Clear dates
           </button>
           {isLoadingAvailability && (
-            <div className="flex items-center gap-2 text-xs text-[#A36D3A] font-medium animate-pulse">
+            <div className="flex items-center gap-2 text-xs text-[#1A1A1A] font-medium animate-pulse">
               Updating availability...
             </div>
           )}

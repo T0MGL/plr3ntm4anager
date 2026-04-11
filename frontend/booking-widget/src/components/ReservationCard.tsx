@@ -189,7 +189,7 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
                 <button
                     onClick={() => hasValidDates && onReserve({ selectedDates: { checkIn: format(range!.from!, "yyyy-MM-dd"), checkOut: format(range!.to!, "yyyy-MM-dd") }, guestCount: totalGuests + guestState.infants, nights, totalPrice })}
                     disabled={!hasValidDates}
-                    className={`w-full py-4 rounded-xl font-bold text-white transition-all transform active:scale-95 shadow-lg group-hover:brightness-110 ${hasValidDates ? "bg-[#A36D3A]" : "bg-gray-300 text-gray-400 cursor-not-allowed"}`}
+                    className={`w-full py-4 rounded-none font-medium uppercase tracking-[0.18em] text-[11px] transition-all duration-300 active:scale-[0.98] ${hasValidDates ? "bg-[#1A1A1A] text-white hover:bg-[#C4A96B]" : "bg-[#E2DDD4] text-[#A0A0A0] cursor-not-allowed"}`}
                 >
                     {hasValidDates ? "Reserve" : "Check availability"}
                 </button>

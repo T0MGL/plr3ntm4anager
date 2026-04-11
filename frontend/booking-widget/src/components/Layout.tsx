@@ -1,5 +1,8 @@
 import { Link, Outlet } from "react-router";
 
+const BRAND_LOGO_GOLD =
+  "https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/logo/park-lofts-logogold.png";
+
 const NAV_LINKS = [
   { to: "/", label: "Lofts" },
   { to: "/contacto", label: "Contacto" },
@@ -21,13 +24,14 @@ function PLNavbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-stone bg-cream/90 backdrop-blur-sm">
       <div className="pl-container flex h-20 items-center justify-between">
-        <Link to="/" className="flex flex-col leading-none">
-          <span className="font-display text-2xl tracking-widest text-charcoal">
-            PARK LOFTS
-          </span>
-          <span className="mt-1 text-[0.625rem] uppercase tracking-[0.3em] text-gold">
-            Paraguay
-          </span>
+        <Link to="/" className="flex items-center" aria-label="Park Lofts Paraguay">
+          <img
+            src={BRAND_LOGO_GOLD}
+            alt="Park Lofts Paraguay"
+            width={180}
+            height={44}
+            className="h-11 w-auto"
+          />
         </Link>
 
         <nav className="flex items-center gap-10">
@@ -54,12 +58,13 @@ function PLFooter() {
       <div className="pl-container py-16">
         <div className="grid gap-12 md:grid-cols-3">
           <div>
-            <div className="font-display text-xl tracking-widest text-charcoal">
-              PARK LOFTS
-            </div>
-            <div className="mt-1 text-[0.625rem] uppercase tracking-[0.3em] text-gold">
-              Paraguay
-            </div>
+            <img
+              src={BRAND_LOGO_GOLD}
+              alt="Park Lofts Paraguay"
+              width={180}
+              height={44}
+              className="h-11 w-auto"
+            />
             <p className="mt-6 max-w-xs text-sm leading-relaxed text-charcoal-500">
               Lofts de autor en el corazon de Asuncion. Estancias cortas con servicio atento y diseno pensado al detalle.
             </p>

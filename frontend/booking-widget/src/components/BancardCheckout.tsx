@@ -115,9 +115,9 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
       window.Bancard.Checkout.createForm("bancard-checkout-container", processId, {
         styles: {
           "form-background-color": "#FFFFFF",
-          "button-background-color": "#A36D3A",
+          "button-background-color": "#1A1A1A",
           "button-text-color": "#FFFFFF",
-          "button-border-color": "#A36D3A",
+          "button-border-color": "#1A1A1A",
           "input-background-color": "#FFFFFF",
           "input-text-color": "#222222",
           "input-border-color": "#D1D5DB",
@@ -165,7 +165,7 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
           </p>
           <button
             onClick={onClose}
-            className="px-8 py-3 bg-[#A36D3A] text-white rounded-2xl font-bold hover:brightness-110 transition-all"
+            className="px-8 py-3 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:brightness-110 transition-all"
           >
             {isSuccess ? "Done" : "Go Back"}
           </button>
@@ -194,7 +194,7 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
         <div className="p-6 min-h-[400px]">
           {loading && (
             <div className="flex flex-col items-center justify-center h-[300px] gap-3">
-              <div className="w-8 h-8 border-3 border-[#A36D3A] border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-3 border-[#1A1A1A] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-500 font-medium">Loading payment form...</p>
             </div>
           )}
@@ -204,7 +204,7 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
               <p className="text-red-600 font-medium">{error}</p>
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 bg-[#A36D3A] text-white rounded-xl font-bold hover:brightness-110 transition-all"
+                className="px-6 py-2.5 bg-[#1A1A1A] text-white rounded-xl font-bold hover:brightness-110 transition-all"
               >
                 Go Back
               </button>
@@ -215,7 +215,7 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
           {isStub && !loading && !error && (
             <div className="flex flex-col items-center justify-center h-[300px] gap-5 text-center">
               <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#A36D3A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
                   <line x1="1" y1="10" x2="23" y2="10" />
                 </svg>
@@ -233,7 +233,7 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
                 </button>
                 <button
                   onClick={handleStubPayment}
-                  className="px-6 py-2.5 bg-[#A36D3A] text-white rounded-xl font-bold hover:brightness-110 transition-all"
+                  className="px-6 py-2.5 bg-[#1A1A1A] text-white rounded-xl font-bold hover:brightness-110 transition-all"
                 >
                   Simulate Payment
                 </button>

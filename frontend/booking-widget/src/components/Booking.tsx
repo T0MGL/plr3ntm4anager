@@ -123,7 +123,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
     }
   };
 
-  const inputClasses = "w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#A36D3A]/20 focus:border-[#A36D3A] outline-none transition-all text-[15px]";
+  const inputClasses = "w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1A1A1A]/20 focus:border-[#1A1A1A] outline-none transition-all text-[15px]";
 
   return (
     <>
@@ -153,10 +153,10 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
             <div className="flex items-center gap-3">
               <div className="flex gap-1">
                 {[1, 2, 3, 4].map((s) => (
-                  <div key={s} className={`h-1.5 w-8 rounded-full transition-all duration-300 ${s <= activeStep ? "bg-[#A36D3A]" : "bg-gray-100"}`} />
+                  <div key={s} className={`h-1.5 w-8 rounded-full transition-all duration-300 ${s <= activeStep ? "bg-[#1A1A1A]" : "bg-gray-100"}`} />
                 ))}
               </div>
-              <span className="text-sm font-bold text-[#A36D3A] ml-2">Step {activeStep}/4</span>
+              <span className="text-sm font-bold text-[#1A1A1A] ml-2">Step {activeStep}/4</span>
             </div>
           </div>
 
@@ -170,7 +170,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                 {/* Step 1: Personal Information */}
                 <section className={`transition-all duration-300 ${activeStep === 1 ? "opacity-100 transform-none" : "opacity-60 scale-[0.98] pointer-events-none"}`}>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 1 ? "bg-[#A36D3A] text-white" : "bg-gray-100 text-gray-400"}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 1 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       {activeStep > 1 ? <IoCheckmarkCircle className="text-2xl" /> : "1"}
                     </div>
                     <h3 className="text-xl font-bold">Your Information</h3>
@@ -225,7 +225,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       <div className="md:col-span-2 flex justify-end mt-2">
                         <button
                           onClick={() => isInfoValid ? setActiveStep(2) : toast.error("Please fill required fields")}
-                          className={`bg-[#A36D3A] text-white px-10 py-3.5 rounded-2xl font-bold transition-all shadow-lg hover:brightness-110 active:scale-95 ${!isInfoValid && "opacity-50 cursor-not-allowed"}`}
+                          className={`bg-[#1A1A1A] text-white px-10 py-3.5 rounded-2xl font-bold transition-all shadow-lg hover:brightness-110 active:scale-95 ${!isInfoValid && "opacity-50 cursor-not-allowed"}`}
                         >
                           Continue to Payment
                         </button>
@@ -234,7 +234,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                   ) : (
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 ml-12">
                       <p className="text-sm font-medium text-gray-600">{userInfo.name || "None"} · {userInfo.email || "None"}</p>
-                      <button onClick={() => setActiveStep(1)} className="text-xs font-bold underline text-[#A36D3A]">Change</button>
+                      <button onClick={() => setActiveStep(1)} className="text-xs font-bold underline text-[#1A1A1A]">Change</button>
                     </div>
                   )}
                 </section>
@@ -242,7 +242,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                 {/* Step 2: When to pay */}
                 <section className={`transition-all duration-300 ${activeStep === 2 ? "opacity-100 transform-none" : "opacity-60 scale-[0.98] pointer-events-none"}`}>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 2 ? "bg-[#A36D3A] text-white" : "bg-gray-100 text-gray-400"}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 2 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       {activeStep > 2 ? <IoCheckmarkCircle className="text-2xl" /> : "2"}
                     </div>
                     <h3 className="text-xl font-bold">Choose when to pay</h3>
@@ -252,29 +252,29 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 ml-12">
                       <div
                         onClick={() => setPaymentOption("full")}
-                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentOption === "full" ? "border-[#A36D3A] bg-[#fdfaf7] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
+                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentOption === "full" ? "border-[#1A1A1A] bg-[#F6F2EC] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
                       >
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="font-bold text-[16px]">Pay ${totalPrice.toFixed(2)} now</p>
                             <p className="text-sm text-gray-500 mt-1">Pay the total to finalize your reservation instantly.</p>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${paymentOption === "full" ? "border-[#A36D3A]" : "border-gray-300"}`}>
-                            {paymentOption === "full" && <div className="w-3 h-3 bg-[#A36D3A] rounded-full" />}
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${paymentOption === "full" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
+                            {paymentOption === "full" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
                           </div>
                         </div>
                       </div>
                       <div
                         onClick={() => setPaymentOption("part")}
-                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentOption === "part" ? "border-[#A36D3A] bg-[#fdfaf7] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
+                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentOption === "part" ? "border-[#1A1A1A] bg-[#F6F2EC] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
                       >
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="font-bold text-[16px]">Pay part now, part later</p>
                             <p className="text-sm text-gray-500 mt-1">Secure the booking with a small deposit today.</p>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${paymentOption === "part" ? "border-[#A36D3A]" : "border-gray-300"}`}>
-                            {paymentOption === "part" && <div className="w-3 h-3 bg-[#A36D3A] rounded-full" />}
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${paymentOption === "part" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
+                            {paymentOption === "part" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
                           </div>
                         </div>
                       </div>
@@ -284,7 +284,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         </button>
                         <button
                           onClick={() => setActiveStep(3)}
-                          className="bg-[#A36D3A] text-white px-10 py-3.5 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95"
+                          className="bg-[#1A1A1A] text-white px-10 py-3.5 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95"
                         >
                           Continue
                         </button>
@@ -296,7 +296,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                 {/* Step 3: Payment Method */}
                 <section className={`transition-all duration-300 ${activeStep === 3 ? "opacity-100 transform-none" : "opacity-60 scale-[0.98] pointer-events-none"}`}>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 3 ? "bg-[#A36D3A] text-white" : "bg-gray-100 text-gray-400"}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 3 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       {activeStep > 3 ? <IoCheckmarkCircle className="text-2xl" /> : "3"}
                     </div>
                     <h3 className="text-xl font-bold">Payment Method</h3>
@@ -307,18 +307,18 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       {/* Bancard */}
                       <div
                         onClick={() => setPaymentMethod("bancard")}
-                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentMethod === "bancard" ? "border-[#A36D3A] bg-[#fdfaf7] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
+                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentMethod === "bancard" ? "border-[#1A1A1A] bg-[#F6F2EC] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
                       >
                         <div className="flex items-center gap-5">
-                          <div className={`p-3 rounded-xl ${paymentMethod === "bancard" ? "bg-[#A36D3A] text-white" : "bg-gray-100 text-gray-500"}`}>
+                          <div className={`p-3 rounded-xl ${paymentMethod === "bancard" ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-500"}`}>
                             <FaCreditCard className="text-xl" />
                           </div>
                           <div className="flex-1">
                             <p className="font-bold text-[16px]">Bancard</p>
                             <p className="text-sm text-gray-500">Secure credit or debit card payment.</p>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === "bancard" ? "border-[#A36D3A]" : "border-gray-300"}`}>
-                            {paymentMethod === "bancard" && <div className="w-3 h-3 bg-[#A36D3A] rounded-full" />}
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === "bancard" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
+                            {paymentMethod === "bancard" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
                           </div>
                         </div>
                       </div>
@@ -326,18 +326,18 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       {/* Cash */}
                       <div
                         onClick={() => setPaymentMethod("cash")}
-                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentMethod === "cash" ? "border-[#A36D3A] bg-[#fdfaf7] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
+                        className={`p-5 rounded-[1.5rem] border-2 cursor-pointer transition-all duration-300 ${paymentMethod === "cash" ? "border-[#1A1A1A] bg-[#F6F2EC] shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
                       >
                         <div className="flex items-center gap-5">
-                          <div className={`p-3 rounded-xl ${paymentMethod === "cash" ? "bg-[#A36D3A] text-white" : "bg-gray-100 text-gray-500"}`}>
+                          <div className={`p-3 rounded-xl ${paymentMethod === "cash" ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-500"}`}>
                             <FaMoneyBillWave className="text-xl" />
                           </div>
                           <div className="flex-1">
                             <p className="font-bold text-[16px]">Cash on Arrival</p>
                             <p className="text-sm text-gray-500">Pay when you check in at the property.</p>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === "cash" ? "border-[#A36D3A]" : "border-gray-300"}`}>
-                            {paymentMethod === "cash" && <div className="w-3 h-3 bg-[#A36D3A] rounded-full" />}
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === "cash" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
+                            {paymentMethod === "cash" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
                           </div>
                         </div>
                       </div>
@@ -348,7 +348,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         </button>
                         <button
                           onClick={() => setActiveStep(4)}
-                          className="bg-[#A36D3A] text-white px-10 py-3.5 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95"
+                          className="bg-[#1A1A1A] text-white px-10 py-3.5 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95"
                         >
                           Review Trip
                         </button>
@@ -360,7 +360,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                 {/* Step 4: Review */}
                 <section className={`transition-all duration-300 ${activeStep === 4 ? "opacity-100 transform-none" : "opacity-60 scale-[0.98] pointer-events-none"}`}>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 4 ? "bg-[#A36D3A] text-white" : "bg-gray-100 text-gray-400"}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 4 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       4
                     </div>
                     <h3 className="text-xl font-bold">Review and confirm</h3>
@@ -368,7 +368,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
 
                   {activeStep === 4 && (
                     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="ml-12">
-                      <div className="bg-[#fdfaf7] p-6 rounded-3xl border border-[#A36D3A]/10 mb-8">
+                      <div className="bg-[#F6F2EC] p-6 rounded-3xl border border-[#1A1A1A]/10 mb-8">
                         <h4 className="font-bold mb-4">Final Summary</h4>
                         <div className="space-y-3 text-sm">
                           <div className="flex justify-between">
@@ -390,7 +390,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         </button>
                         <button
                           onClick={handleCreateOrder}
-                          className="flex-1 bg-[#A36D3A] text-white py-3 rounded-2xl font-bold text-[16px] hover:brightness-110 transition-all shadow-xl active:scale-[0.98]"
+                          className="flex-1 bg-[#1A1A1A] text-white py-3 rounded-2xl font-bold text-[16px] hover:brightness-110 transition-all shadow-xl active:scale-[0.98]"
                         >
                           Confirm and Pay
                         </button>
@@ -415,7 +415,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <div className="flex flex-col justify-center">
                       <h4 className="font-bold text-[17px] leading-tight mb-2 line-clamp-2">{bookingData.listing.title}</h4>
                       <div className="flex items-center gap-1.5 text-sm">
-                        <IoStar className="text-[#A36D3A]" />
+                        <IoStar className="text-[#1A1A1A]" />
                         <span className="font-bold">{bookingData.listing.rating ?? 0}</span>
                         <span className="text-gray-400 font-medium">({bookingData.listing.reviewsCount ?? 0} reviews)</span>
                       </div>
@@ -425,7 +425,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                   {/* Trip Details */}
                   <div className="border-t border-gray-50 pt-8 space-y-6">
                     <h4 className="font-bold text-lg flex items-center gap-2">
-                      <div className="w-1.5 h-6 bg-[#A36D3A] rounded-full" />
+                      <div className="w-1.5 h-6 bg-[#1A1A1A] rounded-full" />
                       Your trip
                     </h4>
 
@@ -439,7 +439,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       </div>
                       <button
                         onClick={() => setEditDatesOpen(!editDatesOpen)}
-                        className="text-xs font-bold uppercase tracking-wider text-[#A36D3A] hover:opacity-70 transition-opacity mt-1"
+                        className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] hover:opacity-70 transition-opacity mt-1"
                       >
                         {editDatesOpen ? "Close" : "Edit"}
                       </button>
@@ -452,7 +452,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                             type="date"
                             value={dates.checkIn}
                             onChange={(e) => setDates({ ...dates, checkIn: e.target.value })}
-                            className="w-full p-2 bg-white border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 ring-[#A36D3A]/20"
+                            className="w-full p-2 bg-white border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 ring-[#1A1A1A]/20"
                           />
                         </div>
                         <div className="space-y-1">
@@ -461,7 +461,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                             type="date"
                             value={dates.checkOut}
                             onChange={(e) => setDates({ ...dates, checkOut: e.target.value })}
-                            className="w-full p-2 bg-white border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 ring-[#A36D3A]/20"
+                            className="w-full p-2 bg-white border border-gray-100 rounded-xl text-sm outline-none focus:ring-2 ring-[#1A1A1A]/20"
                           />
                         </div>
                       </div>
@@ -477,7 +477,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       </div>
                       <button
                         onClick={() => setEditGuestsOpen(!editGuestsOpen)}
-                        className="text-xs font-bold uppercase tracking-wider text-[#A36D3A] hover:opacity-70 transition-opacity mt-1"
+                        className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] hover:opacity-70 transition-opacity mt-1"
                       >
                         {editGuestsOpen ? "Close" : "Edit"}
                       </button>
@@ -507,7 +507,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                   {/* Price */}
                   <div className="border-t border-gray-50 pt-8">
                     <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
-                      <div className="w-1.5 h-6 bg-[#A36D3A] rounded-full" />
+                      <div className="w-1.5 h-6 bg-[#1A1A1A] rounded-full" />
                       Price details
                     </h4>
                     <div className="space-y-4">
@@ -522,7 +522,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     </div>
                     <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-100">
                       <span className="font-bold text-[19px]">Total (USD)</span>
-                      <span className="font-bold text-[19px] underline underline-offset-4 decoration-[#A36D3A] decoration-2">${totalPrice.toFixed(2)}</span>
+                      <span className="font-bold text-[19px] underline underline-offset-4 decoration-[#1A1A1A] decoration-2">${totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
 

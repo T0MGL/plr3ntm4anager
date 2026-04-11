@@ -21,13 +21,13 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ show, message }) => {
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="w-16 h-16 border-4 border-[#A36D3A]/20 border-t-[#A36D3A] rounded-full"
+              className="w-16 h-16 border-4 border-[#1A1A1A]/20 border-t-[#1A1A1A] rounded-full"
             />
             {/* Inner pulse */}
             <motion.div
               animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute w-8 h-8 bg-[#A36D3A] rounded-full"
+              className="absolute w-8 h-8 bg-[#1A1A1A] rounded-full"
             />
           </div>
           {message && (
