@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { bookingRateLimit } from '../middleware/rate-limit.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { dateSchema, emailSchema, phoneSchema } from '../utils/validation.utils';
-import { createBookingRequest } from '../services/booking.service';
+import { createBookingRequest, getPublicBookingDetails } from '../services/booking.service';
 import { sendEmail } from '../services/email.service';
 
 const router = Router();
@@ -61,6 +61,31 @@ router.post('/booking-request', bookingRateLimit, validate(bookingSchema), async
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create booking request';
     return res.status(400).json({ error: message });
+  }
+});
+
+// GET /booking-request/:id/public
+// Public lookup used by the payment result page. Returns only the fields that
+// are safe to render on a URL anyone with the booking UUID can hit: unit name,
+// first name, dates, total, payment status. No email, no phone, no full name.
+
+const publicBookingParamsSchema = z.object({
+  params: z.object({
+    id: z.string().uuid()
+  })
+});
+
+router.get('/booking-request/:id/public', validate(publicBookingParamsSchema), async (req, res) => {
+  try {
+    const booking = await getPublicBookingDetails(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    return res.json(booking);
+  } catch {
+    return res.status(500).json({ error: 'Failed to fetch booking' });
   }
 });
 

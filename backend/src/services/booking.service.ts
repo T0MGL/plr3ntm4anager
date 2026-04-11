@@ -1,8 +1,74 @@
 import { eachDayOfInterval, format, parseISO } from 'date-fns';
 import { supabaseAdmin } from '../config/supabase';
 import { logger } from '../config/logger';
-import { BookingStatus } from '../types';
+import { BookingStatus, PaymentStatus } from '../types';
 import { nightsBetween, validateDateRange } from '../utils/date.utils';
+
+export interface PublicBookingDetails {
+  id: string;
+  status: BookingStatus;
+  check_in_date: string;
+  check_out_date: string;
+  nights: number;
+  total_price_usd: number;
+  guest_first_name: string;
+  unit_name: string;
+  unit_image: string | null;
+  payment_status: PaymentStatus | null;
+  payment_completed_at: string | null;
+}
+
+/**
+ * Public booking lookup used by the payment result page. Returns only the
+ * fields that are safe to expose to anyone who has the booking UUID. No
+ * guest email, no phone, no full name beyond the first token.
+ */
+export async function getPublicBookingDetails(bookingId: string): Promise<PublicBookingDetails | null> {
+  const { data: booking, error } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id, status, check_in_date, check_out_date, total_price_usd, guest_name, unit_id')
+    .eq('id', bookingId)
+    .maybeSingle();
+
+  if (error || !booking) {
+    return null;
+  }
+
+  const [unitResult, paymentResult] = await Promise.all([
+    supabaseAdmin
+      .from('units')
+      .select('name, image_urls')
+      .eq('id', booking.unit_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('payments')
+      .select('payment_status, completed_at')
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  ]);
+
+  const unit = unitResult.data;
+  const payment = paymentResult.data;
+
+  const firstName = (booking.guest_name ?? '').split(' ')[0] || 'guest';
+  const nights = nightsBetween(booking.check_in_date, booking.check_out_date);
+
+  return {
+    id: booking.id,
+    status: booking.status as BookingStatus,
+    check_in_date: booking.check_in_date,
+    check_out_date: booking.check_out_date,
+    nights,
+    total_price_usd: Number(booking.total_price_usd),
+    guest_first_name: firstName,
+    unit_name: unit?.name ?? 'Park Lofts',
+    unit_image: unit?.image_urls?.[0] ?? null,
+    payment_status: (payment?.payment_status as PaymentStatus) ?? null,
+    payment_completed_at: payment?.completed_at ?? null
+  };
+}
 
 export async function getLastSyncAt(unitId: string): Promise<string | null> {
   const { data, error } = await supabaseAdmin
