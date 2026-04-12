@@ -110,6 +110,7 @@ export async function createBookingRequest(params: {
   checkIn: string;
   checkOut: string;
   specialRequests?: string | null;
+  locale?: string | null;
 }): Promise<{ bookingId: string; totalPrice: number; lastSyncAt: string | null }> {
   const { data: unit, error: unitError } = await supabaseAdmin
     .from('units')
@@ -142,6 +143,7 @@ export async function createBookingRequest(params: {
       check_out_date: params.checkOut,
       total_price_usd: totalPrice,
       special_requests: params.specialRequests ?? null,
+      locale: params.locale ?? 'es',
       status: BookingStatus.Pending,
       last_sync_at_submission: lastSyncAt ?? new Date().toISOString()
     })

@@ -30,7 +30,7 @@ interface BookingProps {
 const Booking = ({ open, onClose, bookingData }: BookingProps) => {
   if (!open || !bookingData) return null;
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeStep, setActiveStep] = useState(1);
   const [paymentOption, setPaymentOption] = useState<"full" | "part">("full");
   const [paymentMethod, setPaymentMethod] = useState<"bancard" | "cash">("bancard");
@@ -89,6 +89,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
         check_in_date: dates.checkIn,
         check_out_date: dates.checkOut,
         special_requests: "",
+        locale: i18n.language,
       };
 
       const bookingRes = await api.post("/booking-request", bookingPayload);
