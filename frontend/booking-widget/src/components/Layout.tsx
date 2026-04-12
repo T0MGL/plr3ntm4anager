@@ -202,10 +202,30 @@ function PLFooter() {
           </div>
         </div>
 
-        <div className="mt-14 flex flex-col gap-4 border-t border-charcoal-700 pt-8 text-[0.6875rem] uppercase tracking-[0.2em] text-cream/40 md:flex-row md:items-center md:justify-between">
-          <span>
-            &copy; {year} Park Lofts. {t("footer.rightsReserved")}
-          </span>
+        <div className="mt-14 flex flex-col gap-4 border-t border-charcoal-700 pt-8 text-[0.6875rem] tracking-[0.02em] text-cream/40 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>
+              &copy; {year} Park Lofts. {t("footer.rightsReserved")}
+            </span>
+            <span aria-hidden="true" className="text-cream/25">
+              ·
+            </span>
+            <a
+              href="https://thebrightidea.ai/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative inline-block text-cream/45 transition-colors hover:text-cream/80"
+            >
+              <span className="relative">
+                {t("footer.developedBy")}{" "}
+                <span className="font-medium relative inline-block">
+                  <span className="relative z-10 bg-gradient-to-r from-cream/30 via-gold to-cream/30 bg-clip-text text-transparent bg-[length:200%_100%] group-hover:animate-[pl-shimmer_1.5s_ease-in-out_infinite]">
+                    Bright Idea
+                  </span>
+                </span>
+              </span>
+            </a>
+          </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 md:justify-end">
             <LocaleSwitcher />
             <span className="flex items-center gap-2">
@@ -213,24 +233,6 @@ function PLFooter() {
               {t("footer.securePayments")}
             </span>
           </div>
-        </div>
-
-        <div className="mt-6 border-t border-charcoal-700/60 pt-6 text-center text-[0.6875rem] uppercase tracking-[0.2em] text-cream/30">
-          <a
-            href="https://thebrightidea.ai/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative inline-block transition-none"
-          >
-            <span className="relative">
-              {t("footer.developedBy")}{" "}
-              <span className="font-medium relative inline-block">
-                <span className="relative z-10 bg-gradient-to-r from-cream/30 via-gold to-cream/30 bg-clip-text text-transparent bg-[length:200%_100%] group-hover:animate-[pl-shimmer_1.5s_ease-in-out_infinite]">
-                  Bright Idea
-                </span>
-              </span>
-            </span>
-          </a>
         </div>
       </div>
     </footer>
