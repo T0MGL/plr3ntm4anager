@@ -10,7 +10,9 @@ import {
   startOfDay,
   startOfMonth,
 } from "date-fns";
+import { es, enUS } from "date-fns/locale";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { getUnitAvailability } from "../api/units";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import "react-day-picker/dist/style.css";
@@ -54,6 +56,8 @@ interface DatePickerProps extends Props {
 }
 
 const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, hideHeader }) => {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language?.startsWith("es") ? es : enUS;
   const isLg = useIsLg();
   const today = useMemo(() => startOfDay(new Date()), []);
   const maxDate = useMemo(() => addMonths(today, 6), [today]);
@@ -103,7 +107,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
     );
 
     if (crossesBlocked) {
-      toast.error("Those dates cross an unavailable range. Pick shorter dates.");
+      toast.error(t("datePicker.crossBlocked"));
       onSelectRange({ from: newRange.to, to: undefined });
       return;
     }
@@ -116,8 +120,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
       {!hideHeader && (
         <div className="flex items-center justify-between mb-8 px-2">
           <div>
-            <h2 className="text-2xl font-bold text-[#222222]">Select dates</h2>
-            <p className="text-sm text-gray-500 mt-1">Check-in and check-out to see availability</p>
+            <h2 className="text-2xl font-bold text-[#222222]">{t("datePicker.selectDates")}</h2>
+            <p className="text-sm text-gray-500 mt-1">{t("datePicker.subtitle")}</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -150,6 +154,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
           excludeDisabled
           showOutsideDays
           hideNavigation
+          locale={dateLocale}
           classNames={{
             months: "flex flex-col md:flex-row gap-12 justify-center",
             month: "space-y-6",
@@ -179,11 +184,11 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
             onClick={() => onSelectRange(undefined)}
             className="text-sm font-bold text-[#222222] underline hover:text-black transition-colors focus:outline-none"
           >
-            Clear dates
+            {t("datePicker.clearDates")}
           </button>
           {isLoadingAvailability && (
             <div className="flex items-center gap-2 text-xs text-[#1A1A1A] font-medium animate-pulse">
-              Updating availability...
+              {t("datePicker.updating")}...
             </div>
           )}
         </div>

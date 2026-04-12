@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import type { DateRange } from "react-day-picker";
 import { format, parseISO, startOfDay, addMonths, startOfMonth } from "date-fns";
+import { es, enUS } from "date-fns/locale";
 import { IoCalendarOutline } from "react-icons/io5";
+import { useTranslation } from "react-i18next";
 import "react-day-picker/dist/style.css";
 import "../DatePicker.css";
 
@@ -23,21 +25,9 @@ const parseIso = (value: string | null): Date | undefined => {
   }
 };
 
-const displayLabel = (checkIn: string | null, checkOut: string | null): string => {
-  if (!checkIn && !checkOut) return "Fechas";
-  const dateFmt = (iso: string) => {
-    try {
-      return format(parseISO(iso), "dd MMM");
-    } catch {
-      return iso;
-    }
-  };
-  if (checkIn && checkOut) return `${dateFmt(checkIn)} -> ${dateFmt(checkOut)}`;
-  if (checkIn) return `Desde ${dateFmt(checkIn)}`;
-  return `Hasta ${dateFmt(checkOut!)}`;
-};
-
 export function DateRangePopover({ checkIn, checkOut, onChange }: DateRangePopoverProps) {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language?.startsWith("es") ? es : enUS;
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +71,20 @@ export function DateRangePopover({ checkIn, checkOut, onChange }: DateRangePopov
     setOpen(false);
   };
 
+  const displayLabel = ((): string => {
+    if (!checkIn && !checkOut) return t("searchBar.datePlaceholder");
+    const dateFmt = (iso: string) => {
+      try {
+        return format(parseISO(iso), "dd MMM", { locale: dateLocale });
+      } catch {
+        return iso;
+      }
+    };
+    if (checkIn && checkOut) return `${dateFmt(checkIn)} -> ${dateFmt(checkOut)}`;
+    if (checkIn) return t("searchBar.dateFrom", { date: dateFmt(checkIn) });
+    return t("searchBar.dateTo", { date: dateFmt(checkOut!) });
+  })();
+
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -93,10 +97,10 @@ export function DateRangePopover({ checkIn, checkOut, onChange }: DateRangePopov
         <IoCalendarOutline className="h-4 w-4 text-charcoal-500" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="text-[0.625rem] font-medium uppercase tracking-[0.22em] text-charcoal-400">
-            Check-in / Check-out
+            {t("searchBar.dateLabel")}
           </div>
           <div className="mt-0.5 truncate text-sm text-charcoal">
-            {displayLabel(checkIn, checkOut)}
+            {displayLabel}
           </div>
         </div>
       </button>
@@ -116,6 +120,7 @@ export function DateRangePopover({ checkIn, checkOut, onChange }: DateRangePopov
             disabled={{ before: today }}
             weekStartsOn={1}
             showOutsideDays
+            locale={dateLocale}
           />
           <div className="mt-4 flex items-center justify-between border-t border-stone pt-4">
             <button
@@ -123,14 +128,14 @@ export function DateRangePopover({ checkIn, checkOut, onChange }: DateRangePopov
               onClick={handleClear}
               className="text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-charcoal-500 hover:text-charcoal"
             >
-              Limpiar
+              {t("searchBar.clear")}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-gold hover:text-gold-dark"
             >
-              Listo
+              {t("searchBar.done")}
             </button>
           </div>
         </div>

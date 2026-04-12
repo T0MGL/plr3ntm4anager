@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 import {
   getPublicBookingDetails,
   type PublicBookingDetails,
@@ -13,6 +14,7 @@ type FetchState =
   | { status: "error"; message: string };
 
 const PaymentResultPage = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get("booking");
   const [state, setState] = useState<FetchState>({ status: "loading" });
@@ -32,7 +34,7 @@ const PaymentResultPage = () => {
 
   useEffect(() => {
     if (!bookingId) {
-      setState({ status: "error", message: "Reserva no encontrada" });
+      setState({ status: "error", message: t("payment.errorTitle") });
       return;
     }
 
@@ -47,7 +49,7 @@ const PaymentResultPage = () => {
       } catch (error) {
         if (!cancelled) {
           const message =
-            error instanceof Error ? error.message : "No pudimos cargar los detalles";
+            error instanceof Error ? error.message : t("payment.errorTitle");
           setState({ status: "error", message });
         }
       }
@@ -56,7 +58,7 @@ const PaymentResultPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [bookingId]);
+  }, [bookingId, t]);
 
   if (state.status === "loading") {
     return <ResultSkeleton />;
@@ -83,20 +85,21 @@ function ResultSkeleton() {
 }
 
 function ResultError({ message }: { message: string }) {
+  const { t } = useTranslation();
   return (
     <section className="pl-container py-20 md:py-28">
       <div className="mx-auto max-w-3xl text-center">
         <span className="pl-gold-rule" />
         <h1 className="font-display mt-6 text-4xl leading-tight text-charcoal md:text-5xl">
-          No pudimos encontrar la reserva
+          {t("payment.errorTitle")}
         </h1>
         <p className="mt-4 text-sm text-charcoal-500">{message}</p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link to="/" className="pl-btn-primary">
-            Volver a los lofts
+            {t("payment.back")}
           </Link>
           <Link to="/contacto" className="pl-btn-ghost">
-            Contactar
+            {t("payment.contact")}
           </Link>
         </div>
       </div>
@@ -105,8 +108,11 @@ function ResultError({ message }: { message: string }) {
 }
 
 function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
-  const checkIn = format(parseISO(booking.check_in_date), "EEEE d 'de' MMMM", { locale: es });
-  const checkOut = format(parseISO(booking.check_out_date), "EEEE d 'de' MMMM", { locale: es });
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language?.startsWith("es") ? es : enUS;
+  const dateFmt = i18n.language?.startsWith("es") ? "EEEE d 'de' MMMM" : "EEEE, MMMM d";
+  const checkIn = format(parseISO(booking.check_in_date), dateFmt, { locale: dateLocale });
+  const checkOut = format(parseISO(booking.check_out_date), dateFmt, { locale: dateLocale });
   const year = format(parseISO(booking.check_in_date), "yyyy");
   const reference = booking.id.slice(0, 8).toUpperCase();
   const firstName =
@@ -125,17 +131,15 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
           <span className="pl-gold-rule" />
           <div className="mt-6 flex items-center gap-3 text-[0.6875rem] font-medium uppercase tracking-[0.25em] text-gold">
             <CheckIcon className="h-3.5 w-3.5" />
-            {isPaid ? "Pago confirmado" : "Pago recibido"}
+            {isPaid ? t("payment.confirmedBadge") : t("payment.receivedBadge")}
           </div>
           <h1 className="font-display mt-5 text-4xl leading-[1.05] text-charcoal md:text-[3.5rem]">
-            Gracias, {firstName}.
+            {t("payment.thanks", { name: firstName })}
             <br />
-            Tu estancia esta reservada.
+            {t("payment.stayReserved")}
           </h1>
           <p className="mt-6 max-w-xl text-base leading-relaxed text-charcoal-500">
-            Te enviamos un correo con los detalles completos. Nuestro equipo se pondra en contacto
-            antes del check-in con las instrucciones de ingreso y cualquier requerimiento que
-            quieras coordinar.
+            {t("payment.emailNotice")}
           </p>
         </div>
 
@@ -155,27 +159,35 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
           <div className="grid gap-10 p-8 md:grid-cols-[1.2fr_1fr] md:gap-14 md:p-12">
             <div>
               <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-charcoal-400">
-                Loft reservado
+                {t("payment.reservedLoft")}
               </div>
               <h2 className="font-display mt-3 text-3xl leading-tight text-charcoal md:text-4xl">
                 {booking.unit_name}
               </h2>
 
               <div className="mt-10 grid grid-cols-2 gap-8 border-t border-stone pt-8">
-                <DetailBlock label="Check-in" value={capitalize(checkIn)} sublabel={year} />
-                <DetailBlock label="Check-out" value={capitalize(checkOut)} sublabel={year} />
+                <DetailBlock label={t("payment.checkIn")} value={capitalize(checkIn)} sublabel={year} />
+                <DetailBlock label={t("payment.checkOut")} value={capitalize(checkOut)} sublabel={year} />
                 <DetailBlock
-                  label="Noches"
+                  label={t("payment.nights")}
                   value={String(booking.nights)}
-                  sublabel={booking.nights === 1 ? "noche" : "noches"}
+                  sublabel={
+                    booking.nights === 1
+                      ? t("payment.nightSingular")
+                      : t("payment.nightsPlural")
+                  }
                 />
-                <DetailBlock label="Referencia" value={reference} sublabel="Guardar este codigo" />
+                <DetailBlock
+                  label={t("payment.reference")}
+                  value={reference}
+                  sublabel={t("payment.saveCode")}
+                />
               </div>
             </div>
 
             <aside className="border-l-0 border-t border-stone pt-8 md:border-l md:border-t-0 md:pl-12 md:pt-0">
               <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-charcoal-400">
-                Total abonado
+                {t("payment.totalPaid")}
               </div>
               <div className="font-display mt-3 flex items-baseline gap-2 text-charcoal">
                 <span className="text-5xl leading-none md:text-6xl">
@@ -184,15 +196,14 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
                 <span className="text-base text-charcoal-400">USD</span>
               </div>
               <p className="mt-4 text-xs leading-relaxed text-charcoal-500">
-                Pago procesado de forma segura a traves de Bancard. Recibiras el comprobante en tu
-                correo junto con los datos de tu reserva.
+                {t("payment.secureProcessed")}
               </p>
 
               <div className="mt-8 space-y-3 text-sm text-charcoal-500">
-                <SummaryLine label="Huesped" value={firstName} />
+                <SummaryLine label={t("payment.guest")} value={firstName} />
                 <SummaryLine
-                  label="Estado"
-                  value={isPaid ? "Confirmado" : "En revision"}
+                  label={t("payment.status")}
+                  value={isPaid ? t("payment.confirmed") : t("payment.pending")}
                   accent={isPaid}
                 />
               </div>
@@ -204,28 +215,28 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
         <div className="mt-16 grid gap-10 border-t border-stone pt-14 md:grid-cols-3">
           <NextStep
             index="01"
-            title="Revisa tu correo"
-            body="Te enviamos el comprobante y los detalles de tu reserva. Si no lo ves en tu bandeja, revisa spam o promociones."
+            title={t("payment.nextSteps.01Title")}
+            body={t("payment.nextSteps.01Body")}
           />
           <NextStep
             index="02"
-            title="Espera la bienvenida"
-            body="El dia antes del check-in te llegaran las instrucciones exactas de ingreso, wifi y contacto directo del anfitrion."
+            title={t("payment.nextSteps.02Title")}
+            body={t("payment.nextSteps.02Body")}
           />
           <NextStep
             index="03"
-            title="Contamos contigo"
-            body="Si necesitas ajustar fechas o tienes un requerimiento especial, escribinos antes del check-in y lo coordinamos."
+            title={t("payment.nextSteps.03Title")}
+            body={t("payment.nextSteps.03Body")}
           />
         </div>
 
         {/* CTAs */}
         <div className="mt-14 flex flex-col items-start gap-4 md:flex-row md:items-center">
           <Link to="/" className="pl-btn-primary">
-            Ver otros lofts
+            {t("payment.viewOthers")}
           </Link>
           <Link to="/contacto" className="pl-btn-ghost">
-            Contactar al equipo
+            {t("payment.contactTeam")}
           </Link>
         </div>
       </div>

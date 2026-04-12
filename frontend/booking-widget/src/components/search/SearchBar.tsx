@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DateRangePopover } from "./DateRangePopover";
 import { GuestsPopover } from "./GuestsPopover";
 import type { UnitFilterState } from "../../lib/unit-types";
@@ -8,6 +9,7 @@ type SearchBarProps = {
 };
 
 export function SearchBar({ filters, onChange }: SearchBarProps) {
+  const { t } = useTranslation();
   return (
     <div className="border border-stone-dark/40 bg-cream-50 p-4 md:p-5">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-stretch">
@@ -30,7 +32,7 @@ export function SearchBar({ filters, onChange }: SearchBarProps) {
           }
           className="pl-btn-primary md:px-8"
         >
-          <span>Buscar</span>
+          <span>{t("searchBar.search")}</span>
         </button>
       </div>
     </div>

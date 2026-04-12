@@ -2,6 +2,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { IoClose, IoChevronBack, IoPersonOutline, IoMailOutline, IoCallOutline, IoLocationOutline, IoCheckmarkCircle } from "react-icons/io5";
 import { FaCreditCard, FaMoneyBillWave } from "react-icons/fa";
+import { useTranslation } from "react-i18next";
 import api from "../api/axios";
 import LoadingOverlay from "./common/LoadingOverlay";
 import CachedImage from "./common/CachedImage";
@@ -29,6 +30,7 @@ interface BookingProps {
 const Booking = ({ open, onClose, bookingData }: BookingProps) => {
   if (!open || !bookingData) return null;
 
+  const { t } = useTranslation();
   const [activeStep, setActiveStep] = useState(1);
   const [paymentOption, setPaymentOption] = useState<"full" | "part">("full");
   const [paymentMethod, setPaymentMethod] = useState<"bancard" | "cash">("bancard");
@@ -71,14 +73,13 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
 
   const handleCreateOrder = async () => {
     if (!isInfoValid) {
-      toast.error("Please fill in your details correctly");
+      toast.error(t("booking.step1.invalidInfo"));
       setActiveStep(1);
       return;
     }
 
     setIsLoading(true);
     try {
-      // 1. Create Booking Request
       const bookingPayload = {
         unit_id: bookingData.listing.id,
         guest_name: userInfo.name,
@@ -94,12 +95,11 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
       const bookingId = bookingRes.data.booking_id;
 
       if (paymentMethod === "cash") {
-        toast.success("Booking request sent! You can pay in cash upon arrival.");
+        toast.success(t("booking.errors.cashConfirmed"));
         onClose();
         return;
       }
 
-      // 2. Initiate Bancard Payment
       const paymentRes = await api.post("/payments/preauth", {
         booking_id: bookingId,
       });
@@ -111,11 +111,17 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
           bancardUrl: bancard_url,
         });
       } else {
-        throw new Error("Payment process ID not received");
+        throw new Error(t("booking.errors.missingProcessId"));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Booking error:", err);
-      toast.error(err.response?.data?.error || "Failed to process booking. Please try again.");
+      const fallback = t("booking.errors.createFailed");
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? ((err as { response?: { data?: { error?: string } } }).response?.data?.error ??
+            fallback)
+          : fallback;
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -140,12 +146,13 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
               <button
                 onClick={onClose}
                 className="p-2.5 hover:bg-gray-100 rounded-full transition-all active:scale-95"
+                aria-label={t("common.close")}
               >
                 <IoClose className="text-2xl" />
               </button>
               <div>
-                <h2 className="text-2xl font-bold tracking-tight">Confirm and Pay</h2>
-                <p className="text-sm text-gray-500 font-medium">Complete your reservation details</p>
+                <h2 className="text-2xl font-bold tracking-tight">{t("booking.title")}</h2>
+                <p className="text-sm text-gray-500 font-medium">{t("booking.subtitle")}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -154,7 +161,9 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                   <div key={s} className={`h-1.5 w-8 rounded-full transition-all duration-300 ${s <= activeStep ? "bg-[#1A1A1A]" : "bg-gray-100"}`} />
                 ))}
               </div>
-              <span className="text-sm font-bold text-[#1A1A1A] ml-2">Step {activeStep}/4</span>
+              <span className="text-sm font-bold text-[#1A1A1A] ml-2">
+                {t("booking.stepIndicator", { current: activeStep, total: 4 })}
+              </span>
             </div>
           </div>
 
@@ -171,7 +180,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 1 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       {activeStep > 1 ? <IoCheckmarkCircle className="text-2xl" /> : "1"}
                     </div>
-                    <h3 className="text-xl font-bold">Your Information</h3>
+                    <h3 className="text-xl font-bold">{t("booking.step1.title")}</h3>
                   </div>
 
                   {activeStep === 1 ? (
@@ -184,7 +193,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         <IoPersonOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                         <input
                           type="text"
-                          placeholder="Full Name"
+                          placeholder={t("booking.step1.fullName")}
                           value={userInfo.name}
                           onChange={(e) => setUserInfo({ ...userInfo, name: e.target.value })}
                           className={inputClasses}
@@ -194,7 +203,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         <IoMailOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                         <input
                           type="email"
-                          placeholder="Email Address"
+                          placeholder={t("booking.step1.email")}
                           value={userInfo.email}
                           onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
                           className={inputClasses}
@@ -204,7 +213,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         <IoCallOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                         <input
                           type="tel"
-                          placeholder="Phone Number"
+                          placeholder={t("booking.step1.phone")}
                           value={userInfo.phone}
                           onChange={(e) => setUserInfo({ ...userInfo, phone: e.target.value })}
                           className={inputClasses}
@@ -214,7 +223,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         <IoLocationOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                         <input
                           type="text"
-                          placeholder="Address (Optional)"
+                          placeholder={t("booking.step1.address")}
                           value={userInfo.address}
                           onChange={(e) => setUserInfo({ ...userInfo, address: e.target.value })}
                           className={inputClasses}
@@ -222,17 +231,26 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       </div>
                       <div className="md:col-span-2 flex justify-end mt-2">
                         <button
-                          onClick={() => isInfoValid ? setActiveStep(2) : toast.error("Please fill required fields")}
+                          onClick={() =>
+                            isInfoValid ? setActiveStep(2) : toast.error(t("booking.step1.missingField"))
+                          }
                           className={`bg-[#1A1A1A] text-white px-10 py-3.5 rounded-2xl font-bold transition-all shadow-lg hover:brightness-110 active:scale-95 ${!isInfoValid && "opacity-50 cursor-not-allowed"}`}
                         >
-                          Continue to Payment
+                          {t("booking.step1.continue")}
                         </button>
                       </div>
                     </motion.div>
                   ) : (
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 ml-12">
-                      <p className="text-sm font-medium text-gray-600">{userInfo.name || "None"} · {userInfo.email || "None"}</p>
-                      <button onClick={() => setActiveStep(1)} className="text-xs font-bold underline text-[#1A1A1A]">Change</button>
+                      <p className="text-sm font-medium text-gray-600">
+                        {userInfo.name || t("booking.step1.summaryFallback")} · {userInfo.email || t("booking.step1.summaryFallback")}
+                      </p>
+                      <button
+                        onClick={() => setActiveStep(1)}
+                        className="text-xs font-bold underline text-[#1A1A1A]"
+                      >
+                        {t("booking.step1.change")}
+                      </button>
                     </div>
                   )}
                 </section>
@@ -243,7 +261,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 2 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       {activeStep > 2 ? <IoCheckmarkCircle className="text-2xl" /> : "2"}
                     </div>
-                    <h3 className="text-xl font-bold">Choose when to pay</h3>
+                    <h3 className="text-xl font-bold">{t("booking.step2.title")}</h3>
                   </div>
 
                   {activeStep === 2 && (
@@ -254,8 +272,10 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       >
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="font-bold text-[16px]">Pay ${totalPrice.toFixed(2)} now</p>
-                            <p className="text-sm text-gray-500 mt-1">Pay the total to finalize your reservation instantly.</p>
+                            <p className="font-bold text-[16px]">
+                              {t("booking.step2.payFull", { price: totalPrice.toFixed(2) })}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">{t("booking.step2.payFullDesc")}</p>
                           </div>
                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${paymentOption === "full" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
                             {paymentOption === "full" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
@@ -268,8 +288,8 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       >
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="font-bold text-[16px]">Pay part now, part later</p>
-                            <p className="text-sm text-gray-500 mt-1">Secure the booking with a small deposit today.</p>
+                            <p className="font-bold text-[16px]">{t("booking.step2.payPart")}</p>
+                            <p className="text-sm text-gray-500 mt-1">{t("booking.step2.payPartDesc")}</p>
                           </div>
                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${paymentOption === "part" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
                             {paymentOption === "part" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
@@ -278,13 +298,13 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       </div>
                       <div className="flex justify-between items-center pt-4">
                         <button onClick={() => setActiveStep(1)} className="flex items-center gap-1 font-bold text-gray-500 hover:text-black transition-colors">
-                          <IoChevronBack /> Back
+                          <IoChevronBack /> {t("booking.step2.back")}
                         </button>
                         <button
                           onClick={() => setActiveStep(3)}
                           className="bg-[#1A1A1A] text-white px-10 py-3.5 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95"
                         >
-                          Continue
+                          {t("booking.step2.continue")}
                         </button>
                       </div>
                     </motion.div>
@@ -297,7 +317,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 3 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       {activeStep > 3 ? <IoCheckmarkCircle className="text-2xl" /> : "3"}
                     </div>
-                    <h3 className="text-xl font-bold">Payment Method</h3>
+                    <h3 className="text-xl font-bold">{t("booking.step3.title")}</h3>
                   </div>
 
                   {activeStep === 3 && (
@@ -312,8 +332,8 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                             <FaCreditCard className="text-xl" />
                           </div>
                           <div className="flex-1">
-                            <p className="font-bold text-[16px]">Bancard</p>
-                            <p className="text-sm text-gray-500">Secure credit or debit card payment.</p>
+                            <p className="font-bold text-[16px]">{t("booking.step3.bancard")}</p>
+                            <p className="text-sm text-gray-500">{t("booking.step3.bancardDesc")}</p>
                           </div>
                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === "bancard" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
                             {paymentMethod === "bancard" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
@@ -331,8 +351,8 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                             <FaMoneyBillWave className="text-xl" />
                           </div>
                           <div className="flex-1">
-                            <p className="font-bold text-[16px]">Cash on Arrival</p>
-                            <p className="text-sm text-gray-500">Pay when you check in at the property.</p>
+                            <p className="font-bold text-[16px]">{t("booking.step3.cash")}</p>
+                            <p className="text-sm text-gray-500">{t("booking.step3.cashDesc")}</p>
                           </div>
                           <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === "cash" ? "border-[#1A1A1A]" : "border-gray-300"}`}>
                             {paymentMethod === "cash" && <div className="w-3 h-3 bg-[#1A1A1A] rounded-full" />}
@@ -342,13 +362,13 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
 
                       <div className="flex justify-between items-center pt-4">
                         <button onClick={() => setActiveStep(2)} className="flex items-center gap-1 font-bold text-gray-500 hover:text-black transition-colors">
-                          <IoChevronBack /> Back
+                          <IoChevronBack /> {t("booking.step3.back")}
                         </button>
                         <button
                           onClick={() => setActiveStep(4)}
                           className="bg-[#1A1A1A] text-white px-10 py-3.5 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95"
                         >
-                          Review Trip
+                          {t("booking.step3.review")}
                         </button>
                       </div>
                     </motion.div>
@@ -361,36 +381,40 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeStep >= 4 ? "bg-[#1A1A1A] text-white" : "bg-gray-100 text-gray-400"}`}>
                       4
                     </div>
-                    <h3 className="text-xl font-bold">Review and confirm</h3>
+                    <h3 className="text-xl font-bold">{t("booking.step4.title")}</h3>
                   </div>
 
                   {activeStep === 4 && (
                     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="ml-12">
                       <div className="bg-[#F6F2EC] p-6 rounded-3xl border border-[#1A1A1A]/10 mb-8">
-                        <h4 className="font-bold mb-4">Final Summary</h4>
+                        <h4 className="font-bold mb-4">{t("booking.step4.summaryHeading")}</h4>
                         <div className="space-y-3 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Guest</span>
+                            <span className="text-gray-500">{t("booking.step4.guestLabel")}</span>
                             <span className="font-bold">{userInfo.name}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Payment</span>
+                            <span className="text-gray-500">{t("booking.step4.paymentLabel")}</span>
                             <span className="font-bold uppercase">{paymentMethod} ({paymentOption})</span>
                           </div>
                         </div>
                       </div>
                       <p className="text-[14px] leading-relaxed text-[#717171] mb-8">
-                        By selecting the button below, you agree to the <span className="underline font-medium cursor-pointer">House Rules</span>, <span className="underline font-medium cursor-pointer">Safety Disclosures</span>, and <span className="underline font-medium cursor-pointer">Cancellation Policy</span>.
+                        {t("booking.step4.legal", {
+                          rules: t("booking.step4.houseRules"),
+                          safety: t("booking.step4.safetyDisclosures"),
+                          cancellation: t("booking.step4.cancellationPolicy"),
+                        })}
                       </p>
                       <div className="flex flex-col sm:flex-row gap-4">
                         <button onClick={() => setActiveStep(3)} className="px-6 py-3 rounded-2xl font-bold border border-gray-200 hover:bg-gray-50 transition-colors text-[15px]">
-                          Back
+                          {t("booking.step4.back")}
                         </button>
                         <button
                           onClick={handleCreateOrder}
                           className="flex-1 bg-[#1A1A1A] text-white py-3 rounded-2xl font-bold text-[16px] hover:brightness-110 transition-all shadow-xl active:scale-[0.98]"
                         >
-                          Confirm and Pay
+                          {t("booking.step4.confirm")}
                         </button>
                       </div>
                     </motion.div>
@@ -413,7 +437,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <div className="flex flex-col justify-center">
                       <h4 className="font-bold text-[17px] leading-tight mb-2 line-clamp-2">{bookingData.listing.title}</h4>
                       <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gray-400">
-                        Park Lofts Rent
+                        {t("booking.summary.brand")}
                       </p>
                     </div>
                   </div>
@@ -422,14 +446,14 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                   <div className="border-t border-gray-50 pt-8 space-y-6">
                     <h4 className="font-bold text-lg flex items-center gap-2">
                       <div className="w-1.5 h-6 bg-[#1A1A1A] rounded-full" />
-                      Your trip
+                      {t("booking.summary.yourTrip")}
                     </h4>
 
                     <div className="flex justify-between items-start">
                       <div className="flex gap-4">
                         <div className="mt-1 p-2 bg-gray-50 rounded-lg"><IoLocationOutline className="text-gray-400" /></div>
                         <div>
-                          <p className="font-bold text-[15px]">Dates</p>
+                          <p className="font-bold text-[15px]">{t("booking.summary.dates")}</p>
                           <p className="text-[14px] text-gray-500 font-medium">{dates.checkIn} – {dates.checkOut}</p>
                         </div>
                       </div>
@@ -437,13 +461,13 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                         onClick={() => setEditDatesOpen(!editDatesOpen)}
                         className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] hover:opacity-70 transition-opacity mt-1"
                       >
-                        {editDatesOpen ? "Close" : "Edit"}
+                        {editDatesOpen ? t("booking.summary.closeEdit") : t("booking.summary.edit")}
                       </button>
                     </div>
                     {editDatesOpen && (
                       <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-2xl animate-in fade-in slide-in-from-top-2">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Check-in</label>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">{t("reservationCard.checkIn")}</label>
                           <input
                             type="date"
                             value={dates.checkIn}
@@ -452,7 +476,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Check-out</label>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">{t("reservationCard.checkOut")}</label>
                           <input
                             type="date"
                             value={dates.checkOut}
@@ -467,24 +491,27 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                       <div className="flex gap-4">
                         <div className="mt-1 p-2 bg-gray-50 rounded-lg"><IoPersonOutline className="text-gray-400" /></div>
                         <div>
-                          <p className="font-bold text-[15px]">Guests</p>
-                          <p className="text-[14px] text-gray-500 font-medium">{guests} {guests === 1 ? "guest" : "guests"}</p>
+                          <p className="font-bold text-[15px]">{t("booking.summary.guests")}</p>
+                          <p className="text-[14px] text-gray-500 font-medium">
+                            {t(guests === 1 ? "booking.summary.guest" : "booking.summary.guestsPlural", { count: guests })}
+                          </p>
                         </div>
                       </div>
                       <button
                         onClick={() => setEditGuestsOpen(!editGuestsOpen)}
                         className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] hover:opacity-70 transition-opacity mt-1"
                       >
-                        {editGuestsOpen ? "Close" : "Edit"}
+                        {editGuestsOpen ? t("booking.summary.closeEdit") : t("booking.summary.edit")}
                       </button>
                     </div>
                     {editGuestsOpen && (
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl animate-in fade-in slide-in-from-top-2">
-                        <span className="text-sm font-medium text-gray-600">Total Guests</span>
+                        <span className="text-sm font-medium text-gray-600">{t("booking.summary.totalGuests")}</span>
                         <div className="flex items-center gap-5">
                           <button
                             onClick={() => setGuests(Math.max(1, guests - 1))}
                             className="w-9 h-9 rounded-full bg-white border border-gray-100 flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors"
+                            aria-label={t("filterBar.guestsModal.decreaseLabel")}
                           >
                             -
                           </button>
@@ -492,6 +519,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                           <button
                             onClick={() => setGuests(guests + 1)}
                             className="w-9 h-9 rounded-full bg-white border border-gray-100 flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors"
+                            aria-label={t("filterBar.guestsModal.increaseLabel")}
                           >
                             +
                           </button>
@@ -504,20 +532,21 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                   <div className="border-t border-gray-50 pt-8">
                     <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
                       <div className="w-1.5 h-6 bg-[#1A1A1A] rounded-full" />
-                      Price details
+                      {t("booking.summary.priceDetails")}
                     </h4>
                     <div className="space-y-4">
                       <div className="flex justify-between items-center text-[#222222]">
-                        <span className="text-[15px] font-medium underline underline-offset-4 decoration-gray-200">${bookingData.listing.pricePerNight} x {totalNights} nights</span>
+                        <span className="text-[15px] font-medium underline underline-offset-4 decoration-gray-200">
+                          {t("booking.summary.pricePerNights", {
+                            price: bookingData.listing.pricePerNight,
+                            nights: totalNights,
+                          })}
+                        </span>
                         <span className="text-[15px] font-bold">${totalPrice.toFixed(2)}</span>
                       </div>
-                      {/* <div className="flex justify-between items-center text-[#222222]">
-                        <span className="text-[15px] font-medium underline underline-offset-4 decoration-gray-200">Service fee</span>
-                        <span className="text-[15px] font-bold">$0.00</span>
-                      </div> */}
                     </div>
                     <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-100">
-                      <span className="font-bold text-[19px]">Total (USD)</span>
+                      <span className="font-bold text-[19px]">{t("booking.summary.totalUsd")}</span>
                       <span className="font-bold text-[19px] underline underline-offset-4 decoration-[#1A1A1A] decoration-2">${totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
@@ -529,7 +558,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
             </div>
           </div>
 
-          <LoadingOverlay show={isLoading} message="Preparing secure payment..." />
+          <LoadingOverlay show={isLoading} message={t("booking.loading")} />
         </motion.div>
       </div>
     </AnimatePresence>

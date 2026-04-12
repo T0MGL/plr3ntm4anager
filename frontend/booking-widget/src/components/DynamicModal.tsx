@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useAnimatedMount } from "../hooks/useAnimatedMount";
 
 type AmenityItem = {
@@ -39,6 +40,7 @@ type TextProps = BaseProps & {
 type DynamicModalProps = AmenitiesProps | TextProps;
 
 const DynamicModal: React.FC<DynamicModalProps> = (props) => {
+  const { t } = useTranslation();
   const { open, onClose, title, description, durationMs = 220 } = props;
   const mounted = useAnimatedMount(open, durationMs);
 
@@ -70,7 +72,7 @@ const DynamicModal: React.FC<DynamicModalProps> = (props) => {
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close modal"
+        aria-label={t("common.close")}
         className={[
           "absolute inset-0 bg-black transition-opacity",
           open ? "opacity-40" : "opacity-0",
@@ -94,9 +96,9 @@ const DynamicModal: React.FC<DynamicModalProps> = (props) => {
               type="button"
               onClick={onClose}
               className="absolute right-6 top-6 rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-              aria-label="Close"
+              aria-label={t("common.close")}
             >
-              Close
+              {t("common.close")}
             </button>
 
             <h2 className="text-3xl font-semibold">{title}</h2>

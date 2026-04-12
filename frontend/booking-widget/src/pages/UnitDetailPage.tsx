@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { useTranslation } from "react-i18next";
 import { type DateRange } from "react-day-picker";
 import ImageShowcase from "../components/ImageShowcase";
 import AmenitiesSection from "../components/AmenitiesSection";
@@ -120,6 +121,7 @@ const buildAddressLine = (unit: UnitSummary): string | null => {
 };
 
 const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
+  const { t } = useTranslation();
   const { unitId: urlUnitId } = useParams();
   const unitId = unitIdOverride || urlUnitId;
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -162,15 +164,20 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
     return [
       location,
       unit.category,
-      `${unit.max_guests} huespedes . ${unit.bedrooms || 0} habitaciones . ${unit.beds || 0} camas . ${unit.private_bathroom || 0} banos`,
+      t("unitDetail.metaSummary", {
+        guests: unit.max_guests,
+        bedrooms: unit.bedrooms || 0,
+        beds: unit.beds || 0,
+        bathrooms: unit.private_bathroom || 0,
+      }),
     ].filter(Boolean) as string[];
-  }, [unit]);
+  }, [unit, t]);
 
   const amenitySections = useMemo(() => {
     if (!unit) return [];
     const items = mapAmenities(normalizeItems(unit.amenities));
-    return items.length > 0 ? [{ heading: "Servicios incluidos", items }] : [];
-  }, [unit]);
+    return items.length > 0 ? [{ heading: t("unitDetail.amenitiesHeading"), items }] : [];
+  }, [unit, t]);
 
   const primaryAmenities = amenitySections.flatMap((s) => s.items);
 
@@ -203,8 +210,8 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
   if (!unit) {
     return (
       <div className="pl-container py-24 text-center">
-        <h2 className="font-display text-3xl text-charcoal">Loft no disponible</h2>
-        <p className="mt-3 text-sm text-charcoal-500">El loft que buscas ya no esta publicado.</p>
+        <h2 className="font-display text-3xl text-charcoal">{t("unitDetail.notFoundTitle")}</h2>
+        <p className="mt-3 text-sm text-charcoal-500">{t("unitDetail.notFoundBody")}</p>
       </div>
     );
   }
@@ -228,15 +235,15 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
           </section>
 
           <section className="border-b border-stone/60 pb-10">
-            <h3 className="text-xl font-bold text-charcoal mb-6">Sobre este espacio</h3>
+            <h3 className="text-xl font-bold text-charcoal mb-6">{t("unitDetail.aboutHeading")}</h3>
             <p className="text-charcoal-500 leading-relaxed text-[16px] whitespace-pre-line line-clamp-6">
-              {unit.description || "Bienvenido a nuestro loft. Un espacio disenado para estadias cortas sin intermediarios."}
+              {unit.description || t("unitDetail.aboutFallback")}
             </p>
             <button
               onClick={() => setOpenModal("about")}
               className="mt-6 font-bold underline flex items-center gap-1 hover:opacity-70 transition-opacity"
             >
-              Mostrar mas <span className="text-lg">{">"}</span>
+              {t("unitDetail.showMore")} <span className="text-lg">{">"}</span>
             </button>
           </section>
 
@@ -282,17 +289,17 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
       <DynamicModal
         open={openModal === "amenities"}
         onClose={() => setOpenModal(null)}
-        title="Servicios incluidos"
+        title={t("unitDetail.amenitiesHeading")}
         mode="amenities"
-        sections={[{ heading: "Servicios", items: primaryAmenities }]}
+        sections={[{ heading: t("unitDetail.amenitiesSection"), items: primaryAmenities }]}
       />
 
       <DynamicModal
         open={openModal === "about"}
         onClose={() => setOpenModal(null)}
-        title="Sobre este espacio"
+        title={t("unitDetail.aboutHeading")}
         mode="text"
-        sections={[{ heading: "El espacio", paragraphs: [unit.description || ""] }]}
+        sections={[{ heading: t("unitDetail.aboutHeading"), paragraphs: [unit.description || ""] }]}
       />
 
       <Booking

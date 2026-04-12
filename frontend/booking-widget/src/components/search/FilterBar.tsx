@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IoChevronDown, IoClose } from "react-icons/io5";
+import { useTranslation } from "react-i18next";
 import { KNOWN_NEIGHBORHOODS, type UnitFilterState, type UnitSortKey } from "../../lib/unit-types";
 
 type FilterBarProps = {
@@ -11,11 +12,11 @@ type FilterBarProps = {
   loading: boolean;
 };
 
-const SORT_OPTIONS: { value: UnitSortKey; label: string }[] = [
-  { value: "featured", label: "Recomendados" },
-  { value: "price-asc", label: "Precio mas bajo" },
-  { value: "price-desc", label: "Precio mas alto" },
-  { value: "bedrooms-desc", label: "Mas habitaciones" },
+const SORT_KEYS: { value: UnitSortKey; labelKey: string }[] = [
+  { value: "featured", labelKey: "filterBar.sort.featured" },
+  { value: "price-asc", labelKey: "filterBar.sort.priceAsc" },
+  { value: "price-desc", labelKey: "filterBar.sort.priceDesc" },
+  { value: "bedrooms-desc", labelKey: "filterBar.sort.bedroomsDesc" },
 ];
 
 const PRICE_MIN = 0;
@@ -30,6 +31,8 @@ export function FilterBar({
   visibleCount,
   loading,
 }: FilterBarProps) {
+  const { t } = useTranslation();
+
   const toggleNeighborhood = (value: string) => {
     const exists = filters.neighborhoods.includes(value);
     const next = exists
@@ -49,8 +52,11 @@ export function FilterBar({
     Boolean(filters.checkIn || filters.checkOut);
 
   const countLabel = loading
-    ? "Cargando lofts"
-    : `${visibleCount} de ${totalUnits} loft${totalUnits === 1 ? "" : "s"}`;
+    ? t("filterBar.loading")
+    : t(totalUnits === 1 ? "filterBar.countLabelSingular" : "filterBar.countLabel", {
+        visible: visibleCount,
+        total: totalUnits,
+      });
 
   return (
     <div className="sticky top-20 z-30 border-b border-stone/60 bg-cream/95 backdrop-blur-md md:top-24">
@@ -62,7 +68,7 @@ export function FilterBar({
               onClick={() => onChange({ neighborhoods: [] })}
               className={chipClass(filters.neighborhoods.length === 0)}
             >
-              Todos
+              {t("filterBar.allNeighborhoods")}
             </button>
             {KNOWN_NEIGHBORHOODS.map((value) => {
               const active = filters.neighborhoods.includes(value);
@@ -100,7 +106,7 @@ export function FilterBar({
               onClick={onReset}
               className="text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-charcoal-500 transition-colors hover:text-charcoal"
             >
-              Limpiar filtros
+              {t("filterBar.clearFilters")}
             </button>
           ) : (
             clearAll && (
@@ -109,7 +115,7 @@ export function FilterBar({
                 onClick={onReset}
                 className="text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-charcoal-500 transition-colors hover:text-charcoal"
               >
-                Limpiar
+                {t("filterBar.clear")}
               </button>
             )
           )}
@@ -155,9 +161,13 @@ type GuestsDropdownProps = {
 };
 
 function GuestsDropdown({ value, onChange }: GuestsDropdownProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useOutsideClose(open, () => setOpen(false));
-  const label = value == null ? "Huespedes" : `${value} huesp.`;
+  const label =
+    value == null
+      ? t("filterBar.guestsPlaceholder")
+      : t("filterBar.guestsValue", { count: value });
 
   const current = value ?? 0;
   const decrement = () => onChange(current > 1 ? current - 1 : null);
@@ -179,9 +189,11 @@ function GuestsDropdown({ value, onChange }: GuestsDropdownProps) {
         <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64 border border-stone-dark/50 bg-cream p-5 shadow-2xl shadow-charcoal/10">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-display text-lg text-charcoal">Huespedes</div>
+              <div className="font-display text-lg text-charcoal">
+                {t("filterBar.guestsModal.title")}
+              </div>
               <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-charcoal-400">
-                Capacidad minima
+                {t("filterBar.guestsModal.caption")}
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -190,7 +202,7 @@ function GuestsDropdown({ value, onChange }: GuestsDropdownProps) {
                 onClick={decrement}
                 disabled={current <= 0}
                 className="flex h-9 w-9 items-center justify-center border border-charcoal/40 text-charcoal transition-all hover:border-gold hover:text-gold disabled:opacity-40"
-                aria-label="Quitar huesped"
+                aria-label={t("filterBar.guestsModal.decreaseLabel")}
               >
                 -
               </button>
@@ -200,7 +212,7 @@ function GuestsDropdown({ value, onChange }: GuestsDropdownProps) {
                 onClick={increment}
                 disabled={current >= 12}
                 className="flex h-9 w-9 items-center justify-center border border-charcoal/40 text-charcoal transition-all hover:border-gold hover:text-gold disabled:opacity-40"
-                aria-label="Agregar huesped"
+                aria-label={t("filterBar.guestsModal.increaseLabel")}
               >
                 +
               </button>
@@ -215,7 +227,7 @@ function GuestsDropdown({ value, onChange }: GuestsDropdownProps) {
               }}
               className="mt-5 w-full border-t border-stone pt-4 text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-charcoal-500 hover:text-charcoal"
             >
-              Limpiar
+              {t("filterBar.clear")}
             </button>
           ) : null}
         </div>
@@ -231,13 +243,10 @@ type PriceDropdownProps = {
 };
 
 function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useOutsideClose(open, () => setOpen(false));
 
-  // Local slider values stay in component state while the dropdown is open so
-  // we do not thrash URL search params on every drag. We seed them from the
-  // upstream state at open time to stay in sync with whatever the user
-  // applied previously.
   const [localRange, setLocalRange] = useState<{ min: number; max: number }>({
     min: min ?? PRICE_MIN,
     max: max ?? PRICE_MAX,
@@ -250,11 +259,11 @@ function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
   const localMax = localRange.max;
 
   const label = useMemo(() => {
-    if (min == null && max == null) return "Precio";
-    if (min != null && max != null) return `$${min} - $${max}`;
-    if (min != null) return `Desde $${min}`;
-    return `Hasta $${max}`;
-  }, [min, max]);
+    if (min == null && max == null) return t("filterBar.pricePlaceholder");
+    if (min != null && max != null) return t("filterBar.priceRange", { min, max });
+    if (min != null) return t("filterBar.priceFrom", { min });
+    return t("filterBar.priceTo", { max });
+  }, [min, max, t]);
 
   const active = min != null || max != null;
 
@@ -292,8 +301,12 @@ function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
       {open ? (
         <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[320px] border border-stone-dark/50 bg-cream p-5 shadow-2xl shadow-charcoal/10">
           <div className="flex items-center justify-between">
-            <div className="font-display text-lg text-charcoal">Precio por noche</div>
-            <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-charcoal-400">USD</div>
+            <div className="font-display text-lg text-charcoal">
+              {t("filterBar.priceModal.title")}
+            </div>
+            <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-charcoal-400">
+              {t("filterBar.priceModal.currency")}
+            </div>
           </div>
           <div className="mt-5 flex items-center justify-between text-sm text-charcoal">
             <span>${localMin}</span>
@@ -308,7 +321,7 @@ function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
               value={localMin}
               onChange={(e) => handleMinChange(Number(e.target.value))}
               className="absolute inset-0 w-full cursor-pointer appearance-none bg-transparent"
-              aria-label="Precio minimo"
+              aria-label={t("filterBar.priceModal.minLabel")}
             />
             <input
               type="range"
@@ -318,7 +331,7 @@ function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
               value={localMax}
               onChange={(e) => handleMaxChange(Number(e.target.value))}
               className="absolute inset-0 w-full cursor-pointer appearance-none bg-transparent"
-              aria-label="Precio maximo"
+              aria-label={t("filterBar.priceModal.maxLabel")}
             />
           </div>
           <div className="mt-5 flex items-center justify-between border-t border-stone pt-4">
@@ -327,14 +340,14 @@ function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
               onClick={handleClear}
               className="text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-charcoal-500 hover:text-charcoal"
             >
-              Limpiar
+              {t("filterBar.clear")}
             </button>
             <button
               type="button"
               onClick={handleApply}
               className="text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-gold hover:text-gold-dark"
             >
-              Aplicar
+              {t("filterBar.priceModal.apply")}
             </button>
           </div>
         </div>
@@ -349,10 +362,12 @@ type SortDropdownProps = {
 };
 
 function SortDropdown({ value, onChange }: SortDropdownProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useOutsideClose(open, () => setOpen(false));
   const active = value !== "featured";
-  const label = SORT_OPTIONS.find((opt) => opt.value === value)?.label ?? "Ordenar";
+  const selectedLabelKey = SORT_KEYS.find((opt) => opt.value === value)?.labelKey;
+  const label = selectedLabelKey ? t(selectedLabelKey) : t("filterBar.sortFallback");
 
   return (
     <div ref={containerRef} className="relative">
@@ -371,7 +386,7 @@ function SortDropdown({ value, onChange }: SortDropdownProps) {
           role="listbox"
           className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 border border-stone-dark/50 bg-cream p-2 shadow-2xl shadow-charcoal/10"
         >
-          {SORT_OPTIONS.map((opt) => {
+          {SORT_KEYS.map((opt) => {
             const isSelected = opt.value === value;
             return (
               <button
@@ -387,7 +402,7 @@ function SortDropdown({ value, onChange }: SortDropdownProps) {
                   isSelected ? "bg-charcoal text-cream" : "text-charcoal hover:bg-stone/60"
                 }`}
               >
-                <span>{opt.label}</span>
+                <span>{t(opt.labelKey)}</span>
                 {isSelected ? <IoClose className="h-4 w-4 rotate-45" aria-hidden /> : null}
               </button>
             );

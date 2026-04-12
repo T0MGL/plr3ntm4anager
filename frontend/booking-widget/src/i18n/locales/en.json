@@ -1,0 +1,279 @@
+{
+  "nav": {
+    "lofts": "Lofts",
+    "contact": "Contact",
+    "reserve": "Book"
+  },
+  "footer": {
+    "tagline": "Short stays in signature lofts, run directly by Park Lofts, the developer behind the best known buildings in Asuncion.",
+    "navigation": "Navigation",
+    "contact": "Contact",
+    "rightsReserved": "All rights reserved.",
+    "securePayments": "Secure payments via Bancard",
+    "addressCity": "Asuncion, Paraguay",
+    "developedBy": "Developed by",
+    "localeSwitcher": {
+      "label": "Language",
+      "spanish": "ES",
+      "english": "EN"
+    }
+  },
+  "listing": {
+    "eyebrow": "Park Lofts Rent",
+    "headingLoading": "Lofts in Asuncion",
+    "headingCountSingular": "{{count}} loft in Asuncion",
+    "headingCount": "{{count}} lofts in Asuncion",
+    "description": "Signature lofts operated directly by Park Lofts. Book with USD pricing and pay online.",
+    "errorTitle": "Something went wrong",
+    "errorFallback": "We could not load the lofts",
+    "retry": "Try again",
+    "empty": {
+      "title": "No results",
+      "body": "Adjust your filters or try different dates. Every loft is operated directly by Park Lofts.",
+      "reset": "Clear filters"
+    }
+  },
+  "searchBar": {
+    "dateLabel": "Check-in / Check-out",
+    "datePlaceholder": "Dates",
+    "guestsLabel": "Guests",
+    "guestsPlaceholder": "Any number",
+    "guestsSingular": "{{count}} guest",
+    "guestsPlural": "{{count}} guests",
+    "search": "Search",
+    "dateFrom": "From {{date}}",
+    "dateTo": "Until {{date}}",
+    "clear": "Clear",
+    "done": "Done"
+  },
+  "filterBar": {
+    "allNeighborhoods": "All",
+    "loading": "Loading lofts",
+    "countLabelSingular": "{{visible}} of {{total}} loft",
+    "countLabel": "{{visible}} of {{total}} lofts",
+    "clearFilters": "Clear filters",
+    "clear": "Clear",
+    "guestsPlaceholder": "Guests",
+    "guestsValue": "{{count}} guests",
+    "guestsModal": {
+      "title": "Guests",
+      "caption": "Minimum capacity",
+      "decreaseLabel": "Remove guest",
+      "increaseLabel": "Add guest"
+    },
+    "pricePlaceholder": "Price",
+    "priceRange": "${{min}} - ${{max}}",
+    "priceFrom": "From ${{min}}",
+    "priceTo": "Up to ${{max}}",
+    "priceModal": {
+      "title": "Price per night",
+      "currency": "USD",
+      "apply": "Apply",
+      "minLabel": "Minimum price",
+      "maxLabel": "Maximum price"
+    },
+    "sortFallback": "Sort",
+    "sort": {
+      "featured": "Recommended",
+      "priceAsc": "Price low to high",
+      "priceDesc": "Price high to low",
+      "bedroomsDesc": "Most bedrooms"
+    }
+  },
+  "unitCard": {
+    "available": "Available",
+    "perNight": "USD / night",
+    "viewLoft": "View loft",
+    "studio": "Studio",
+    "bedroomsSingular": "{{count}} bedroom",
+    "bedrooms": "{{count}} bedrooms",
+    "guestsSingular": "{{count}} guest",
+    "guests": "{{count}} guests"
+  },
+  "unitDetail": {
+    "notFoundTitle": "Loft unavailable",
+    "notFoundBody": "The loft you are looking for is no longer listed.",
+    "aboutHeading": "About this space",
+    "aboutFallback": "Welcome to our loft, a space designed for short stays with no middlemen.",
+    "showMore": "Show more",
+    "amenitiesHeading": "Included services",
+    "amenitiesSection": "Services",
+    "metaSummary": "{{guests}} guests . {{bedrooms}} bedrooms . {{beds}} beds . {{bathrooms}} baths"
+  },
+  "amenities": {
+    "heading": "What this place offers",
+    "showAll": "Show all {{count}} amenities"
+  },
+  "location": {
+    "eyebrow": "Where you will stay",
+    "openInMaps": "Open in Maps",
+    "openInGoogleMaps": "Open in Google Maps",
+    "loadingMap": "Loading map",
+    "fallbackNoKey": "Configure VITE_GOOGLE_MAPS_API_KEY to display the interactive map.",
+    "fallbackError": "We could not load the map. Use the button to open Google Maps.",
+    "fallbackNoCoords": "Open the exact location in Google Maps.",
+    "mapLabel": "Map of {{location}}"
+  },
+  "reservationCard": {
+    "perNight": "night",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "addDate": "Add date",
+    "guests": "Guests",
+    "guestsSummary": "{{count}} guests",
+    "guestSummary": "{{count}} guest",
+    "infantsSuffix": ", {{count}} infant",
+    "infantsSuffixPlural": ", {{count}} infants",
+    "close": "Close",
+    "reserve": "Book",
+    "checkAvailability": "Check availability",
+    "notCharged": "You will not be charged yet",
+    "pricePerNights": "${{price}} x {{nights}} nights",
+    "pricePerNight": "${{price}} x {{nights}} night",
+    "totalPrice": "Total price",
+    "adults": "Adults",
+    "adultsSub": "Ages 13 and up",
+    "children": "Children",
+    "childrenSub": "Ages 2 to 12",
+    "infants": "Infants",
+    "infantsSub": "Under 2",
+    "pets": "Pets",
+    "petsSub": "Service animals",
+    "maxGuestsNotice": "This place has a maximum of {{count}} guests, not counting infants."
+  },
+  "booking": {
+    "title": "Confirm and pay",
+    "subtitle": "Complete your reservation details",
+    "stepIndicator": "Step {{current}}/{{total}}",
+    "step1": {
+      "title": "Your information",
+      "fullName": "Full name",
+      "email": "Email address",
+      "phone": "Phone number",
+      "address": "Address (optional)",
+      "continue": "Continue to payment",
+      "missingField": "Fill in the required fields",
+      "invalidInfo": "Check your information before continuing",
+      "summaryFallback": "Missing",
+      "change": "Edit"
+    },
+    "step2": {
+      "title": "Choose when to pay",
+      "payFull": "Pay ${{price}} now",
+      "payFullDesc": "Pay the total to finalize your reservation instantly.",
+      "payPart": "Pay part now, part later",
+      "payPartDesc": "Secure the booking with a small deposit today.",
+      "back": "Back",
+      "continue": "Continue"
+    },
+    "step3": {
+      "title": "Payment method",
+      "bancard": "Bancard",
+      "bancardDesc": "Secure credit or debit card payment.",
+      "cash": "Cash on arrival",
+      "cashDesc": "Pay when you check in at the loft.",
+      "back": "Back",
+      "review": "Review trip"
+    },
+    "step4": {
+      "title": "Review and confirm",
+      "summaryHeading": "Final summary",
+      "guestLabel": "Guest",
+      "paymentLabel": "Payment",
+      "legal": "By selecting the button below, you agree to the {{rules}}, {{safety}}, and {{cancellation}}.",
+      "houseRules": "house rules",
+      "safetyDisclosures": "safety disclosures",
+      "cancellationPolicy": "cancellation policy",
+      "back": "Back",
+      "confirm": "Confirm and pay"
+    },
+    "summary": {
+      "brand": "Park Lofts Rent",
+      "yourTrip": "Your trip",
+      "dates": "Dates",
+      "guests": "Guests",
+      "guest": "{{count}} guest",
+      "guestsPlural": "{{count}} guests",
+      "edit": "Edit",
+      "closeEdit": "Close",
+      "totalGuests": "Total guests",
+      "priceDetails": "Price details",
+      "pricePerNights": "${{price}} x {{nights}} nights",
+      "totalUsd": "Total (USD)"
+    },
+    "loading": "Preparing secure payment...",
+    "errors": {
+      "createFailed": "Failed to process booking. Please try again.",
+      "missingProcessId": "Could not start payment. Contact the team.",
+      "cashConfirmed": "Booking received. You can pay in cash at check-in."
+    }
+  },
+  "payment": {
+    "errorTitle": "We could not find the booking",
+    "back": "Back to lofts",
+    "contact": "Contact us",
+    "confirmedBadge": "Payment confirmed",
+    "receivedBadge": "Payment received",
+    "thanks": "Thank you, {{name}}.",
+    "stayReserved": "Your stay is booked.",
+    "emailNotice": "We sent you an email with the full details. Our team will contact you before check-in with the arrival instructions and any request you would like to coordinate.",
+    "reservedLoft": "Reserved loft",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "nights": "Nights",
+    "nightSingular": "night",
+    "nightsPlural": "nights",
+    "reference": "Reference",
+    "saveCode": "Keep this code",
+    "totalPaid": "Total paid",
+    "secureProcessed": "Payment processed securely through Bancard. You will receive the receipt by email along with your booking details.",
+    "guest": "Guest",
+    "status": "Status",
+    "confirmed": "Confirmed",
+    "pending": "Under review",
+    "nextSteps": {
+      "01Title": "Check your email",
+      "01Body": "We sent you the receipt and your booking details. If you do not see it in your inbox, check spam or promotions.",
+      "02Title": "Wait for the welcome",
+      "02Body": "The day before check-in you will receive exact arrival instructions, wifi access and direct host contact.",
+      "03Title": "We have you covered",
+      "03Body": "If you need to adjust dates or have a special request, write to us before check-in and we will coordinate."
+    },
+    "viewOthers": "See other lofts",
+    "contactTeam": "Contact the team",
+    "cancelledTitle": "Payment cancelled",
+    "cancelledBody": "The payment was not completed. Close this window and try again."
+  },
+  "contact": {
+    "heading": "Let us talk",
+    "intro": "We are available to coordinate your stay, solve questions and handle special requests. Write us through your preferred channel and we respond in under an hour during business hours.",
+    "channels": {
+      "email": "Reservations email",
+      "whatsapp": "WhatsApp",
+      "address": "Address",
+      "addressValue": "Av. Mariscal Lopez 3794, Asuncion, Paraguay",
+      "hours": "Hours",
+      "hoursValue": "Monday to Sunday, 08:00 to 22:00 (GMT-3)"
+    },
+    "cta": {
+      "eyebrow": "Instant bookings",
+      "title": "Pick your loft and book in minutes",
+      "body": "Our system processes secure Bancard payments and confirms availability instantly.",
+      "button": "View lofts"
+    }
+  },
+  "datePicker": {
+    "selectDates": "Select dates",
+    "subtitle": "Check-in and check-out to view availability",
+    "clearDates": "Clear dates",
+    "updating": "Updating availability",
+    "crossBlocked": "Those dates cross an unavailable range. Pick shorter dates."
+  },
+  "common": {
+    "close": "Close"
+  },
+  "meta": {
+    "title": "Park Lofts Paraguay | Book",
+    "description": "Premium bookings at Park Lofts Paraguay. Luxury lofts in Asuncion with hotel-style service."
+  }
+}

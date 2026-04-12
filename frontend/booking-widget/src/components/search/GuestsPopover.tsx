@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IoPersonOutline } from "react-icons/io5";
+import { useTranslation } from "react-i18next";
 
 type GuestsPopoverProps = {
   value: number | null;
@@ -8,6 +9,7 @@ type GuestsPopoverProps = {
 };
 
 export function GuestsPopover({ value, onChange, maxCapacity = 8 }: GuestsPopoverProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -32,6 +34,11 @@ export function GuestsPopover({ value, onChange, maxCapacity = 8 }: GuestsPopove
   const decrement = () => onChange(current > 1 ? current - 1 : null);
   const increment = () => onChange(Math.min(maxCapacity, current + 1 || 1));
 
+  const headlineValue =
+    value == null
+      ? t("searchBar.guestsPlaceholder")
+      : t(value === 1 ? "searchBar.guestsSingular" : "searchBar.guestsPlural", { count: value });
+
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -44,13 +51,9 @@ export function GuestsPopover({ value, onChange, maxCapacity = 8 }: GuestsPopove
         <IoPersonOutline className="h-4 w-4 text-charcoal-500" aria-hidden />
         <div className="min-w-0 flex-1">
           <div className="text-[0.625rem] font-medium uppercase tracking-[0.22em] text-charcoal-400">
-            Huespedes
+            {t("searchBar.guestsLabel")}
           </div>
-          <div className="mt-0.5 truncate text-sm text-charcoal">
-            {value == null
-              ? "Cualquier cantidad"
-              : `${value} ${value === 1 ? "huesped" : "huespedes"}`}
-          </div>
+          <div className="mt-0.5 truncate text-sm text-charcoal">{headlineValue}</div>
         </div>
       </button>
 
@@ -61,9 +64,9 @@ export function GuestsPopover({ value, onChange, maxCapacity = 8 }: GuestsPopove
         >
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-display text-lg text-charcoal">Huespedes</div>
+              <div className="font-display text-lg text-charcoal">{t("filterBar.guestsModal.title")}</div>
               <div className="text-[0.6875rem] uppercase tracking-[0.18em] text-charcoal-400">
-                Capacidad minima
+                {t("filterBar.guestsModal.caption")}
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -72,19 +75,17 @@ export function GuestsPopover({ value, onChange, maxCapacity = 8 }: GuestsPopove
                 onClick={decrement}
                 disabled={current <= 0}
                 className="flex h-9 w-9 items-center justify-center border border-charcoal/40 text-charcoal transition-all hover:border-gold hover:text-gold disabled:opacity-40"
-                aria-label="Quitar huesped"
+                aria-label={t("filterBar.guestsModal.decreaseLabel")}
               >
                 -
               </button>
-              <div className="w-6 text-center font-display text-xl text-charcoal">
-                {current}
-              </div>
+              <div className="w-6 text-center font-display text-xl text-charcoal">{current}</div>
               <button
                 type="button"
                 onClick={increment}
                 disabled={current >= maxCapacity}
                 className="flex h-9 w-9 items-center justify-center border border-charcoal/40 text-charcoal transition-all hover:border-gold hover:text-gold disabled:opacity-40"
-                aria-label="Agregar huesped"
+                aria-label={t("filterBar.guestsModal.increaseLabel")}
               >
                 +
               </button>
@@ -99,7 +100,7 @@ export function GuestsPopover({ value, onChange, maxCapacity = 8 }: GuestsPopove
               }}
               className="mt-5 w-full border-t border-stone pt-4 text-[0.6875rem] font-medium uppercase tracking-[0.18em] text-charcoal-500 hover:text-charcoal"
             >
-              Limpiar
+              {t("searchBar.clear")}
             </button>
           ) : null}
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IoLocationOutline, IoOpenOutline } from "react-icons/io5";
+import { useTranslation } from "react-i18next";
 
 type UnitLocationMapProps = {
   unitName: string;
@@ -61,6 +62,7 @@ export function UnitLocationMap({
   longitude,
   googleMapsUrl,
 }: UnitLocationMapProps) {
+  const { t } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
@@ -146,7 +148,7 @@ export function UnitLocationMap({
     <section className="border-t border-stone/60 pt-12">
       <div className="flex items-start justify-between gap-6">
         <div>
-          <span className="pl-eyebrow">Donde estaras</span>
+          <span className="pl-eyebrow">{t("location.eyebrow")}</span>
           <h3 className="mt-4 font-display text-3xl leading-tight text-charcoal md:text-[2rem]">
             {neighborhood ?? unitName}
           </h3>
@@ -165,7 +167,7 @@ export function UnitLocationMap({
             rel="noopener noreferrer"
             className="pl-btn-ghost hidden shrink-0 items-center gap-2 md:inline-flex"
           >
-            <span>Abrir en Maps</span>
+            <span>{t("location.openInMaps")}</span>
             <IoOpenOutline className="h-3.5 w-3.5" aria-hidden />
           </a>
         ) : null}
@@ -175,7 +177,7 @@ export function UnitLocationMap({
         <div
           ref={mapContainerRef}
           className="h-[280px] w-full md:h-[400px]"
-          aria-label={`Mapa de ${locationLine || unitName}`}
+          aria-label={t("location.mapLabel", { location: locationLine || unitName })}
           role="img"
         />
 
@@ -185,7 +187,7 @@ export function UnitLocationMap({
               <div className="flex flex-col items-center gap-3">
                 <span className="h-1 w-12 animate-pulse bg-charcoal/40" />
                 <span className="text-[0.6875rem] font-medium uppercase tracking-[0.2em] text-charcoal-400">
-                  Cargando mapa
+                  {t("location.loadingMap")}
                 </span>
               </div>
             ) : (
@@ -193,10 +195,10 @@ export function UnitLocationMap({
                 <IoLocationOutline className="h-10 w-10 text-gold" aria-hidden />
                 <p className="text-sm text-charcoal-500">
                   {hasCoords && !apiKey
-                    ? "Configura VITE_GOOGLE_MAPS_API_KEY para mostrar el mapa interactivo."
+                    ? t("location.fallbackNoKey")
                     : hasCoords
-                    ? "No se pudo cargar el mapa. Usa el boton para abrir en Google Maps."
-                    : "Abre la ubicacion exacta en Google Maps."}
+                    ? t("location.fallbackError")
+                    : t("location.fallbackNoCoords")}
                 </p>
                 {resolvedMapsUrl ? (
                   <a
@@ -205,7 +207,7 @@ export function UnitLocationMap({
                     rel="noopener noreferrer"
                     className="pl-btn-primary"
                   >
-                    <span>Abrir en Google Maps</span>
+                    <span>{t("location.openInGoogleMaps")}</span>
                   </a>
                 ) : null}
               </div>
@@ -222,7 +224,7 @@ export function UnitLocationMap({
             rel="noopener noreferrer"
             className="pl-btn-ghost inline-flex items-center gap-2"
           >
-            <span>Abrir en Google Maps</span>
+            <span>{t("location.openInGoogleMaps")}</span>
             <IoOpenOutline className="h-3.5 w-3.5" aria-hidden />
           </a>
         </div>

@@ -1,16 +1,18 @@
 import { Link, Outlet, useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Logo } from "./common/Logo";
+import { setLocale, type SupportedLocale } from "../i18n";
 
 const NAV_LINKS = [
-  { to: "/", label: "Lofts" },
-  { to: "/contacto", label: "Contacto" },
-];
+  { to: "/", labelKey: "nav.lofts" },
+  { to: "/contacto", labelKey: "nav.contact" },
+] as const;
 
 const SOCIAL_LINKS = [
   { href: "https://instagram.com/parklofts", label: "Instagram" },
   { href: "https://facebook.com/ParkLoftspy", label: "Facebook" },
   { href: "https://x.com/park_lofts", label: "X / Twitter" },
-];
+] as const;
 
 export function Layout() {
   return (
@@ -26,6 +28,8 @@ export function Layout() {
 
 function PLNavbar() {
   const location = useLocation();
+  const { t } = useTranslation();
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-stone/60 bg-cream/95 backdrop-blur-md">
       <div className="pl-container flex h-20 items-center justify-between md:h-24">
@@ -42,7 +46,7 @@ function PLNavbar() {
                   active ? "text-charcoal" : "text-charcoal-500 hover:text-charcoal"
                 }`}
               >
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             );
           })}
@@ -50,7 +54,7 @@ function PLNavbar() {
 
         <div className="hidden md:block">
           <Link to="/contacto" className="pl-btn-primary">
-            <span>Reservar</span>
+            <span>{t("nav.reserve")}</span>
           </Link>
         </div>
 
@@ -58,15 +62,75 @@ function PLNavbar() {
           to="/contacto"
           className="md:hidden text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-charcoal"
         >
-          Contacto
+          {t("nav.contact")}
         </Link>
       </div>
     </header>
   );
 }
 
+function LocaleSwitcher() {
+  const { t, i18n } = useTranslation();
+  const active = (i18n.language?.split("-")[0] ?? "en") as SupportedLocale;
+
+  const handleChange = (next: SupportedLocale) => {
+    if (next === active) return;
+    setLocale(next);
+  };
+
+  return (
+    <div
+      role="group"
+      aria-label={t("footer.localeSwitcher.label")}
+      className="inline-flex items-center border border-cream/20 p-[2px]"
+    >
+      <LocalePill
+        code="es"
+        label={t("footer.localeSwitcher.spanish")}
+        active={active === "es"}
+        onClick={() => handleChange("es")}
+      />
+      <LocalePill
+        code="en"
+        label={t("footer.localeSwitcher.english")}
+        active={active === "en"}
+        onClick={() => handleChange("en")}
+      />
+    </div>
+  );
+}
+
+function LocalePill({
+  code,
+  label,
+  active,
+  onClick,
+}: {
+  code: SupportedLocale;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`Change language to ${code.toUpperCase()}`}
+      className={`px-3 py-1 text-[0.625rem] font-medium uppercase tracking-[0.22em] transition-all duration-300 ${
+        active
+          ? "bg-gold text-charcoal"
+          : "text-cream/50 hover:text-cream"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function PLFooter() {
   const year = new Date().getFullYear();
+  const { t } = useTranslation();
 
   return (
     <footer className="mt-0 border-t border-charcoal-700 bg-charcoal text-cream">
@@ -75,8 +139,7 @@ function PLFooter() {
           <div className="md:col-span-5">
             <Logo variant="light" size="md" withBadge linkTo="/" />
             <p className="mt-7 max-w-sm text-sm leading-relaxed text-cream/60">
-              Estancias cortas en lofts de autor. Operadas directamente por Park Lofts, el
-              desarrollador detras de los edificios mas reconocidos de Asuncion.
+              {t("footer.tagline")}
             </p>
             <div className="mt-7 flex items-center gap-4">
               {SOCIAL_LINKS.map((s) => (
@@ -98,13 +161,13 @@ function PLFooter() {
 
           <div className="md:col-span-3">
             <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-cream/40">
-              Navegacion
+              {t("footer.navigation")}
             </div>
             <ul className="mt-5 space-y-3 text-sm text-cream/75">
               {NAV_LINKS.map((l) => (
                 <li key={l.to}>
                   <Link to={l.to} className="pl-link transition-colors hover:text-gold">
-                    {l.label}
+                    {t(l.labelKey)}
                   </Link>
                 </li>
               ))}
@@ -113,7 +176,7 @@ function PLFooter() {
 
           <div className="md:col-span-4">
             <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-cream/40">
-              Contacto
+              {t("footer.contact")}
             </div>
             <ul className="mt-5 space-y-3 text-sm text-cream/75">
               <li>
@@ -134,17 +197,40 @@ function PLFooter() {
                   +595 981 587 588
                 </a>
               </li>
-              <li className="text-cream/50">Asuncion, Paraguay</li>
+              <li className="text-cream/50">{t("footer.addressCity")}</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-14 flex flex-col gap-4 border-t border-charcoal-700 pt-8 text-[0.6875rem] uppercase tracking-[0.2em] text-cream/40 md:flex-row md:items-center md:justify-between">
-          <span>&copy; {year}. Todos los derechos reservados.</span>
-          <span className="flex items-center gap-2">
-            <span className="h-px w-5 bg-gold" />
-            Pagos seguros via Bancard
+          <span>
+            &copy; {year} Park Lofts. {t("footer.rightsReserved")}
           </span>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 md:justify-end">
+            <LocaleSwitcher />
+            <span className="flex items-center gap-2">
+              <span className="h-px w-5 bg-gold" />
+              {t("footer.securePayments")}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-charcoal-700/60 pt-6 text-center text-[0.6875rem] uppercase tracking-[0.2em] text-cream/30">
+          <a
+            href="https://thebrightidea.ai/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative inline-block transition-none"
+          >
+            <span className="relative">
+              {t("footer.developedBy")}{" "}
+              <span className="font-medium relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-cream/30 via-gold to-cream/30 bg-clip-text text-transparent bg-[length:200%_100%] group-hover:animate-[pl-shimmer_1.5s_ease-in-out_infinite]">
+                  Bright Idea
+                </span>
+              </span>
+            </span>
+          </a>
         </div>
       </div>
     </footer>

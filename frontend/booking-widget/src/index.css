@@ -330,6 +330,18 @@ body {
   transition: transform 1000ms var(--ease-expo);
 }
 
+/* Shimmer keyframe ported from Mercosur First Agency footer "Developed by
+   Bright Idea" signature. Drives a gradient background-position loop across a
+   text-clipped span so the wordmark reveals gold as you hover. */
+@keyframes pl-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
 ::selection {
   background-color: var(--color-gold);
   color: var(--color-charcoal);

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 type Amenity = {
   title: string;
@@ -14,16 +15,18 @@ type Props = {
 };
 
 const AmenitiesSection: React.FC<Props> = ({
-  title = "What this place offers",
+  title,
   amenities,
   onShowAll,
   maxVisible = 10,
 }) => {
+  const { t } = useTranslation();
+  const heading = title ?? t("amenities.heading");
   const visible = amenities.slice(0, maxVisible);
 
   return (
     <section className="mt-6">
-      <h3 className="text-xl font-semibold">{title}</h3>
+      <h3 className="text-xl font-semibold">{heading}</h3>
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-5">
         {visible.map((a, idx) => {
@@ -34,16 +37,12 @@ const AmenitiesSection: React.FC<Props> = ({
               <img
                 src={a.img}
                 alt={a.title}
-                className={`h-6 w-6 object-contain ${
-                  available ? "" : "opacity-40"
-                }`}
+                className={`h-6 w-6 object-contain ${available ? "" : "opacity-40"}`}
               />
 
               <p
                 className={`text-base ${
-                  available
-                    ? "text-neutral-900"
-                    : "text-neutral-400 line-through"
+                  available ? "text-neutral-900" : "text-neutral-400 line-through"
                 }`}
               >
                 {a.title}
@@ -58,7 +57,7 @@ const AmenitiesSection: React.FC<Props> = ({
         onClick={onShowAll}
         className="mt-6 inline-flex items-center justify-center rounded-xl border border-neutral-300 px-5 py-3 text-sm font-semibold hover:bg-neutral-50 active:scale-[0.99]"
       >
-        Show all {amenities.length} amenities
+        {t("amenities.showAll", { count: amenities.length })}
       </button>
     </section>
   );

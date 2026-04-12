@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import {
   RouterProvider,
@@ -6,8 +6,11 @@ import {
   createMemoryRouter,
 } from "react-router";
 import { Toaster } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import "./index.css";
 import "react-day-picker/dist/style.css";
+import "./i18n";
+import { isSupportedLocale } from "./i18n";
 import { Layout } from "./components/Layout";
 import UnitListingPage from "./pages/UnitListingPage";
 import UnitDetailPage from "./pages/UnitDetailPage";
@@ -25,6 +28,40 @@ declare global {
   interface Window {
     BW_CONFIG?: BWConfig;
   }
+}
+
+function LocaleHead() {
+  const { t, i18n } = useTranslation();
+
+  useEffect(() => {
+    const sync = () => {
+      const raw = i18n.language?.split("-")[0] ?? "en";
+      const locale = isSupportedLocale(raw) ? raw : "en";
+      document.documentElement.lang = locale;
+      document.title = t("meta.title");
+      const description = document.querySelector(
+        'meta[name="description"]',
+      ) as HTMLMetaElement | null;
+      if (description) description.content = t("meta.description");
+    };
+    sync();
+    i18n.on("languageChanged", sync);
+    return () => {
+      i18n.off("languageChanged", sync);
+    };
+  }, [i18n, t]);
+
+  return null;
+}
+
+function AppFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-cream">
+      <span className="text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-charcoal-400">
+        Park Lofts Rent
+      </span>
+    </div>
+  );
 }
 
 const toaster = (
@@ -48,6 +85,7 @@ const routes = [
     path: "/",
     element: (
       <>
+        <LocaleHead />
         {toaster}
         <Layout />
       </>
@@ -81,7 +119,9 @@ if (!rootElement) {
 
     root.render(
       <StrictMode>
-        <RouterProvider router={memoryRouter} />
+        <Suspense fallback={<AppFallback />}>
+          <RouterProvider router={memoryRouter} />
+        </Suspense>
       </StrictMode>,
     );
   } else {
@@ -89,7 +129,9 @@ if (!rootElement) {
 
     root.render(
       <StrictMode>
-        <RouterProvider router={browserRouter} />
+        <Suspense fallback={<AppFallback />}>
+          <RouterProvider router={browserRouter} />
+        </Suspense>
       </StrictMode>,
     );
   }

@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { ImageCarousel } from "../ImageCarousel";
 import type { UnitListing } from "../../lib/unit-types";
 
@@ -12,13 +13,20 @@ const EXPO_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export function UnitCard({ unit, index = 0 }: UnitCardProps) {
   const reduce = useReducedMotion();
-  const priceLabel = unit.pricePerNightUsd.toLocaleString("en-US");
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language?.startsWith("es") ? "es-PY" : "en-US";
+  const priceLabel = unit.pricePerNightUsd.toLocaleString(locale);
 
   const bedroomsLabel =
     unit.bedrooms === 0
-      ? "Studio"
-      : `${unit.bedrooms} ${unit.bedrooms === 1 ? "habitacion" : "habitaciones"}`;
-  const guestsLabel = `${unit.maxGuests} ${unit.maxGuests === 1 ? "huesped" : "huespedes"}`;
+      ? t("unitCard.studio")
+      : t(unit.bedrooms === 1 ? "unitCard.bedroomsSingular" : "unitCard.bedrooms", {
+          count: unit.bedrooms,
+        });
+  const guestsLabel = t(
+    unit.maxGuests === 1 ? "unitCard.guestsSingular" : "unitCard.guests",
+    { count: unit.maxGuests },
+  );
   const meta = [bedroomsLabel, guestsLabel].join(" . ");
 
   return (
@@ -36,7 +44,7 @@ export function UnitCard({ unit, index = 0 }: UnitCardProps) {
 
           <div className="absolute left-4 top-4 flex items-center gap-2 border border-cream/30 bg-charcoal/40 px-3 py-1.5 text-[0.625rem] uppercase tracking-[0.22em] text-cream backdrop-blur-sm">
             <span className="h-1 w-1 rounded-full bg-gold" />
-            Disponible
+            {t("unitCard.available")}
           </div>
         </div>
 
@@ -56,10 +64,10 @@ export function UnitCard({ unit, index = 0 }: UnitCardProps) {
               <span className="font-display text-[1.75rem] font-medium leading-none text-charcoal">
                 ${priceLabel}
               </span>
-              <span className="text-xs font-medium text-charcoal-500">USD / noche</span>
+              <span className="text-xs font-medium text-charcoal-500">{t("unitCard.perNight")}</span>
             </div>
             <span className="pl-link text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-charcoal transition-colors group-hover:text-gold">
-              Ver loft
+              {t("unitCard.viewLoft")}
             </span>
           </div>
         </div>
