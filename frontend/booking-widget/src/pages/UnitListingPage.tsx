@@ -1,34 +1,133 @@
-import { HeroSection } from "../components/sections/home/HeroSection";
-import { StorytellingSection } from "../components/sections/home/StorytellingSection";
-import { FeaturedLoftsSection } from "../components/sections/home/FeaturedLoftsSection";
-import { PhilosophySection } from "../components/sections/home/PhilosophySection";
-import { LocationSection } from "../components/sections/home/LocationSection";
-import { ContactCTASection } from "../components/sections/home/ContactCTASection";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { getUnits } from "../api/units";
+import { useUnitSearchParams } from "../hooks/useUnitSearchParams";
+import { applyFilters } from "../lib/unit-filters";
+import { toUnitListings } from "../lib/unit-mapper";
+import { DEFAULT_FILTERS, type UnitListing } from "../lib/unit-types";
+import { SearchBar } from "../components/search/SearchBar";
+import { FilterBar } from "../components/search/FilterBar";
+import { UnitGrid, UnitGridEmpty, UnitGridSkeleton } from "../components/search/UnitGrid";
 
-// Kept for backward compatibility with UnitCard and PaymentResultPage, which
-// both import this type from here. All runtime data now lives in the
-// FeaturedLoftsSection, which fetches units and maps them to this shape.
-export interface ListingCardData {
-  id: string;
-  title: string;
-  images: string[];
-  pricePerNight: number;
-  subtitle?: string;
-  meta?: string;
-  currencySymbol?: string;
-  originalPricePerNight?: number;
-  cancellationText?: string;
-}
+const EXPO_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export default function UnitListingPage() {
+  const reduce = useReducedMotion();
+  const { filters, setFilters, resetFilters } = useUnitSearchParams();
+  const [units, setUnits] = useState<UnitListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const payload = await getUnits();
+        if (cancelled) return;
+        setUnits(toUnitListings(payload));
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "No pudimos cargar los lofts";
+        setError(message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const visibleUnits = useMemo(() => applyFilters(units, filters), [units, filters]);
+  const totalUnits = units.length;
+  const visibleCount = visibleUnits.length;
+
+  const hasActiveFilters =
+    filters.neighborhoods.length > 0 ||
+    filters.guests != null ||
+    filters.priceMin != null ||
+    filters.priceMax != null ||
+    filters.sort !== "featured" ||
+    Boolean(filters.checkIn || filters.checkOut);
+
+  const heading = loading
+    ? "Lofts en Asuncion"
+    : totalUnits === 0
+    ? "Lofts en Asuncion"
+    : `${visibleCount} loft${visibleCount === 1 ? "" : "s"} en Asuncion`;
+
   return (
     <div className="relative">
-      <HeroSection />
-      <StorytellingSection />
-      <FeaturedLoftsSection />
-      <PhilosophySection />
-      <LocationSection />
-      <ContactCTASection />
+      <section className="border-b border-stone/60 bg-cream pt-10 md:pt-14">
+        <div className="pl-container pb-8 md:pb-10">
+          <motion.div
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EXPO_OUT }}
+            className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
+          >
+            <div>
+              <span className="pl-eyebrow">Park Lofts Rent</span>
+              <h1 className="mt-4 font-display text-4xl leading-[1.05] text-charcoal md:text-5xl lg:text-[3.25rem]">
+                {heading}
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-charcoal-500">
+                Lofts de autor operados directamente por Park Lofts. Reserva con precio en USD y pago
+                en linea.
+              </p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1, ease: EXPO_OUT }}
+            className="mt-7 md:mt-9"
+          >
+            <SearchBar filters={filters} onChange={setFilters} />
+          </motion.div>
+        </div>
+      </section>
+
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        onReset={resetFilters}
+        totalUnits={totalUnits}
+        visibleCount={visibleCount}
+        loading={loading}
+      />
+
+      <section id="results" className="bg-cream pb-24 pt-10 md:pt-14 md:pb-28">
+        <div className="pl-container">
+          {error ? (
+            <div className="border border-stone bg-cream-50 p-12 text-center">
+              <h3 className="font-display text-3xl text-charcoal">Algo salio mal</h3>
+              <p className="mx-auto mt-3 max-w-md text-sm text-charcoal-500">{error}</p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="pl-btn-ghost mt-8"
+              >
+                <span>Reintentar</span>
+              </button>
+            </div>
+          ) : loading ? (
+            <UnitGridSkeleton />
+          ) : visibleCount === 0 ? (
+            <UnitGridEmpty onReset={() => (hasActiveFilters ? resetFilters() : setFilters(DEFAULT_FILTERS))} />
+          ) : (
+            <AnimatePresence mode="popLayout">
+              <UnitGrid units={visibleUnits} />
+            </AnimatePresence>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

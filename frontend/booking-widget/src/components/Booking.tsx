@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useState, useMemo } from "react";
+﻿import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { IoClose, IoChevronBack, IoStar, IoPersonOutline, IoMailOutline, IoCallOutline, IoLocationOutline, IoCheckmarkCircle } from "react-icons/io5";
+import { IoClose, IoChevronBack, IoPersonOutline, IoMailOutline, IoCallOutline, IoLocationOutline, IoCheckmarkCircle } from "react-icons/io5";
 import { FaCreditCard, FaMoneyBillWave } from "react-icons/fa";
 import api from "../api/axios";
 import LoadingOverlay from "./common/LoadingOverlay";
@@ -15,8 +15,6 @@ interface BookingProps {
     listing: {
       id?: string;
       title: string;
-      rating?: number;
-      reviewsCount?: number;
       pricePerNight: number;
       image?: string;
     };
@@ -414,11 +412,9 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     </div>
                     <div className="flex flex-col justify-center">
                       <h4 className="font-bold text-[17px] leading-tight mb-2 line-clamp-2">{bookingData.listing.title}</h4>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <IoStar className="text-[#1A1A1A]" />
-                        <span className="font-bold">{bookingData.listing.rating ?? 0}</span>
-                        <span className="text-gray-400 font-medium">({bookingData.listing.reviewsCount ?? 0} reviews)</span>
-                      </div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-gray-400">
+                        Park Lofts Rent
+                      </p>
                     </div>
                   </div>
 

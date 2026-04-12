@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { type DateRange } from "react-day-picker";
 import ImageShowcase from "../components/ImageShowcase";
@@ -7,6 +7,7 @@ import DynamicModal from "../components/DynamicModal";
 import DatePicker from "../components/DatePicker";
 import ReservationCard from "../components/ReservationCard";
 import Booking from "../components/Booking";
+import { UnitLocationMap } from "../components/unit-detail/UnitLocationMap";
 import { getUnitById, type UnitSummary } from "../api/units";
 
 type OpenModal = "amenities" | "about" | null;
@@ -60,11 +61,17 @@ const asText = (value?: string | null) => (value && value.trim().length > 0 ? va
 
 const normalizeItems = (items?: string[] | null): string[] => {
   if (!Array.isArray(items)) return [];
-  return Array.from(new Set(items.map((item) => item?.trim()).filter((item): item is string => Boolean(item))));
+  return Array.from(
+    new Set(items.map((item) => item?.trim()).filter((item): item is string => Boolean(item))),
+  );
 };
 
 const formatAmenityTitle = (title: string): string => {
-  return title.replace(/_/g, " ").split(" ").map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part)).join(" ");
+  return title
+    .replace(/_/g, " ")
+    .split(" ")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
 };
 
 const getAmenityIcon = (title: string): string => {
@@ -95,12 +102,21 @@ const getAmenityIcon = (title: string): string => {
   if (value.includes("first aid")) return amenityIcons.firstAid;
   if (value.includes("fire extinguisher")) return amenityIcons.fireExtinguisher;
   if (value.includes("carbon monoxide")) return amenityIcons.carbonMonoxide;
-
   return amenityIcons.default;
 };
 
 const mapAmenities = (items: string[]): Amenity[] => {
-  return items.map((title) => ({ title: formatAmenityTitle(title), img: getAmenityIcon(title), available: true }));
+  return items.map((title) => ({
+    title: formatAmenityTitle(title),
+    img: getAmenityIcon(title),
+    available: true,
+  }));
+};
+
+const buildAddressLine = (unit: UnitSummary): string | null => {
+  const parts = [asText(unit.street_address), asText(unit.city), asText(unit.state), asText(unit.country)]
+    .filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(", ") : null;
 };
 
 const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
@@ -112,8 +128,6 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingPayload, setBookingPayload] = useState<any>(null);
-
-  // Shared state for ReservationCard and DatePicker
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [guestState, setGuestState] = useState<GuestState>({ adults: 1, children: 0, infants: 0, pets: 0 });
 
@@ -132,7 +146,9 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
       }
     };
     loadUnit();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [unitId]);
 
   const images = useMemo(() => {
@@ -142,18 +158,18 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
 
   const detailLines = useMemo(() => {
     if (!unit) return [];
-    const location = [asText(unit.city), asText(unit.state), asText(unit.country)].filter(Boolean).join(", ");
+    const location = [asText(unit.neighborhood), asText(unit.city), asText(unit.country)].filter(Boolean).join(", ");
     return [
       location,
       unit.category,
-      `${unit.max_guests} guests · ${unit.bedrooms || 0} bedrooms · ${unit.beds || 0} beds · ${unit.private_bathroom || 0} baths`
+      `${unit.max_guests} huespedes . ${unit.bedrooms || 0} habitaciones . ${unit.beds || 0} camas . ${unit.private_bathroom || 0} banos`,
     ].filter(Boolean) as string[];
   }, [unit]);
 
   const amenitySections = useMemo(() => {
     if (!unit) return [];
     const items = mapAmenities(normalizeItems(unit.amenities));
-    return items.length > 0 ? [{ heading: "What this place offers", items }] : [];
+    return items.length > 0 ? [{ heading: "Servicios incluidos", items }] : [];
   }, [unit]);
 
   const primaryAmenities = amenitySections.flatMap((s) => s.items);
@@ -163,8 +179,6 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
       listing: {
         id: unit?.id,
         title: unit?.name || "",
-        rating: 5,
-        reviewsCount: 12,
         pricePerNight: unit?.weekday_price ?? unit?.nightly_rate_usd ?? 0,
         image: images[0],
       },
@@ -174,43 +188,59 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
     setIsBookingOpen(true);
   };
 
-  const scrollToCalendar = () => {
-    calendarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  if (isLoading) {
+    return (
+      <div className="pl-container py-24">
+        <div className="space-y-6">
+          <div className="h-10 w-2/3 animate-pulse bg-stone" />
+          <div className="h-5 w-1/3 animate-pulse bg-stone" />
+          <div className="aspect-[16/9] w-full animate-pulse bg-stone" />
+        </div>
+      </div>
+    );
+  }
 
-  if (isLoading) return <div className="max-w-5xl mx-auto p-12 text-center text-gray-400">Loading experience...</div>;
-  if (!unit) return <div className="max-w-5xl mx-auto p-12 text-center text-red-500">Unit not found</div>;
+  if (!unit) {
+    return (
+      <div className="pl-container py-24 text-center">
+        <h2 className="font-display text-3xl text-charcoal">Loft no disponible</h2>
+        <p className="mt-3 text-sm text-charcoal-500">El loft que buscas ya no esta publicado.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 md:px-8 lg:px-12 py-8">
       <ImageShowcase images={images} />
 
       <div className="mt-12 flex flex-col lg:flex-row gap-16 relative">
-        {/* Left Column (Scrollable) */}
         <div className="flex-1 space-y-12">
-          <section className="border-b border-gray-100 pb-10">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">{unit.name}</h1>
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-[16px] text-gray-600">
+          <section className="border-b border-stone/60 pb-10">
+            <h1 className="text-3xl font-bold tracking-tight text-charcoal md:text-4xl">{unit.name}</h1>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-[16px] text-charcoal-500">
               {detailLines.map((line, idx) => (
                 <React.Fragment key={idx}>
                   <span>{line}</span>
-                  {idx < detailLines.length - 1 && <span className="text-gray-300">·</span>}
+                  {idx < detailLines.length - 1 && <span className="text-stone-dark">.</span>}
                 </React.Fragment>
               ))}
             </div>
           </section>
 
-          <section className="border-b border-gray-100 pb-10">
-            <h3 className="text-xl font-bold text-gray-900 mb-6">About this space</h3>
-            <p className="text-gray-600 leading-relaxed text-[16px] whitespace-pre-line line-clamp-6">
-              {unit.description || "Welcome to our beautiful space. We hope you enjoy your stay."}
+          <section className="border-b border-stone/60 pb-10">
+            <h3 className="text-xl font-bold text-charcoal mb-6">Sobre este espacio</h3>
+            <p className="text-charcoal-500 leading-relaxed text-[16px] whitespace-pre-line line-clamp-6">
+              {unit.description || "Bienvenido a nuestro loft. Un espacio disenado para estadias cortas sin intermediarios."}
             </p>
-            <button onClick={() => setOpenModal("about")} className="mt-6 font-bold underline flex items-center gap-1 hover:opacity-70 transition-opacity">
-              Show more <span className="text-lg">›</span>
+            <button
+              onClick={() => setOpenModal("about")}
+              className="mt-6 font-bold underline flex items-center gap-1 hover:opacity-70 transition-opacity"
+            >
+              Mostrar mas <span className="text-lg">{">"}</span>
             </button>
           </section>
 
-          <section className="border-b border-gray-100 pb-10">
+          <section className="border-b border-stone/60 pb-10">
             <AmenitiesSection
               amenities={primaryAmenities}
               maxVisible={10}
@@ -219,15 +249,19 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
           </section>
 
           <section className="pb-10" ref={calendarRef}>
-            <DatePicker
-              unitId={unit.id}
-              range={range}
-              onSelectRange={setRange}
-            />
+            <DatePicker unitId={unit.id} range={range} onSelectRange={setRange} />
           </section>
+
+          <UnitLocationMap
+            unitName={unit.name}
+            neighborhood={asText(unit.neighborhood) ?? null}
+            addressLine={buildAddressLine(unit)}
+            latitude={unit.latitude ?? null}
+            longitude={unit.longitude ?? null}
+            googleMapsUrl={unit.google_maps_url ?? null}
+          />
         </div>
 
-        {/* Right Column (Sticky Reservation Card) */}
         <div className="lg:w-[420px] shrink-0">
           <div className="lg:sticky lg:top-28">
             <ReservationCard
@@ -248,17 +282,17 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
       <DynamicModal
         open={openModal === "amenities"}
         onClose={() => setOpenModal(null)}
-        title="What this place offers"
+        title="Servicios incluidos"
         mode="amenities"
-        sections={[{ heading: "Space amenities", items: primaryAmenities }]}
+        sections={[{ heading: "Servicios", items: primaryAmenities }]}
       />
 
       <DynamicModal
         open={openModal === "about"}
         onClose={() => setOpenModal(null)}
-        title="About this space"
+        title="Sobre este espacio"
         mode="text"
-        sections={[{ heading: "The space", paragraphs: [unit.description || ""] }]}
+        sections={[{ heading: "El espacio", paragraphs: [unit.description || ""] }]}
       />
 
       <Booking

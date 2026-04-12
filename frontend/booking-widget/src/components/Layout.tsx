@@ -1,5 +1,4 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { useEffect, useMemo, useState } from "react";
 import { Logo } from "./common/Logo";
 
 const NAV_LINKS = [
@@ -14,16 +13,10 @@ const SOCIAL_LINKS = [
 ];
 
 export function Layout() {
-  const location = useLocation();
-  // Home renders the hero edge-to-edge behind the fixed header; every other
-  // route needs a top offset equal to the header height so the content isn't
-  // stuck under the navbar.
-  const needsOffset = useMemo(() => location.pathname !== "/", [location.pathname]);
-
   return (
     <div className="min-h-screen bg-cream text-charcoal flex flex-col">
       <PLNavbar />
-      <main className={`flex-1 w-full ${needsOffset ? "pt-20 md:pt-24" : ""}`}>
+      <main className="flex-1 w-full pt-20 md:pt-24">
         <Outlet />
       </main>
       <PLFooter />
@@ -32,72 +25,40 @@ export function Layout() {
 }
 
 function PLNavbar() {
-  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const isHome = location.pathname === "/";
-
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 40);
-    handler();
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
-
-  // Only the homepage has a transparent-over-hero navbar. On every other
-  // route the navbar is cream-over-cream because there is no dark hero
-  // underneath it, and inverting the colors would create a floating
-  // unreadable state.
-  const overHero = isHome && !scrolled;
-
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        overHero
-          ? "bg-transparent"
-          : "bg-cream/92 backdrop-blur-md border-b border-stone/60"
-      }`}
-    >
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-stone/60 bg-cream/95 backdrop-blur-md">
       <div className="pl-container flex h-20 items-center justify-between md:h-24">
-        <Logo
-          variant={overHero ? "light" : "dark"}
-          size="md"
-          withBadge
-          linkTo="/"
-        />
+        <Logo variant="dark" size="md" withBadge linkTo="/" />
 
         <nav className="hidden items-center gap-10 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`pl-link text-[0.6875rem] font-medium uppercase tracking-[0.22em] transition-colors duration-300 ${
-                overHero
-                  ? "text-cream/85 hover:text-cream"
-                  : "text-charcoal-500 hover:text-charcoal"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const active = location.pathname === link.to;
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`pl-link text-[0.6875rem] font-medium uppercase tracking-[0.22em] transition-colors duration-300 ${
+                  active ? "text-charcoal" : "text-charcoal-500 hover:text-charcoal"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden md:block">
-          <Link
-            to="/contacto"
-            className={overHero ? "pl-btn-light" : "pl-btn-primary"}
-          >
+          <Link to="/contacto" className="pl-btn-primary">
             <span>Reservar</span>
           </Link>
         </div>
 
-        {/* Mobile: a single CTA to the lofts list, nav collapses to primary */}
         <Link
-          to="/"
-          className={`md:hidden text-[0.6875rem] font-medium uppercase tracking-[0.22em] transition-colors ${
-            overHero ? "text-cream" : "text-charcoal"
-          }`}
+          to="/contacto"
+          className="md:hidden text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-charcoal"
         >
-          Menu
+          Contacto
         </Link>
       </div>
     </header>
@@ -109,16 +70,15 @@ function PLFooter() {
 
   return (
     <footer className="mt-0 border-t border-charcoal-700 bg-charcoal text-cream">
-      <div className="pl-container pt-20 pb-14">
-        <div className="grid gap-14 md:grid-cols-12">
+      <div className="pl-container pt-16 pb-12">
+        <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
             <Logo variant="light" size="md" withBadge linkTo="/" />
-            <p className="mt-8 max-w-sm text-sm leading-relaxed text-cream/60">
+            <p className="mt-7 max-w-sm text-sm leading-relaxed text-cream/60">
               Estancias cortas en lofts de autor. Operadas directamente por Park Lofts, el
               desarrollador detras de los edificios mas reconocidos de Asuncion.
             </p>
-
-            <div className="mt-8 flex items-center gap-4">
+            <div className="mt-7 flex items-center gap-4">
               {SOCIAL_LINKS.map((s) => (
                 <a
                   key={s.href}
@@ -136,7 +96,7 @@ function PLFooter() {
             </div>
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-3">
             <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-cream/40">
               Navegacion
             </div>
@@ -151,35 +111,7 @@ function PLFooter() {
             </ul>
           </div>
 
-          <div className="md:col-span-2">
-            <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-cream/40">
-              Park Lofts
-            </div>
-            <ul className="mt-5 space-y-3 text-sm text-cream/75">
-              <li>
-                <a
-                  href="https://www.parkloftsparaguay.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="pl-link transition-colors hover:text-gold"
-                >
-                  Sitio principal
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://www.parkloftsparaguay.com/projekte/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="pl-link transition-colors hover:text-gold"
-                >
-                  Inversion
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div className="md:col-span-3">
+          <div className="md:col-span-4">
             <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-cream/40">
               Contacto
             </div>
@@ -207,16 +139,8 @@ function PLFooter() {
           </div>
         </div>
 
-        {/* Tagline */}
-        <div className="mt-20 border-t border-charcoal-700 pt-12">
-          <p className="font-display text-2xl italic leading-tight text-cream/55 md:text-4xl">
-            Lofts de autor. Estadia sin intermediarios. Operado por Park Lofts.
-          </p>
-        </div>
-
-        {/* Bottom */}
-        <div className="mt-12 flex flex-col gap-4 border-t border-charcoal-700 pt-8 text-[0.6875rem] uppercase tracking-[0.2em] text-cream/40 md:flex-row md:items-center md:justify-between">
-          <span>&copy; {year} Park Lofts Rent. Todos los derechos reservados.</span>
+        <div className="mt-14 flex flex-col gap-4 border-t border-charcoal-700 pt-8 text-[0.6875rem] uppercase tracking-[0.2em] text-cream/40 md:flex-row md:items-center md:justify-between">
+          <span>&copy; {year}. Todos los derechos reservados.</span>
           <span className="flex items-center gap-2">
             <span className="h-px w-5 bg-gold" />
             Pagos seguros via Bancard

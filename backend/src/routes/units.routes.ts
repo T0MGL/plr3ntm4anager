@@ -12,7 +12,7 @@ router.get('/', async (_req, res) => {
   const { data, error } = await supabasePublic
     .from('units')
     .select(
-      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at'
+      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at, neighborhood, street_address, city, state, country, latitude, longitude, google_maps_url'
     )
     .eq('status', 'active')
     .order('created_at', { ascending: false });
@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
   const { data, error } = await supabasePublic
     .from('units')
     .select(
-      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at'
+      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at, neighborhood, street_address, city, state, country, latitude, longitude, google_maps_url'
     )
     .eq('id', unitId)
     .eq('status', 'active')

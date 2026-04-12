@@ -19,6 +19,10 @@ export type UnitSummary = {
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  neighborhood?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  google_maps_url?: string | null;
   home_precise?: boolean | null;
   bedroom_lock?: boolean | null;
   private_bathroom?: number | null;
