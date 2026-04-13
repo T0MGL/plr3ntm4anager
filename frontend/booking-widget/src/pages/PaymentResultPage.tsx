@@ -124,8 +124,23 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
     booking.payment_status === "preauthorized";
 
   return (
-    <section className="pl-container py-16 md:py-24">
+    <section className="pl-container py-16 md:py-24 print:py-0">
       <div className="mx-auto max-w-4xl">
+        {/* Print-only branded header */}
+        <div className="hidden print:block print:mb-8 print:border-b print:border-stone print:pb-6">
+          <div className="flex items-center gap-3">
+            <img
+              src="https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/logo/park-lofts-logogold.png"
+              alt=""
+              width={32}
+              height={32}
+              className="shrink-0"
+            />
+            <span className="font-display text-xl text-charcoal">Park Lofts</span>
+            <span className="h-4 w-px bg-charcoal/25" />
+            <span className="text-[0.5rem] font-medium uppercase tracking-[0.3em] text-gold">Rent</span>
+          </div>
+        </div>
         {/* Header */}
         <div className="max-w-2xl">
           <span className="pl-gold-rule" />
@@ -232,7 +247,15 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
 
         {/* CTAs */}
         <div className="mt-14 flex flex-col items-start gap-4 md:flex-row md:items-center">
-          <Link to="/" className="pl-btn-primary">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="pl-btn-primary flex items-center gap-2"
+          >
+            <DownloadIcon className="h-4 w-4" />
+            {t("payment.download")}
+          </button>
+          <Link to="/" className="pl-btn-ghost">
             {t("payment.viewOthers")}
           </Link>
           <Link to="/contacto" className="pl-btn-ghost">
@@ -290,6 +313,16 @@ function NextStep({ index, title, body }: { index: string; title: string; body: 
       <h3 className="font-display mt-3 text-2xl leading-tight text-charcoal">{title}</h3>
       <p className="mt-3 text-sm leading-relaxed text-charcoal-500">{body}</p>
     </div>
+  );
+}
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
   );
 }
 

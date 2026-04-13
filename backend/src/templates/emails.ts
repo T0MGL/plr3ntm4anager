@@ -118,6 +118,14 @@ const t: Record<string, Record<Locale, string>> = {
     es: 'Total',
     en: 'Total',
   },
+  'payment.reference': {
+    es: 'Referencia',
+    en: 'Reference',
+  },
+  'payment.nights': {
+    es: 'Noches',
+    en: 'Nights',
+  },
   'payment.closing': {
     es: 'Esperamos recibirte pronto.',
     en: 'We look forward to hosting you.',
@@ -218,14 +226,21 @@ function detailRow(label: string, value: string, isLast = false): string {
 
 export function bookingRequestEmail(params: {
   guestName: string;
+  bookingId: string;
   locale?: string | null;
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
+  const refLabel = locale === 'es' ? 'Tu numero de referencia' : 'Your reference number';
   const subject = get('request.subject', locale);
   const html = wrap(locale, [
     heading(get('request.heading', locale)),
     greeting(params.guestName, locale),
     paragraph(get('request.body', locale)),
+    `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
+      <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>
+      <div style="margin-top:4px;font-family:monospace;font-size:18px;font-weight:600;letter-spacing:0.08em;color:${COLORS.charcoal};">${reference}</div>
+    </div>`,
     closing(get('request.closing', locale)),
   ].join(''));
   return { subject, html };
@@ -269,18 +284,23 @@ export function paymentConfirmedEmail(params: {
   checkIn: string;
   checkOut: string;
   totalUsd: number;
+  nights: number;
+  bookingId: string;
   locale?: string | null;
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
   const subject = get('payment.subject', locale);
   const html = wrap(locale, [
     heading(get('payment.heading', locale)),
     greeting(params.guestName, locale),
     paragraph(get('payment.body', locale)),
     `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:8px 0 16px;">`,
+    detailRow(get('payment.reference', locale), `<span style="font-family:monospace;letter-spacing:0.05em;">${reference}</span>`),
     detailRow(get('payment.unit', locale), params.unitName),
     detailRow(get('payment.checkIn', locale), params.checkIn),
     detailRow(get('payment.checkOut', locale), params.checkOut),
+    detailRow(get('payment.nights', locale), String(params.nights)),
     detailRow(get('payment.total', locale), `$${params.totalUsd.toFixed(2)} USD`, true),
     `</table>`,
     closing(get('payment.closing', locale)),

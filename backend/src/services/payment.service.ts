@@ -431,12 +431,17 @@ export function processBancardConfirmationBackground(
       const unitName = unit?.name ?? 'Park Lofts';
 
       if (result.approved) {
+        const nights = Math.round(
+          (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000
+        );
         const confirmed = paymentConfirmedEmail({
           guestName: booking.guest_name,
           unitName,
           checkIn: booking.check_in_date,
           checkOut: booking.check_out_date,
           totalUsd: booking.total_price_usd,
+          nights,
+          bookingId: result.bookingId,
           locale: booking.locale
         });
         await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);

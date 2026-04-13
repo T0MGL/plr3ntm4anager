@@ -347,6 +347,21 @@ body {
   color: var(--color-charcoal);
 }
 
+@media print {
+  header, footer, nav { display: none !important; }
+  body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pl-btn-primary, .pl-btn-ghost, a[class*="btn"] { display: none !important; }
+  .print\:block { display: block !important; }
+  .print\:hidden { display: none !important; }
+  .print\:py-0 { padding-top: 0 !important; padding-bottom: 0 !important; }
+  .print\:mb-8 { margin-bottom: 2rem !important; }
+  .print\:border-b { border-bottom-width: 1px !important; }
+  .print\:border-stone { border-color: var(--color-stone) !important; }
+  .print\:pb-6 { padding-bottom: 1.5rem !important; }
+  main { padding-top: 0 !important; }
+  section { break-inside: avoid; }
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

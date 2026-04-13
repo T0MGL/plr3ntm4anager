@@ -49,7 +49,7 @@ router.post('/booking-request', bookingRateLimit, validate(bookingSchema), async
     // Respond immediately, email is non-blocking (SMTP may timeout).
     res.json({ booking_id: result.bookingId, status: 'pending' });
 
-    const email = bookingRequestEmail({ guestName: payload.guest_name, locale: payload.locale });
+    const email = bookingRequestEmail({ guestName: payload.guest_name, bookingId: result.bookingId, locale: payload.locale });
     sendEmail(payload.guest_email, email.subject, email.html)
       .catch(() => { /* logged inside sendEmail */ });
   } catch (error: unknown) {
