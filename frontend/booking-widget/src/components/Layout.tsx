@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Logo } from "./common/Logo";
@@ -14,9 +15,18 @@ const SOCIAL_LINKS = [
   { href: "https://x.com/park_lofts", label: "X / Twitter" },
 ] as const;
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export function Layout() {
   return (
     <div className="min-h-screen bg-cream text-charcoal flex flex-col">
+      <ScrollToTop />
       <PLNavbar />
       <main className="flex-1 w-full pt-20 md:pt-24">
         <Outlet />
