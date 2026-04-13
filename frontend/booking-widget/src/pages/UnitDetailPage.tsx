@@ -125,6 +125,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
   const { unitId: urlUnitId } = useParams();
   const unitId = unitIdOverride || urlUnitId;
   const calendarRef = useRef<HTMLDivElement>(null);
+  const mobileReservationRef = useRef<HTMLDivElement>(null);
   const [openModal, setOpenModal] = useState<OpenModal>(null);
   const [unit, setUnit] = useState<UnitSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,6 +133,15 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
   const [bookingPayload, setBookingPayload] = useState<any>(null);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [guestState, setGuestState] = useState<GuestState>({ adults: 1, children: 0, infants: 0, pets: 0 });
+
+  useEffect(() => {
+    if (range?.from && range?.to && mobileReservationRef.current) {
+      const isLg = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isLg) {
+        mobileReservationRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }, [range?.from, range?.to]);
 
   useEffect(() => {
     if (!unitId) return;
@@ -247,16 +257,31 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
             </button>
           </section>
 
+          <section className="pb-10" ref={calendarRef}>
+            <DatePicker unitId={unit.id} range={range} onSelectRange={setRange} />
+          </section>
+
+          {/* Mobile: reservation card immediately after calendar, before amenities */}
+          <div className="lg:hidden" ref={mobileReservationRef}>
+            <ReservationCard
+              unitId={unit.id}
+              nightlyRateUsd={unit.weekday_price ?? unit.nightly_rate_usd ?? 0}
+              maxGuests={unit.max_guests}
+              range={range}
+              onSelectRange={setRange}
+              totalGuests={guestState.adults + guestState.children}
+              guestState={guestState}
+              onUpdateGuests={setGuestState}
+              onReserve={handleReserve}
+            />
+          </div>
+
           <section className="border-b border-stone/60 pb-10">
             <AmenitiesSection
               amenities={primaryAmenities}
               maxVisible={10}
               onShowAll={() => setOpenModal("amenities")}
             />
-          </section>
-
-          <section className="pb-10" ref={calendarRef}>
-            <DatePicker unitId={unit.id} range={range} onSelectRange={setRange} />
           </section>
 
           <UnitLocationMap
@@ -269,7 +294,8 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
           />
         </div>
 
-        <div className="lg:w-[420px] shrink-0">
+        {/* Desktop: sticky sidebar reservation card */}
+        <div className="hidden lg:block lg:w-[420px] shrink-0">
           <div className="lg:sticky lg:top-28">
             <ReservationCard
               unitId={unit.id}
