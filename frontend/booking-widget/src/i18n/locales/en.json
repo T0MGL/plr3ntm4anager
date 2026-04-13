@@ -1,11 +1,11 @@
 {
   "nav": {
-    "lofts": "Lofts",
+    "lofts": "Properties",
     "contact": "Contact",
     "reserve": "Book"
   },
   "footer": {
-    "tagline": "Short stays in signature lofts, run directly by Park Lofts, the developer behind the best known buildings in Asuncion.",
+    "tagline": "Short stays in exclusive properties, run directly by Park Lofts, the developer behind the best known buildings in Asuncion.",
     "navigation": "Navigation",
     "contact": "Contact",
     "rightsReserved": "All rights reserved.",
@@ -20,16 +20,16 @@
   },
   "listing": {
     "eyebrow": "Park Lofts Rent",
-    "headingLoading": "Lofts in Asuncion",
-    "headingCountSingular": "{{count}} loft in Asuncion",
-    "headingCount": "{{count}} lofts in Asuncion",
-    "description": "Signature lofts operated directly by Park Lofts. Book with USD pricing and pay online.",
+    "headingLoading": "Properties in Asuncion",
+    "headingCountSingular": "{{count}} property in Asuncion",
+    "headingCount": "{{count}} properties in Asuncion",
+    "description": "Exclusive properties operated directly by Park Lofts. Book with USD pricing and pay online.",
     "errorTitle": "Something went wrong",
-    "errorFallback": "We could not load the lofts",
+    "errorFallback": "We could not load the properties",
     "retry": "Try again",
     "empty": {
       "title": "No results",
-      "body": "Adjust your filters or try different dates. Every loft is operated directly by Park Lofts.",
+      "body": "Adjust your filters or try different dates. Every property is operated directly by Park Lofts.",
       "reset": "Clear filters"
     }
   },
@@ -48,9 +48,9 @@
   },
   "filterBar": {
     "allNeighborhoods": "All",
-    "loading": "Loading lofts",
-    "countLabelSingular": "{{visible}} of {{total}} loft",
-    "countLabel": "{{visible}} of {{total}} lofts",
+    "loading": "Loading properties",
+    "countLabelSingular": "{{visible}} of {{total}} property",
+    "countLabel": "{{visible}} of {{total}} properties",
     "clearFilters": "Clear filters",
     "clear": "Clear",
     "guestsPlaceholder": "Guests",
@@ -83,7 +83,7 @@
   "unitCard": {
     "available": "Available",
     "perNight": "USD / night",
-    "viewLoft": "View loft",
+    "viewLoft": "View property",
     "studio": "Studio",
     "bedroomsSingular": "{{count}} bedroom",
     "bedrooms": "{{count}} bedrooms",
@@ -91,10 +91,10 @@
     "guests": "{{count}} guests"
   },
   "unitDetail": {
-    "notFoundTitle": "Loft unavailable",
-    "notFoundBody": "The loft you are looking for is no longer listed.",
+    "notFoundTitle": "Property unavailable",
+    "notFoundBody": "The property you are looking for is no longer listed.",
     "aboutHeading": "About this space",
-    "aboutFallback": "Welcome to our loft, a space designed for short stays with no middlemen.",
+    "aboutFallback": "Welcome. A space designed for short stays with no middlemen.",
     "showMore": "Show more",
     "amenitiesHeading": "Included services",
     "amenitiesSection": "Services",
@@ -109,7 +109,7 @@
     "openInMaps": "Open in Maps",
     "openInGoogleMaps": "Open in Google Maps",
     "loadingMap": "Loading map",
-    "fallbackNoKey": "Configure VITE_GOOGLE_MAPS_API_KEY to display the interactive map.",
+    "fallbackNoKey": "",
     "fallbackError": "We could not load the map. Use the button to open Google Maps.",
     "fallbackNoCoords": "Open the exact location in Google Maps.",
     "mapLabel": "Map of {{location}}"
@@ -171,9 +171,9 @@
       "bancard": "Bancard",
       "bancardDesc": "Secure credit or debit card payment.",
       "cash": "Cash on arrival",
-      "cashDesc": "Pay when you check in at the loft.",
+      "cashDesc": "Pay when you check in.",
       "back": "Back",
-      "review": "Review trip"
+      "review": "Review booking"
     },
     "step4": {
       "title": "Review and confirm",
@@ -189,7 +189,7 @@
     },
     "summary": {
       "brand": "Park Lofts Rent",
-      "yourTrip": "Your trip",
+      "yourTrip": "Your stay",
       "dates": "Dates",
       "guests": "Guests",
       "guest": "{{count}} guest",
@@ -210,14 +210,14 @@
   },
   "payment": {
     "errorTitle": "We could not find the booking",
-    "back": "Back to lofts",
+    "back": "Back to properties",
     "contact": "Contact us",
     "confirmedBadge": "Payment confirmed",
     "receivedBadge": "Payment received",
     "thanks": "Thank you, {{name}}.",
     "stayReserved": "Your stay is booked.",
     "emailNotice": "We sent you an email with the full details. Our team will contact you before check-in with the arrival instructions and any request you would like to coordinate.",
-    "reservedLoft": "Reserved loft",
+    "reservedLoft": "Reserved property",
     "checkIn": "Check-in",
     "checkOut": "Check-out",
     "nights": "Nights",
@@ -240,7 +240,7 @@
       "03Body": "If you need to adjust dates or have a special request, write to us before check-in and we will coordinate."
     },
     "download": "Download confirmation",
-    "viewOthers": "See other lofts",
+    "viewOthers": "See other properties",
     "contactTeam": "Contact the team",
     "cancelledTitle": "Payment cancelled",
     "cancelledBody": "The payment was not completed. Close this window and try again."
@@ -258,9 +258,9 @@
     },
     "cta": {
       "eyebrow": "Instant bookings",
-      "title": "Pick your loft and book in minutes",
+      "title": "Pick your property and book in minutes",
       "body": "Our system processes secure Bancard payments and confirms availability instantly.",
-      "button": "View lofts"
+      "button": "View properties"
     }
   },
   "datePicker": {
@@ -275,6 +275,6 @@
   },
   "meta": {
     "title": "Park Lofts Paraguay | Book",
-    "description": "Premium bookings at Park Lofts Paraguay. Luxury lofts in Asuncion with hotel-style service."
+    "description": "Premium bookings at Park Lofts Paraguay. Exclusive properties in Asuncion with hotel-style service."
   }
 }

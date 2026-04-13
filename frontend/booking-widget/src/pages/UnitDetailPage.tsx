@@ -138,7 +138,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
     if (range?.from && range?.to && mobileReservationRef.current) {
       const isLg = window.matchMedia("(min-width: 1024px)").matches;
       if (!isLg) {
-        mobileReservationRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        mobileReservationRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     }
   }, [range?.from, range?.to]);
