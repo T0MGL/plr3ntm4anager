@@ -30,10 +30,10 @@ export default function AppLayout({ items, userEmail, onSignOut, children }: App
   }, [mobileOpen]);
 
   return (
-    <div className="min-h-screen bg-cream text-charcoal">
+    <div className="min-h-screen bg-[#F8FAFC]">
       <aside
-        className="fixed inset-y-0 left-0 z-40 hidden w-[272px] border-r border-stone bg-cream-50 lg:block"
-        aria-label="Navegacion lateral"
+        className="fixed inset-y-0 left-0 z-40 hidden w-[272px] border-r border-[#E5E7EB] bg-white lg:block"
+        aria-label="Sidebar"
       >
         <Sidebar items={items} onSignOut={onSignOut} />
       </aside>
@@ -45,23 +45,21 @@ export default function AppLayout({ items, userEmail, onSignOut, children }: App
           onSignOut={onSignOut}
         />
 
-        <section className="min-h-[calc(100vh-72px)] px-5 py-6 sm:px-8 sm:py-10">
-          {children}
-        </section>
+        <section className="min-h-[calc(100vh-66px)] p-4 sm:p-6">{children}</section>
       </main>
 
       <div
-        className={`fixed inset-0 z-50 bg-charcoal/40 transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 z-50 bg-black/40 transition-opacity lg:hidden ${
           mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setMobileOpen(false)}
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-[60] w-[272px] border-r border-stone bg-cream-50 transition-transform duration-300 lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-[60] w-[272px] border-r border-[#E5E7EB] bg-white transition-transform lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        aria-label="Navegacion movil"
+        aria-label="Mobile navigation"
       >
         <Sidebar items={items} mobile onNavigate={() => setMobileOpen(false)} onSignOut={onSignOut} />
       </aside>

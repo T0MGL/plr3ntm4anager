@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface BookingDetailsProps {
   booking: {
@@ -17,51 +16,42 @@ interface BookingDetailsProps {
 
 export default function BookingDetails({ booking }: BookingDetailsProps) {
   return (
-    <div className="grid gap-4 text-sm text-charcoal-500">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DetailRow label="Huesped" value={booking.guest_name} />
-        <DetailRow label="Correo" value={booking.guest_email} />
-        <DetailRow label="Telefono" value={booking.guest_phone} />
-        <DetailRow label="Estado" value={booking.status} />
+    <div className="grid gap-3 text-sm text-slate-700">
+      <div className="grid gap-1 sm:grid-cols-2">
+        <p>
+          <span className="font-medium text-slate-900">Guest:</span> {booking.guest_name}
+        </p>
+        <p>
+          <span className="font-medium text-slate-900">Email:</span> {booking.guest_email}
+        </p>
+        <p>
+          <span className="font-medium text-slate-900">Phone:</span> {booking.guest_phone}
+        </p>
+        <p>
+          <span className="font-medium text-slate-900">Status:</span> {booking.status}
+        </p>
       </div>
 
-      <div className="border border-stone bg-cream px-4 py-3">
+      <div className="rounded-lg bg-slate-50 p-3 text-slate-700">
         <p>
-          <span className="text-[0.625rem] uppercase tracking-[0.2em] text-charcoal-400">Estancia</span>
-          <br />
-          <span className="text-charcoal">
-            {booking.check_in_date} al {booking.check_out_date}
-          </span>
+          <span className="font-medium text-slate-900">Stay:</span> {booking.check_in_date} to {booking.check_out_date}
         </p>
-        <p className="mt-3">
-          <span className="text-[0.625rem] uppercase tracking-[0.2em] text-charcoal-400">Total</span>
-          <br />
-          <span className="font-display text-2xl text-charcoal">
-            ${booking.total_price_usd.toLocaleString('es-PY')}
-          </span>
+        <p className="mt-1">
+          <span className="font-medium text-slate-900">Total:</span> ${booking.total_price_usd}
         </p>
         {booking.created_at ? (
-          <p className="mt-3 text-[0.6875rem] text-charcoal-400">
-            Solicitada el {format(new Date(booking.created_at), 'dd MMM yyyy, HH:mm', { locale: es })}
+          <p className="mt-1 text-xs text-slate-500">
+            Requested on {format(new Date(booking.created_at), 'MMM dd, yyyy HH:mm')}
           </p>
         ) : null}
       </div>
 
       {booking.special_requests ? (
-        <div className="border border-stone px-4 py-3">
-          <p className="text-[0.625rem] uppercase tracking-[0.2em] text-gold">Solicitudes especiales</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-charcoal">{booking.special_requests}</p>
+        <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+          <p className="font-medium text-slate-900">Special requests</p>
+          <p className="mt-1 whitespace-pre-wrap">{booking.special_requests}</p>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[0.625rem] uppercase tracking-[0.2em] text-charcoal-400">{label}</p>
-      <p className="mt-1 text-sm text-charcoal">{value}</p>
     </div>
   );
 }

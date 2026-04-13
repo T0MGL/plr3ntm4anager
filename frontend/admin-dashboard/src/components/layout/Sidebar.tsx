@@ -18,21 +18,32 @@ export default function Sidebar({
   onSignOut,
 }: SidebarProps) {
   return (
-    <div className="flex h-full flex-col gap-8 px-6 py-8">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-1">
-          <span className="font-display text-2xl tracking-widest text-charcoal">
-            PARK LOFTS
-          </span>
-          <span className="text-[0.5625rem] uppercase tracking-[0.3em] text-gold">
-            Consola de operaciones
-          </span>
+    <div className="flex h-full flex-col gap-3 px-4 py-5">
+      <div className="space-y-2">
+        <div className="flex items-center gap-4">
+          <div
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB] text-xs font-bold tracking-[0.08em] text-white"
+            aria-hidden="true"
+          >
+            AB
+          </div>
+
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="m-0 text-[11px] uppercase tracking-[0.14em] text-[#6B7280]">
+                Airbnb Inspired
+              </p>
+              <h1 className="m-0 text-[15px] font-semibold text-[#111827]">
+                Hosting Admin
+              </h1>
+            </div>
+          )}
         </div>
 
-        <div className="h-px bg-stone" aria-hidden="true" />
+        <div className="-mx-4 h-px bg-[#E5E7EB]" aria-hidden="true" />
       </div>
 
-      <nav className="grid gap-1" aria-label="Main navigation">
+      <nav className="grid gap-1.5 px-1" aria-label="Main navigation">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -43,45 +54,35 @@ export default function Sidebar({
               onClick={onNavigate}
               className={({ isActive }) =>
                 [
-                  "group relative flex min-h-10 items-center gap-3 px-3 py-2.5 text-[0.6875rem] font-medium uppercase tracking-[0.18em] transition-all duration-300",
+                  "relative flex min-h-11 items-center gap-2.5 rounded-xl px-3 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-cream-50 text-charcoal"
-                    : "text-charcoal-400 hover:text-charcoal",
+                    ? "bg-[#EFF6FF] text-[#1D4ED8]"
+                    : "text-[#374151] hover:bg-[#F3F4F6] hover:text-[#111827]",
                 ].join(" ")
               }
               title={collapsed ? item.label : undefined}
             >
-              {({ isActive }) => (
-                <>
-                  <span
-                    className={`absolute left-0 top-2 bottom-2 w-[2px] transition-opacity duration-300 ${
-                      isActive ? "bg-gold opacity-100" : "bg-gold opacity-0"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  <Icon
-                    className="h-[15px] w-[15px] shrink-0"
-                    aria-hidden="true"
-                  />
-                  {!collapsed && (
-                    <span className="whitespace-nowrap">{item.label}</span>
-                  )}
-                </>
+              <span
+                className="absolute -left-[7px] top-2 bottom-2 w-[3px] rounded-full bg-[#2563EB] opacity-0 transition-opacity [.active_&]:opacity-100"
+                aria-hidden="true"
+              />
+              <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+              {!collapsed && (
+                <span className="whitespace-nowrap">{item.label}</span>
               )}
             </NavLink>
           );
         })}
       </nav>
 
-      <div className="mt-auto pt-6">
-        <div className="mb-4 h-px bg-stone" />
+      <div className="mt-auto px-1 pt-1">
         <button
           type="button"
-          className="inline-flex min-h-10 w-full items-center justify-start gap-3 border border-charcoal px-4 text-[0.6875rem] font-medium uppercase tracking-[0.2em] text-charcoal transition-all duration-300 hover:bg-charcoal hover:text-cream"
+          className="inline-flex min-h-11 w-full items-center justify-start gap-2.5 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm font-medium text-[#374151] transition-colors hover:bg-[#F3F4F6]"
           onClick={onSignOut}
         >
-          <FiLogOut aria-hidden="true" className="h-[14px] w-[14px]" />
-          {!collapsed && <span>Cerrar sesion</span>}
+          <FiLogOut aria-hidden="true" />
+          {!collapsed && <span>Sign out</span>}
         </button>
       </div>
     </div>

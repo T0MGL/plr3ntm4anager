@@ -1,4 +1,4 @@
-import { FiMenu } from "react-icons/fi";
+import { FiGrid } from "react-icons/fi";
 
 interface TopbarProps {
   userEmail?: string;
@@ -9,42 +9,33 @@ interface TopbarProps {
 export default function Topbar({ userEmail, onMenuClick, onSignOut }: TopbarProps) {
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between border-b border-stone bg-cream/90 px-5 py-4 backdrop-blur sm:px-8"
+      className="sticky top-0 z-30 flex items-center justify-between border-b border-[#E5E7EB] bg-white/95 px-4 py-3 backdrop-blur sm:px-6"
       role="banner"
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center border border-charcoal/20 text-charcoal transition-colors hover:border-charcoal lg:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#374151] lg:hidden"
           onClick={onMenuClick}
-          aria-label="Abrir menu de navegacion"
+          aria-label="Open navigation menu"
         >
-          <FiMenu className="h-[18px] w-[18px]" aria-hidden="true" />
+          <FiGrid className="h-[18px] w-[18px]" aria-hidden="true" />
         </button>
 
         <div>
-          <p className="m-0 text-[0.5625rem] uppercase tracking-[0.25em] text-gold">
-            Panel
-          </p>
-          <h2 className="m-0 mt-1 font-display text-xl text-charcoal md:text-2xl">
-            Operaciones Park Lofts
-          </h2>
+          <p className="m-0 text-[11px] uppercase tracking-[0.12em] text-[#6B7280]">Admin workspace</p>
+          <h2 className="m-0 text-lg font-semibold text-[#111827] sm:text-[20px]">Hosting Admin Console</h2>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {userEmail ? (
-          <span className="hidden text-xs text-charcoal-500 md:inline">
-            {userEmail}
-          </span>
-        ) : null}
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          className="inline-flex min-h-10 items-center justify-center border border-charcoal px-5 text-[0.6875rem] font-medium uppercase tracking-[0.2em] text-charcoal transition-all duration-300 hover:bg-charcoal hover:text-cream"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#374151] transition-colors hover:bg-[#F3F4F6]"
           onClick={onSignOut}
-          aria-label={userEmail ? `Cerrar sesion de ${userEmail}` : "Cerrar sesion"}
+          aria-label={userEmail ? `Logout ${userEmail}` : "Logout"}
         >
-          Salir
+          Logout
         </button>
       </div>
     </header>

@@ -15,39 +15,39 @@ import { setAuthToken } from './utils/api';
 
 const navItems: LayoutNavItem[] = [
   {
-    label: 'Panel',
+    label: 'Dashboard',
     path: '/',
     icon: FiHome,
-    title: 'Resumen operativo',
-    description: 'Monitorea el desempeno general, estado de los lofts y ultima actividad.',
+    title: 'Operations Overview',
+    description: 'Monitor platform performance, unit health, and latest activity.',
   },
   {
-    label: 'Lofts',
+    label: 'Units',
     path: '/units',
     icon: FiCompass,
-    title: 'Gestion de lofts',
-    description: 'Crea, edita y mantiene el inventario publicado con confianza.',
+    title: 'Unit Management',
+    description: 'Create, update, and maintain listing inventory with confidence.',
   },
   {
-    label: 'Reservas',
+    label: 'Bookings',
     path: '/bookings',
     icon: FiCalendar,
-    title: 'Pipeline de reservas',
-    description: 'Revisa solicitudes, detalles de huespedes y proximos check-ins.',
+    title: 'Booking Pipeline',
+    description: 'Review reservations, guest details, and upcoming check-ins.',
   },
   {
     label: 'Sync',
     path: '/sync',
     icon: FiRefreshCw,
-    title: 'Centro de sincronizacion',
-    description: 'Manten la disponibilidad sincronizada con Airbnb y calendarios externos.',
+    title: 'Sync Center',
+    description: 'Keep availability synchronized across Airbnb and connected calendars.',
   },
   {
-    label: 'Pagos',
+    label: 'Payments',
     path: '/payments',
     icon: FiCreditCard,
-    title: 'Pagos y conciliacion',
-    description: 'Controla las transacciones Bancard y los registros financieros.',
+    title: 'Payments & Reconciliation',
+    description: 'Track payouts and maintain accurate financial records.',
   },
 ];
 
@@ -73,19 +73,14 @@ function Shell() {
 
   if (missingEnv.length > 0) {
     return (
-      <div className="min-h-screen bg-cream p-6 text-charcoal">
-        <div className="mx-auto max-w-2xl border border-stone bg-cream-50 p-8">
-          <span className="inline-block text-[0.625rem] uppercase tracking-[0.25em] text-gold">
-            Configuracion
-          </span>
-          <h1 className="mt-4 font-display text-3xl text-charcoal">
-            Panel no configurado
-          </h1>
-          <p className="mt-4 text-sm text-charcoal-500">
-            Faltan variables de entorno en
-            <span className="font-medium"> frontend/admin-dashboard/.env</span>:
+      <div className="min-h-screen bg-slate-100 p-6 text-slate-900">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="mb-2 text-2xl font-semibold">Admin dashboard is not configured</h1>
+          <p className="mb-4 text-sm text-slate-600">
+            The following environment variables are missing in
+            <span className="font-semibold"> frontend/admin-dashboard/.env</span>:
           </p>
-          <ul className="mt-3 list-disc pl-5 text-sm text-charcoal-500">
+          <ul className="list-disc pl-5 text-sm text-slate-700">
             {missingEnv.map((name) => (
               <li key={name}>{name}</li>
             ))}
@@ -96,7 +91,7 @@ function Shell() {
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-charcoal-500">Cargando...</div>;
+    return <div className="p-6 text-slate-600">Loading...</div>;
   }
 
   if (!user) {
@@ -119,19 +114,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Shell />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#1A1A1A',
-              color: '#F6F2EC',
-              border: '1px solid #C4A96B',
-              borderRadius: 0,
-              fontSize: '0.8125rem',
-              letterSpacing: '0.02em',
-            },
-          }}
-        />
+        <Toaster position="top-right" />
       </BrowserRouter>
     </AuthProvider>
   );
