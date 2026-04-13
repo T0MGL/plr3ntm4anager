@@ -158,7 +158,7 @@ function PLFooter() {
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-10 w-10 items-center justify-center border border-cream/25 text-cream/70 transition-all duration-400 hover:border-gold hover:text-gold"
+                  className="flex h-10 w-10 items-center justify-center text-cream/70 transition-colors duration-300 hover:text-gold"
                   aria-label={s.label}
                 >
                   <SocialIcon name={s.label} />
