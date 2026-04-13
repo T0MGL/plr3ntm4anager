@@ -31,7 +31,7 @@ export function Logo({
   linkTo = "/",
 }: LogoProps) {
   const isDark = variant === "dark";
-  const wordmarkColor = isDark ? "text-charcoal" : "text-cream";
+  const wordmarkColor = isDark ? "text-charcoal/70" : "text-cream";
   const dividerColor = isDark ? "bg-charcoal/25" : "bg-cream/40";
 
   const dimensions = {
