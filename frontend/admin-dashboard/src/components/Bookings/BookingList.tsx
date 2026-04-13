@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import { api } from '../../utils/api';
 import ApprovalButtons from './ApprovalButtons';
 import BookingDetails from './BookingDetails';
@@ -40,6 +43,8 @@ export default function BookingList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingBookingId, setActingBookingId] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [unitFilter, setUnitFilter] = useState<string>('');
 
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -147,13 +152,47 @@ export default function BookingList() {
 
     return bookings.filter((booking) => {
       const unit = booking.units?.name?.toLowerCase() ?? '';
+      const ref = booking.id.slice(0, 8).toLowerCase();
       return (
         booking.guest_name.toLowerCase().includes(term) ||
         booking.guest_email.toLowerCase().includes(term) ||
-        unit.includes(term)
+        unit.includes(term) ||
+        ref.includes(term) ||
+        booking.id.toLowerCase().includes(term)
       );
     });
   }, [bookings, search]);
+
+  const unitNames = useMemo(() => {
+    const names = new Set<string>();
+    bookings.forEach((b) => { if (b.units?.name) names.add(b.units.name); });
+    return Array.from(names).sort();
+  }, [bookings]);
+
+  const displayBookings = useMemo(() => {
+    if (!unitFilter) return filteredBookings;
+    return filteredBookings.filter((b) => b.units?.name === unitFilter);
+  }, [filteredBookings, unitFilter]);
+
+  const calendarEvents = useMemo(() => {
+    return displayBookings.map((b) => {
+      const colors: Record<string, string> = {
+        pending: '#f59e0b',
+        approved: '#3b82f6',
+        paid: '#10b981',
+        rejected: '#ef4444',
+      };
+      return {
+        id: b.id,
+        title: `${b.units?.name ?? 'Unit'} / ${b.guest_name} (${b.id.slice(0, 8).toUpperCase()})`,
+        start: b.check_in_date,
+        end: b.check_out_date,
+        backgroundColor: colors[b.status] ?? '#64748b',
+        borderColor: 'transparent',
+        textColor: '#fff',
+      };
+    });
+  }, [displayBookings]);
 
   return (
     <div className="grid gap-4">
@@ -184,7 +223,7 @@ export default function BookingList() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search guest, email, or unit"
+          placeholder="Search by ref, guest, email, or unit"
           className="w-full min-w-[230px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <select
@@ -198,6 +237,30 @@ export default function BookingList() {
           <option value="rejected">Rejected</option>
           <option value="paid">Paid</option>
         </select>
+        <select
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          value={unitFilter}
+          onChange={(e) => setUnitFilter(e.target.value)}
+        >
+          <option value="">All units</option>
+          {unitNames.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          <button
+            className={`px-3 py-2 text-sm font-medium ${view === 'list' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+            onClick={() => setView('list')}
+          >
+            List
+          </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium ${view === 'calendar' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+            onClick={() => setView('calendar')}
+          >
+            Calendar
+          </button>
+        </div>
         <button
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
           onClick={() => void fetchBookings()}
@@ -211,13 +274,28 @@ export default function BookingList() {
 
       {isLoading ? <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Loading bookings...</div> : null}
 
-      {!isLoading && filteredBookings.length === 0 ? (
+      {!isLoading && displayBookings.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">No bookings found for current filters.</div>
       ) : null}
 
-      {!isLoading ? (
+      {!isLoading && view === 'calendar' ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            events={calendarEvents}
+            height="auto"
+            headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' }}
+            eventDisplay="block"
+            eventBorderColor="transparent"
+            dayMaxEvents={3}
+          />
+        </div>
+      ) : null}
+
+      {!isLoading && view === 'list' ? (
         <div className="grid gap-3">
-          {filteredBookings.map((booking) => {
+          {displayBookings.map((booking) => {
             const created = booking.created_at
               ? formatDistanceToNow(parseISO(booking.created_at), { addSuffix: true })
               : null;
