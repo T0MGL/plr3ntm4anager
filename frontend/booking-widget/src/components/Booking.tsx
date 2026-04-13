@@ -133,44 +133,44 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
   return (
     <>
     <AnimatePresence>
-      <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-md">
+      <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-black/60 sm:p-6 backdrop-blur-md">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 30 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 30 }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 30 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-[1150px] h-[92vh] overflow-hidden bg-white rounded-[2rem] shadow-2xl flex flex-col font-sans text-[#222222]"
+          className="relative w-full max-w-[1150px] h-[100dvh] sm:h-[92vh] overflow-hidden bg-white sm:rounded-[2rem] shadow-2xl flex flex-col font-sans text-[#222222]"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100 shrink-0 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-            <div className="flex items-center gap-5">
+          <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100 shrink-0 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex items-center gap-3 sm:gap-5 min-w-0">
               <button
                 onClick={onClose}
-                className="p-2.5 hover:bg-gray-100 rounded-full transition-all active:scale-95"
+                className="p-2 sm:p-2.5 hover:bg-gray-100 rounded-full transition-all active:scale-95 shrink-0"
                 aria-label={t("common.close")}
               >
-                <IoClose className="text-2xl" />
+                <IoClose className="text-xl sm:text-2xl" />
               </button>
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">{t("booking.title")}</h2>
-                <p className="text-sm text-gray-500 font-medium">{t("booking.subtitle")}</p>
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-2xl font-bold tracking-tight truncate">{t("booking.title")}</h2>
+                <p className="text-xs sm:text-sm text-gray-500 font-medium hidden sm:block">{t("booking.subtitle")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="flex gap-1">
                 {[1, 2, 3, 4].map((s) => (
-                  <div key={s} className={`h-1.5 w-8 rounded-full transition-all duration-300 ${s <= activeStep ? "bg-[#1A1A1A]" : "bg-gray-100"}`} />
+                  <div key={s} className={`h-1.5 w-5 sm:w-8 rounded-full transition-all duration-300 ${s <= activeStep ? "bg-[#1A1A1A]" : "bg-gray-100"}`} />
                 ))}
               </div>
-              <span className="text-sm font-bold text-[#1A1A1A] ml-2">
+              <span className="text-xs sm:text-sm font-bold text-[#1A1A1A]">
                 {t("booking.stepIndicator", { current: activeStep, total: 4 })}
               </span>
             </div>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 p-8 lg:p-12">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 p-4 sm:p-8 lg:p-12">
 
               {/* Left Column: Flow */}
               <div className="lg:col-span-12 xl:col-span-7 space-y-8">
@@ -188,7 +188,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-gray-50/50 p-6 rounded-3xl border border-gray-100"
+                      className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 bg-gray-50/50 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-gray-100"
                     >
                       <div className="relative">
                         <IoPersonOutline className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />

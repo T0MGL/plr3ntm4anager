@@ -54,6 +54,7 @@ html {
 html, body {
   background-color: var(--color-cream);
   color: var(--color-charcoal);
+  overflow-x: hidden;
 }
 
 body {
