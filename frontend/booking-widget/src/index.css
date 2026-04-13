@@ -169,6 +169,7 @@ body {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   border: 1px solid;
+  border-radius: 6px;
   overflow: hidden;
   transition: color 400ms var(--ease-expo), border-color 400ms var(--ease-expo);
   cursor: pointer;

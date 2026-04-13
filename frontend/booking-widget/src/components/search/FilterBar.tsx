@@ -127,7 +127,7 @@ export function FilterBar({
 
 function chipClass(active: boolean): string {
   return [
-    "whitespace-nowrap border px-4 py-2 text-[0.6875rem] font-medium uppercase tracking-[0.2em] transition-all duration-300",
+    "whitespace-nowrap rounded-full border px-4 py-2 text-[0.6875rem] font-medium uppercase tracking-[0.2em] transition-all duration-300",
     active
       ? "border-charcoal bg-charcoal text-cream"
       : "border-stone-dark/60 bg-cream text-charcoal-500 hover:border-charcoal hover:text-charcoal",
@@ -186,7 +186,7 @@ function GuestsDropdown({ value, onChange }: GuestsDropdownProps) {
         <IoChevronDown className="h-3 w-3" aria-hidden />
       </button>
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64 border border-stone-dark/50 bg-cream p-5 shadow-2xl shadow-charcoal/10">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64 rounded-xl border border-stone-dark/50 bg-cream p-5 shadow-2xl shadow-charcoal/10">
           <div className="flex items-center justify-between">
             <div>
               <div className="font-display text-lg text-charcoal">
@@ -299,7 +299,7 @@ function PriceDropdown({ min, max, onChange }: PriceDropdownProps) {
         <IoChevronDown className="h-3 w-3" aria-hidden />
       </button>
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[320px] border border-stone-dark/50 bg-cream p-5 shadow-2xl shadow-charcoal/10">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-[320px] rounded-xl border border-stone-dark/50 bg-cream p-5 shadow-2xl shadow-charcoal/10">
           <div className="flex items-center justify-between">
             <div className="font-display text-lg text-charcoal">
               {t("filterBar.priceModal.title")}
@@ -384,7 +384,7 @@ function SortDropdown({ value, onChange }: SortDropdownProps) {
       {open ? (
         <div
           role="listbox"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 border border-stone-dark/50 bg-cream p-2 shadow-2xl shadow-charcoal/10"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border border-stone-dark/50 bg-cream p-2 shadow-2xl shadow-charcoal/10"
         >
           {SORT_KEYS.map((opt) => {
             const isSelected = opt.value === value;
@@ -415,7 +415,7 @@ function SortDropdown({ value, onChange }: SortDropdownProps) {
 
 function dropdownTriggerClass(active: boolean): string {
   return [
-    "flex items-center gap-2 border px-4 py-2 text-[0.6875rem] font-medium uppercase tracking-[0.2em] transition-all duration-300",
+    "flex items-center gap-2 rounded-full border px-4 py-2 text-[0.6875rem] font-medium uppercase tracking-[0.2em] transition-all duration-300",
     active
       ? "border-charcoal bg-charcoal text-cream"
       : "border-stone-dark/60 bg-cream text-charcoal-500 hover:border-charcoal hover:text-charcoal",

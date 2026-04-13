@@ -11,7 +11,7 @@ type SearchBarProps = {
 export function SearchBar({ filters, onChange }: SearchBarProps) {
   const { t } = useTranslation();
   return (
-    <div className="border border-stone-dark/40 bg-cream-50 p-4 md:p-5">
+    <div className="rounded-xl border border-stone-dark/40 bg-cream-50 p-4 md:p-5">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-stretch">
         <DateRangePopover
           checkIn={filters.checkIn}

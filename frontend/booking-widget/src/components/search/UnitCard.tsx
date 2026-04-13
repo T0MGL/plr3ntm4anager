@@ -38,11 +38,11 @@ export function UnitCard({ unit, index = 0 }: UnitCardProps) {
       className="group"
     >
       <Link to={`/${unit.id}`} className="block">
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-stone">
           <ImageCarousel images={unit.images} alt={unit.name} rounded={false} />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-charcoal/45 via-charcoal/0 to-charcoal/0 opacity-80 transition-opacity duration-500 group-hover:opacity-100" />
 
-          <div className="absolute left-4 top-4 flex items-center gap-2 border border-cream/30 bg-charcoal/40 px-3 py-1.5 text-[0.625rem] uppercase tracking-[0.22em] text-cream backdrop-blur-sm">
+          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-md border border-cream/30 bg-charcoal/40 px-3 py-1.5 text-[0.625rem] uppercase tracking-[0.22em] text-cream backdrop-blur-sm">
             <span className="h-1 w-1 rounded-full bg-gold" />
             {t("unitCard.available")}
           </div>
