@@ -23,8 +23,8 @@ export default function Topbar({ userEmail, onMenuClick, onSignOut }: TopbarProp
         </button>
 
         <div>
-          <p className="m-0 text-[11px] uppercase tracking-[0.12em] text-[#6B7280]">Admin workspace</p>
-          <h2 className="m-0 text-lg font-semibold text-[#111827] sm:text-[20px]">Hosting Admin Console</h2>
+          <p className="m-0 text-[11px] uppercase tracking-[0.12em] text-[#6B7280]">Park Lofts</p>
+          <h2 className="m-0 text-lg font-semibold text-[#111827] sm:text-[20px]">Rent Admin</h2>
         </div>
       </div>
 

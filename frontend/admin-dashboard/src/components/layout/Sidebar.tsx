@@ -21,20 +21,19 @@ export default function Sidebar({
     <div className="flex h-full flex-col gap-3 px-4 py-5">
       <div className="space-y-2">
         <div className="flex items-center gap-4">
-          <div
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2563EB] text-xs font-bold tracking-[0.08em] text-white"
-            aria-hidden="true"
-          >
-            AB
-          </div>
+          <img
+            src="https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/logo/park-lofts-logogold.png"
+            alt="Park Lofts"
+            className="h-10 w-10 rounded-xl object-contain"
+          />
 
           {!collapsed && (
             <div className="min-w-0">
               <p className="m-0 text-[11px] uppercase tracking-[0.14em] text-[#6B7280]">
-                Airbnb Inspired
+                Park Lofts
               </p>
               <h1 className="m-0 text-[15px] font-semibold text-[#111827]">
-                Hosting Admin
+                Rent Admin
               </h1>
             </div>
           )}

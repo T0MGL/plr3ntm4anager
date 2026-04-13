@@ -26,12 +26,12 @@ export default function Login() {
     <div className="login-shell">
       <div className="login-panel">
         <div className="login-panel-inner">
-          <div className="login-badge">Airbnb Admin</div>
+          <div className="login-badge">Park Lofts Rent</div>
           <h1 className="login-title">
-            Manage bookings with confidence and a calm, focused workspace.
+            Operaciones que mantienen cada loft impecable.
           </h1>
           <p className="login-subtitle">
-            Keep listings, reservations, and payments in sync across your portfolio.
+            Gestion de reservas, pagos Bancard y sincronizacion de disponibilidad en un solo lugar.
           </p>
 
           <div className="login-stats">
@@ -95,7 +95,7 @@ export default function Login() {
                 {...register('password')}
                 type="password"
                 className="login-input"
-                placeholder="••••••••"
+                placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                 autoComplete="current-password"
               />
               {errors.password && <p className="login-error">{errors.password.message}</p>}
