@@ -52,7 +52,7 @@ export function Logo({
         aria-hidden
       />
       <span
-        className={`font-display font-medium leading-none tracking-[-0.01em] ${dimensions.wordmark} ${wordmarkColor}`}
+        className={`font-sans font-semibold leading-none tracking-[0.01em] ${dimensions.wordmark} ${wordmarkColor}`}
       >
         Park Lofts
       </span>
