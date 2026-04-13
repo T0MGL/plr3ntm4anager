@@ -227,7 +227,7 @@ export default function BookingList() {
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h3 className="text-base font-semibold text-slate-900">{booking.units?.name ?? 'Unit'}</h3>
-                    <p className="text-xs text-slate-500">Booking ID: {booking.id}</p>
+                    <p className="text-xs text-slate-500">Ref: {booking.id.slice(0, 8).toUpperCase()}</p>
                     {created ? <p className="text-xs text-slate-500">Requested {created}</p> : null}
                   </div>
                   <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusChipClass(booking.status)}`}>

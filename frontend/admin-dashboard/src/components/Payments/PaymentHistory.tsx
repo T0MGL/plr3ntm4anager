@@ -193,7 +193,7 @@ export default function PaymentHistory() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap py-2 pr-4 font-medium text-slate-900">${payment.amount_usd}</td>
-                    <td className="max-w-[220px] py-2 pr-4 text-xs text-slate-600" title={payment.booking_id}>{payment.booking_id}</td>
+                    <td className="max-w-[220px] py-2 pr-4 text-xs font-mono text-slate-600" title={payment.booking_id}>{payment.booking_id.slice(0, 8).toUpperCase()}</td>
                     <td className="py-2 pr-4 text-slate-600">{payment.payment_method ?? '-'}</td>
                     <td className="max-w-[220px] py-2 pr-4 text-xs text-slate-600" title={payment.bancard_transaction_id ?? '-'}>
                       {payment.bancard_transaction_id ?? '-'}

@@ -161,9 +161,7 @@ function PLFooter() {
                   className="flex h-10 w-10 items-center justify-center border border-cream/25 text-cream/70 transition-all duration-400 hover:border-gold hover:text-gold"
                   aria-label={s.label}
                 >
-                  <span className="text-[0.625rem] font-medium uppercase tracking-[0.15em]">
-                    {s.label[0]}
-                  </span>
+                  <SocialIcon name={s.label} />
                 </a>
               ))}
             </div>
@@ -247,4 +245,32 @@ function PLFooter() {
       </div>
     </footer>
   );
+}
+
+function SocialIcon({ name }: { name: string }) {
+  const cls = "h-4 w-4";
+  switch (name) {
+    case "Instagram":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={cls} aria-hidden>
+          <rect x="2" y="2" width="20" height="20" rx="5" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "Facebook":
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={cls} aria-hidden>
+          <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+        </svg>
+      );
+    case "X / Twitter":
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={cls} aria-hidden>
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      );
+    default:
+      return <span className="text-[0.625rem] font-medium uppercase">{name[0]}</span>;
+  }
 }
