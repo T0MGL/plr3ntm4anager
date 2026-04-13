@@ -23,9 +23,8 @@ const SafetyDetails = ({ onValidityChange, onDataChange }) => {
   }, []);
 
   const safetyOptions = [
-    { id: "security_camera", label: "Exterior security camera present" },
-    { id: "noise_monitor", label: "Noise decibel monitor present" },
-    { id: "weapons", label: "Weapon(s) on the property" },
+    { id: "security_camera", label: "Camara de seguridad exterior" },
+    { id: "noise_monitor", label: "Monitor de decibeles" },
   ];
 
   const toggleItem = (id) => {
@@ -48,7 +47,7 @@ const SafetyDetails = ({ onValidityChange, onDataChange }) => {
         className="mb-5"
       >
         <h1 className="text-3xl md:text-3xl font-semibold text-secondary tracking-tight">
-          Share safety details
+          Detalles de seguridad
         </h1>
       </motion.div>
 
@@ -56,7 +55,7 @@ const SafetyDetails = ({ onValidityChange, onDataChange }) => {
       <div className="space-y-2 mb-10">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xl font-semibold text-secondary">
-            Does your place have any of these?
+            ¿Tu propiedad tiene alguno de estos?
           </span>
           <HiOutlineInformationCircle className="text-xl text-forth cursor-pointer" />
         </div>
@@ -80,7 +79,7 @@ const SafetyDetails = ({ onValidityChange, onDataChange }) => {
                 <div
                   className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all ${
                     isSelected
-                      ? "bg-primary border-primary"
+                      ? "bg-[#222222] border-[#222222]"
                       : "bg-white border-[#DDDDDD] group-hover:border-[#222222]"
                   }`}
                 >
