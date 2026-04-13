@@ -68,10 +68,10 @@ const WeekendPrice: React.FC<WeekendPriceProps> = ({ onValidityChange, onDataCha
         className="mb-8 md:mb-10 w-full max-w-2xl"
       >
         <h1 className="text-2xl md:text-3xl font-semibold text-[#222222] tracking-tight text-center">
-          Set a weekend price
+          Precio de fin de semana
         </h1>
         <p className="text-[#717171] text-base md:text-lg text-center mt-2">
-          Add a premium for Fridays and Saturdays.
+          Agrega un premium para viernes y sabados.
         </p>
       </motion.div>
 
@@ -90,8 +90,8 @@ const WeekendPrice: React.FC<WeekendPriceProps> = ({ onValidityChange, onDataCha
       <div className="w-full max-w-[500px] mt-12 md:mt-auto pt-10 pb-8">
         <div className="flex items-center justify-between mb-8">
           <div className="text-left">
-            <h3 className="text-[17px] font-semibold text-[#222222]">Weekend premium</h3>
-            <p className="text-[#717171] text-[15px]">Tip: Try 8%</p>
+            <h3 className="text-[17px] font-semibold text-[#222222]">Premium fin de semana</h3>
+            <p className="text-[#717171] text-[15px]">Sugerencia: 8%</p>
           </div>
           <div className="w-[80px] ml-0 h-[54px] border border-gray-200 rounded-[12px] flex items-center justify-center text-[18px] font-semibold text-[#222222] focus-within:border-[#222222] transition-all bg-white shadow-sm overflow-hidden">
             <input

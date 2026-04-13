@@ -8,8 +8,8 @@ import toast from "react-hot-toast";
 
 const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
   const [basePrice, setBasePrice] = useState(19);
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [tempPrice, setTempPrice] = useState(19);
+  const [showPriceModal, setShowPriceModal] = useState(true);
+  const [tempPrice, setTempPrice] = useState("19");
 
   useEffect(() => {
     const loadData = async () => {
@@ -17,7 +17,7 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
         const savedData = await StorageService.getItem("step 3 weekday price");
         if (savedData && savedData.price) {
           setBasePrice(Number(savedData.price));
-          setTempPrice(Number(savedData.price));
+          setTempPrice(String(savedData.price));
         }
       } catch (err) {
         console.error("Failed to load weekday price:", err);
@@ -38,14 +38,14 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
   }, [basePrice, onValidityChange, onDataChange]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto md:px-6 flex flex-col items-center justify-center  text-center">
+    <div className="w-full max-w-4xl mx-auto md:px-6 flex flex-col items-center justify-center text-center">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="mb-8 md:mb-16 mt-5 w-full max-w-2xl"
       >
         <h1 className="text-2xl md:text-[32px] font-semibold text-[#222222] tracking-tight text-center">
-          Now, set a weekday base price
+          Precio base entre semana
         </h1>
       </motion.div>
 
@@ -56,7 +56,7 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
           </span>
           <button
             onClick={() => {
-              setTempPrice(basePrice.toString());
+              setTempPrice(String(basePrice));
               setShowPriceModal(true);
             }}
             className="w-10 h-10 md:w-12 md:h-12 flex-shrink-0 rounded-full border border-gray-200 hover:border-gray-800 hover:bg-gray-50 transition-all flex items-center justify-center shadow-sm"
@@ -76,6 +76,7 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+                onClick={() => setShowPriceModal(false)}
               />
               <motion.div
                 key="price-modal"
@@ -87,10 +88,10 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
               >
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-[#222222]">
-                    Set base price
+                    Precio por noche
                   </h2>
                   <p className="text-[#717171] text-[15px]">
-                    Set your weekday price per night.
+                    Precio USD entre semana (lunes a viernes).
                   </p>
                 </div>
 
@@ -122,11 +123,11 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
                   <button
                     onClick={() => {
                       setShowPriceModal(false);
-                      setTempPrice(basePrice);
+                      setTempPrice(String(basePrice));
                     }}
                     className="flex-1 py-4 px-6 border border-gray-300 rounded-2xl font-bold text-[#222222] hover:bg-gray-50 active:scale-95 transition-all"
                   >
-                    Cancel
+                    Cancelar
                   </button>
                   <button
                     onClick={() => {
@@ -135,14 +136,14 @@ const WeekdayPrice = ({ onValidityChange, onDataChange }) => {
                         setBasePrice(val);
                         setShowPriceModal(false);
                       } else if (val < 10) {
-                        toast.error("Price must be at least $10");
+                        toast.error("El precio debe ser al menos $10");
                       } else {
-                        toast.error("Price cannot exceed $10,000,000");
+                        toast.error("El precio no puede exceder $10,000,000");
                       }
                     }}
-                    className="flex-1 py-4 px-6 bg-primary text-white font-bold rounded-2xl hover:bg-primary/90 shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                    className="flex-1 py-4 px-6 bg-[#222222] text-white font-bold rounded-2xl hover:bg-[#333333] shadow-lg active:scale-95 transition-all"
                   >
-                    Save
+                    Guardar
                   </button>
                 </div>
               </motion.div>
