@@ -96,7 +96,6 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
   const screens = [
     "step1-intro",
     "step1-place-type",
-    "step1-place-type2",
     "step1-location1",
     "step1-basics",
     "step1-bathroom-types",
