@@ -213,26 +213,40 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
 
             {calendarOpen && (
               <div
-                ref={calendarRef}
-                className="absolute top-[-20px] right-0 lg:right-[-20px] z-[100] bg-white border border-gray-200 shadow-[0_10px_40px_rgba(0,0,0,0.2)] rounded-3xl p-8 w-[95vw] sm:w-[500px] lg:w-[850px] animate-in fade-in zoom-in-95 duration-200 origin-top-right"
+                className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setCalendarOpen(false);
+                }}
               >
-                <div className="flex justify-end mb-4">
-                  <button
-                    onClick={() => setCalendarOpen(false)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label={t("common.close")}
-                  >
-                    <IoCloseOutline className="text-2xl" />
-                  </button>
-                </div>
-                <DatePicker unitId={unitId} range={range} onSelectRange={onSelectRange} />
-                <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={() => setCalendarOpen(false)}
-                    className="bg-black text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
-                  >
-                    {t("reservationCard.close")}
-                  </button>
+                <div
+                  ref={calendarRef}
+                  className="bg-white shadow-2xl w-full sm:max-w-[560px] lg:max-w-[860px] max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-[#222222]">{t("datePicker.selectDates")}</h3>
+                    <button
+                      onClick={() => setCalendarOpen(false)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label={t("common.close")}
+                    >
+                      <IoCloseOutline className="text-2xl" />
+                    </button>
+                  </div>
+                  <DatePicker unitId={unitId} range={range} onSelectRange={onSelectRange} hideHeader />
+                  <div className="mt-6 flex justify-between items-center border-t border-gray-100 pt-5">
+                    <button
+                      onClick={() => onSelectRange(undefined)}
+                      className="text-sm font-semibold text-[#222222] underline"
+                    >
+                      {t("datePicker.clearDates")}
+                    </button>
+                    <button
+                      onClick={() => setCalendarOpen(false)}
+                      className="bg-black text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
+                    >
+                      {t("reservationCard.close")}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

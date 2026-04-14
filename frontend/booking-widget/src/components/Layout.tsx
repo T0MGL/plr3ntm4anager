@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type MouseEvent } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Logo } from "./common/Logo";
@@ -62,11 +62,7 @@ function PLNavbar() {
           })}
         </nav>
 
-        <div className="hidden md:block">
-          <Link to="/contacto" className="pl-btn-primary">
-            <span>{t("nav.reserve")}</span>
-          </Link>
-        </div>
+        <ReserveButton />
 
         <Link
           to="/contacto"
@@ -76,6 +72,36 @@ function PLNavbar() {
         </Link>
       </div>
     </header>
+  );
+}
+
+function ReserveButton() {
+  const location = useLocation();
+  const { t } = useTranslation();
+
+  const isUnitDetail =
+    location.pathname !== "/" &&
+    location.pathname !== "/contacto" &&
+    !location.pathname.startsWith("/payment");
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isUnitDetail) return;
+    event.preventDefault();
+    const isLg = window.matchMedia("(min-width: 1024px)").matches;
+    const target = document.getElementById(
+      isLg ? "reservation-card-desktop" : "reservation-card-mobile",
+    );
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  return (
+    <div className="hidden md:block">
+      <Link to={isUnitDetail ? "#reservation-card" : "/"} onClick={handleClick} className="pl-btn-primary">
+        <span>{t("nav.reserve")}</span>
+      </Link>
+    </div>
   );
 }
 

@@ -262,7 +262,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
           </section>
 
           {/* Mobile: reservation card immediately after calendar, before amenities */}
-          <div className="lg:hidden" ref={mobileReservationRef}>
+          <div id="reservation-card-mobile" className="lg:hidden scroll-mt-24" ref={mobileReservationRef}>
             <ReservationCard
               unitId={unit.id}
               nightlyRateUsd={unit.weekday_price ?? unit.nightly_rate_usd ?? 0}
@@ -295,7 +295,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
         </div>
 
         {/* Desktop: sticky sidebar reservation card */}
-        <div className="hidden lg:block lg:w-[420px] shrink-0">
+        <div id="reservation-card-desktop" className="hidden lg:block lg:w-[420px] shrink-0 scroll-mt-28">
           <div className="lg:sticky lg:top-28">
             <ReservationCard
               unitId={unit.id}
