@@ -19,6 +19,20 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   ADMIN_DASHBOARD_URL: z.string().url(),
   SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
+  // Dual-path approval threshold. A booking whose most recent successful Airbnb
+  // sync is younger than this (measured at decision time) is eligible for the
+  // auto path, which captures the card immediately. Older syncs route to the
+  // manual path (preauthorization + admin review). 30 minutes is the default
+  // agreed with Park Lofts because that is roughly one full iCal poll window
+  // plus a small buffer, so most legitimate requests still auto-approve.
+  AUTO_APPROVE_SYNC_FRESHNESS_MIN: z.coerce.number().int().min(5).max(240).default(30),
+  // Alert cron threshold. A preauthorized booking sitting on the manual path
+  // for longer than this without an admin decision is flagged so we can unwind
+  // the auth hold before it expires on the issuer side (Bancard typically
+  // honors a preauth for 7 days, we alert earlier to leave a margin).
+  PREAUTH_STUCK_ALERT_DAYS: z.coerce.number().int().min(1).max(14).default(5),
+  // Operational mailbox that receives stuck-preauth alerts.
+  ALERT_EMAIL_TO: z.string().email().optional(),
   JWT_SECRET: z.string().min(32),
   // stub    -> local dev, no Bancard calls
   // staging -> Bancard staging env (https://vpos.infonet.com.py:8888)

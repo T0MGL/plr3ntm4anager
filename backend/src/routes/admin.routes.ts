@@ -6,13 +6,20 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { manualSyncRateLimit } from '../middleware/rate-limit.middleware';
 import { supabaseAdmin } from '../config/supabase';
-import { BookingStatus } from '../types';
+import { BookingStatus, PaymentStatus } from '../types';
 import { capturePaymentForBooking, rollbackPayment } from '../services/payment.service';
+import { recheckAvailabilityOrFail } from '../services/approval-routing.service';
 import { sendEmail } from '../services/email.service';
-import { bookingApprovedEmail, bookingRejectedEmail } from '../templates/emails';
+import {
+  bookingApprovedEmail,
+  bookingConflictRejectionEmail,
+  bookingRejectedEmail,
+  paymentConfirmedEmail
+} from '../templates/emails';
 import { syncAllUnits, syncUnit } from '../services/ical-sync.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
+import { nightsBetween } from '../utils/date.utils';
 
 const router = Router();
 
@@ -48,6 +55,34 @@ router.get('/units/:id', async (req, res) => {
 
   return res.json(data);
 });
+
+/**
+ * POST /api/admin/units/:id/regenerate-ical-token
+ *
+ * Rotates the public iCal feed token for a unit. The previous token stops
+ * working the moment the new one is persisted, so Airbnb will receive a 404
+ * on the next poll until the operator updates the Import URL in Airbnb with
+ * the new token. That is intentional and the whole point of rotation: when a
+ * token leaks, the only way to cut off access is to invalidate it.
+ */
+router.post('/units/:id/regenerate-ical-token', async (req, res) => {
+  const unitId = req.params.id;
+
+  const { data, error } = await supabaseAdmin
+    .from('units')
+    .update({ ical_feed_token: uuidv4() })
+    .eq('id', unitId)
+    .select('ical_feed_token')
+    .single();
+
+  if (error || !data) {
+    logger.error('Failed to regenerate iCal token', { error: error?.message, unitId });
+    return res.status(500).json({ error: 'Failed to regenerate iCal token' });
+  }
+
+  return res.json({ ical_feed_token: data.ical_feed_token });
+});
+
 router.get('/booking-requests', async (req, res) => {
   const status = req.query.status as string | undefined;
   const limit = Number(req.query.limit ?? 20);
@@ -74,13 +109,30 @@ router.get('/booking-requests', async (req, res) => {
 
 const approveSchema = z.object({ params: z.object({ id: z.string().uuid() }) });
 
+// POST /admin/booking-requests/:id/approve
+//
+// Manual-path approval. Re-runs the same availability checks as the widget so
+// a booking that has been sitting in the queue cannot slip past a conflict
+// that appeared during that window. Flow:
+//
+//   1. Load the booking and its unit.
+//   2. Run recheckAvailabilityOrFail(): inline iCal sync + DB availability
+//      query. If the dates are no longer free, we rollback the preauth, mark
+//      the booking rejected, email the guest with explicit refund language,
+//      and return 409.
+//   3. Otherwise capture the preauth (or no-op for already-paid auto-path),
+//      mark the booking Paid/Approved, and send the final payment confirmed
+//      email with trip details.
+
 router.post('/booking-requests/:id/approve', validate(approveSchema), async (req, res) => {
   const bookingId = req.params.id;
   const userId = res.locals.user?.id as string;
 
   const { data: booking, error: bookingError } = await supabaseAdmin
     .from('booking_requests')
-    .select('id, guest_email, guest_name, status, locale')
+    .select(
+      'id, guest_email, guest_name, status, locale, unit_id, check_in_date, check_out_date, total_price_usd, approval_path'
+    )
     .eq('id', bookingId)
     .single();
 
@@ -92,7 +144,71 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
     return res.status(400).json({ error: 'Booking is not pending' });
   }
 
-  const { error: updateError } = await supabaseAdmin
+  const { data: unit, error: unitError } = await supabaseAdmin
+    .from('units')
+    .select('id, name, airbnb_ical_url')
+    .eq('id', booking.unit_id)
+    .single();
+
+  if (unitError || !unit) {
+    logger.error('Approve: unit lookup failed', { booking_id: bookingId, error: unitError?.message });
+    return res.status(500).json({ error: 'Unit lookup failed' });
+  }
+
+  const recheck = await recheckAvailabilityOrFail(
+    unit.id,
+    unit.airbnb_ical_url ?? null,
+    booking.check_in_date,
+    booking.check_out_date
+  );
+
+  if (!recheck.available) {
+    logger.warn('Approve: availability recheck failed, rolling back', {
+      booking_id: bookingId,
+      reason: recheck.reason
+    });
+
+    try {
+      await rollbackPayment(bookingId);
+    } catch (rollbackErr: unknown) {
+      const msg = rollbackErr instanceof Error ? rollbackErr.message : 'Rollback failed';
+      logger.error('Approve: rollback after conflict failed', { booking_id: bookingId, error: msg });
+    }
+
+    const { error: rejectError } = await supabaseAdmin
+      .from('booking_requests')
+      .update({
+        status: BookingStatus.Rejected,
+        rejected_at: new Date().toISOString(),
+        rejection_reason:
+          recheck.reason === 'dates_conflict'
+            ? 'Conflict detected during admin approval recheck'
+            : 'Availability check failed during admin approval',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookingId);
+
+    if (rejectError) {
+      logger.error('Approve: failed to mark booking rejected after conflict', {
+        booking_id: bookingId,
+        error: rejectError.message
+      });
+    }
+
+    const conflictEmail = bookingConflictRejectionEmail({
+      guestName: booking.guest_name,
+      bookingId,
+      locale: booking.locale
+    });
+    await sendEmail(booking.guest_email, conflictEmail.subject, conflictEmail.html);
+
+    return res.status(409).json({
+      error: 'Availability conflict detected during approval recheck',
+      reason: recheck.reason
+    });
+  }
+
+  const { error: approvedError } = await supabaseAdmin
     .from('booking_requests')
     .update({
       status: BookingStatus.Approved,
@@ -102,17 +218,68 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
     })
     .eq('id', bookingId);
 
-  if (updateError) {
-    logger.error('Failed to approve booking', { error: updateError.message });
+  if (approvedError) {
+    logger.error('Approve: failed to flip booking to approved', {
+      booking_id: bookingId,
+      error: approvedError.message
+    });
     return res.status(500).json({ error: 'Failed to approve booking' });
   }
 
-  await capturePaymentForBooking(bookingId);
+  try {
+    await capturePaymentForBooking(bookingId);
+  } catch (captureErr: unknown) {
+    const msg = captureErr instanceof Error ? captureErr.message : 'Capture failed';
+    logger.error('Approve: capture failed after approval flip', {
+      booking_id: bookingId,
+      error: msg
+    });
 
-  const approvedEmail = bookingApprovedEmail({ guestName: booking.guest_name, locale: booking.locale });
-  await sendEmail(booking.guest_email, approvedEmail.subject, approvedEmail.html);
+    // Revert booking state so the row does not sit in an inconsistent state
+    // while the admin retries.
+    await supabaseAdmin
+      .from('booking_requests')
+      .update({
+        status: BookingStatus.Pending,
+        approved_at: null,
+        approved_by: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookingId);
 
-  return res.json({ success: true });
+    return res.status(502).json({ error: `Payment capture failed: ${msg}` });
+  }
+
+  // Prefer the rich payment-confirmed email when we have the data to render
+  // it; fall back to the generic approved email for legacy bookings that did
+  // not record an approval path.
+  const { data: payment } = await supabaseAdmin
+    .from('payments')
+    .select('payment_status')
+    .eq('booking_id', bookingId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (payment?.payment_status === PaymentStatus.Completed) {
+    const nights = nightsBetween(booking.check_in_date, booking.check_out_date);
+    const confirmed = paymentConfirmedEmail({
+      guestName: booking.guest_name,
+      unitName: unit.name ?? 'Park Lofts',
+      checkIn: booking.check_in_date,
+      checkOut: booking.check_out_date,
+      totalUsd: Number(booking.total_price_usd),
+      nights,
+      bookingId,
+      locale: booking.locale
+    });
+    await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);
+  } else {
+    const approvedEmail = bookingApprovedEmail({ guestName: booking.guest_name, locale: booking.locale });
+    await sendEmail(booking.guest_email, approvedEmail.subject, approvedEmail.html);
+  }
+
+  return res.json({ success: true, approval_path: booking.approval_path ?? null });
 });
 
 const rejectSchema = z.object({

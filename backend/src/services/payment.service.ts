@@ -5,7 +5,11 @@ import { env } from '../config/env';
 import { BookingStatus, PaymentStatus } from '../types';
 import { logger } from '../config/logger';
 import { sendEmail } from './email.service';
-import { paymentConfirmedEmail, paymentFailedEmail } from '../templates/emails';
+import {
+  bookingUnderReviewEmail,
+  paymentConfirmedEmail,
+  paymentFailedEmail
+} from '../templates/emails';
 
 // Bancard VPOS 2.0 Token Generation (MD5)
 // Spec: Token is always MD5 (32 chars). Numbers must be strings with 2 decimals.
@@ -413,12 +417,39 @@ export function processBancardConfirmationBackground(
 
       const { data: booking } = await supabaseAdmin
         .from('booking_requests')
-        .select('guest_email, guest_name, check_in_date, check_out_date, total_price_usd, unit_id, locale')
+        .select(
+          'guest_email, guest_name, check_in_date, check_out_date, total_price_usd, unit_id, locale, approval_path'
+        )
         .eq('id', result.bookingId)
         .single();
 
       if (!booking?.guest_email) {
         logger.warn('No guest email for payment confirmation', { booking_id: result.bookingId });
+        return;
+      }
+
+      if (!result.approved) {
+        const failed = paymentFailedEmail({ guestName: booking.guest_name, locale: booking.locale });
+        await sendEmail(booking.guest_email, failed.subject, failed.html);
+        return;
+      }
+
+      // Dual-path routing for the success email.
+      //
+      // auto:   card was captured (preauthorization=false). Send the final
+      //         payment-confirmed receipt with full trip details.
+      // manual: card was preauthorized only. Send the under-review email so
+      //         the guest knows there is no charge yet and we are still
+      //         verifying. The payment-confirmed email is sent from
+      //         admin.routes.ts /approve when the preauth is captured.
+
+      if (booking.approval_path === 'manual') {
+        const underReview = bookingUnderReviewEmail({
+          guestName: booking.guest_name,
+          bookingId: result.bookingId,
+          locale: booking.locale
+        });
+        await sendEmail(booking.guest_email, underReview.subject, underReview.html);
         return;
       }
 
@@ -429,26 +460,21 @@ export function processBancardConfirmationBackground(
         .single();
 
       const unitName = unit?.name ?? 'Park Lofts';
-
-      if (result.approved) {
-        const nights = Math.round(
-          (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000
-        );
-        const confirmed = paymentConfirmedEmail({
-          guestName: booking.guest_name,
-          unitName,
-          checkIn: booking.check_in_date,
-          checkOut: booking.check_out_date,
-          totalUsd: booking.total_price_usd,
-          nights,
-          bookingId: result.bookingId,
-          locale: booking.locale
-        });
-        await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);
-      } else {
-        const failed = paymentFailedEmail({ guestName: booking.guest_name, locale: booking.locale });
-        await sendEmail(booking.guest_email, failed.subject, failed.html);
-      }
+      const nights = Math.round(
+        (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) /
+          86400000
+      );
+      const confirmed = paymentConfirmedEmail({
+        guestName: booking.guest_name,
+        unitName,
+        checkIn: booking.check_in_date,
+        checkOut: booking.check_out_date,
+        totalUsd: booking.total_price_usd,
+        nights,
+        bookingId: result.bookingId,
+        locale: booking.locale
+      });
+      await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);
     } catch (err) {
       logger.error('Bancard confirmation background job failed', {
         error: err instanceof Error ? err.message : 'unknown',

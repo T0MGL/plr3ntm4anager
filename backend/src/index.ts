@@ -1,3 +1,10 @@
+import { initSentry, Sentry } from './config/sentry';
+
+// Sentry must be initialized before any other module is imported so it can
+// wrap Node's async hooks and capture errors thrown at import time or inside
+// the first tick of the event loop.
+initSentry();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -11,6 +18,7 @@ import adminRoutes from './routes/admin.routes';
 import paymentRoutes from './routes/payment.routes';
 import icalRoutes from './routes/ical.routes';
 import { startIcalCron } from './jobs/ical-cron';
+import { startStuckPreauthAlertCron } from './jobs/stuck-preauth-alert';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -32,9 +40,21 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 
+// Allowlist the two frontends we ship (widget + admin dashboard). Anything else
+// is rejected at the CORS layer so a stolen JWT cannot be replayed from an
+// attacker origin with credentials. Origin null covers curl, healthchecks, and
+// same-origin server-to-server calls, none of which carry cookies.
+const corsAllowlist = new Set([env.FRONTEND_URL, env.ADMIN_DASHBOARD_URL]);
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin || corsAllowlist.has(origin)) {
+        return callback(null, true);
+      }
+      logger.warn('CORS blocked origin', { origin });
+      return callback(new Error('Origin not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -105,6 +125,10 @@ app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+if (env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 app.use(
   (
     err: unknown,
@@ -128,4 +152,5 @@ app.listen(env.PORT, () => {
     payment_mode: env.PAYMENT_MODE
   });
   startIcalCron();
+  startStuckPreauthAlertCron();
 });

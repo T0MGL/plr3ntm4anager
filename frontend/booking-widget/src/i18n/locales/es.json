@@ -148,42 +148,26 @@
     "step1": {
       "title": "Tus datos",
       "fullName": "Nombre completo",
-      "email": "Correo electronico",
-      "phone": "Telefono",
-      "address": "Direccion (opcional)",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "address": "Dirección (opcional)",
       "continue": "Continuar al pago",
-      "missingField": "Completa los campos requeridos",
-      "invalidInfo": "Revisa tus datos antes de continuar",
+      "missingField": "Completá los campos requeridos",
+      "invalidInfo": "Revisá tus datos antes de continuar",
       "summaryFallback": "Sin datos",
       "change": "Editar"
     },
     "step2": {
-      "title": "Elige cuando pagar",
-      "payFull": "Paga ${{price}} ahora",
-      "payFullDesc": "Paga el total y confirma tu reserva al instante.",
-      "payPart": "Paga una parte ahora, el resto despues",
-      "payPartDesc": "Reserva con un deposito inicial.",
-      "back": "Volver",
-      "continue": "Continuar"
-    },
-    "step3": {
-      "title": "Metodo de pago",
-      "bancard": "Bancard",
-      "bancardDesc": "Pago seguro con tarjeta de credito o debito.",
-      "cash": "Efectivo al llegar",
-      "cashDesc": "Paga al hacer el check-in.",
-      "back": "Volver",
-      "review": "Revisar reserva"
-    },
-    "step4": {
-      "title": "Revisar y confirmar",
+      "title": "Revisar y pagar",
+      "method": "Bancard",
+      "methodDesc": "Pago seguro con tarjeta de crédito o débito.",
       "summaryHeading": "Resumen final",
-      "guestLabel": "Huesped",
-      "paymentLabel": "Pago",
-      "legal": "Al seleccionar el boton debajo aceptas las {{rules}}, {{safety}} y {{cancellation}}.",
+      "guestLabel": "Huésped",
+      "totalLabel": "Total",
+      "legal": "Al confirmar aceptás las {{rules}}, {{safety}} y la {{cancellation}}.",
       "houseRules": "normas de la propiedad",
-      "safetyDisclosures": "politicas de seguridad",
-      "cancellationPolicy": "politica de cancelacion",
+      "safetyDisclosures": "políticas de seguridad",
+      "cancellationPolicy": "política de cancelación",
       "back": "Volver",
       "confirm": "Confirmar y pagar"
     },
@@ -203,9 +187,8 @@
     },
     "loading": "Preparando pago seguro...",
     "errors": {
-      "createFailed": "No pudimos procesar la reserva. Intenta nuevamente.",
-      "missingProcessId": "Error al iniciar el pago. Contacta al equipo.",
-      "cashConfirmed": "Reserva recibida. Podes pagar en efectivo al hacer el check-in."
+      "createFailed": "No pudimos procesar la reserva. Intentá nuevamente.",
+      "missingProcessId": "Error al iniciar el pago. Contactá al equipo."
     }
   },
   "payment": {

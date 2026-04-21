@@ -19,8 +19,8 @@ function resolveLocale(raw?: string | null): Locale {
 const t: Record<string, Record<Locale, string>> = {
   // Shared
   'footer.address': {
-    es: 'Asuncion, Paraguay',
-    en: 'Asuncion, Paraguay',
+    es: 'Asunción, Paraguay',
+    en: 'Asunción, Paraguay',
   },
   'footer.contact': {
     es: 'reservas@parkloftsparaguay.com | +595 981 587 588',
@@ -41,7 +41,7 @@ const t: Record<string, Record<Locale, string>> = {
     en: 'Request received',
   },
   'request.body': {
-    es: 'Recibimos tu solicitud de reserva y esta pendiente de revision. Te enviaremos un email una vez que sea aprobada.',
+    es: 'Recibimos tu solicitud de reserva y está pendiente de revisión. Te enviaremos un correo una vez que sea aprobada.',
     en: 'We received your booking request and it is now pending review. You will receive an email once it has been approved.',
   },
   'request.closing': {
@@ -49,7 +49,7 @@ const t: Record<string, Record<Locale, string>> = {
     en: 'Thank you for choosing Park Lofts.',
   },
 
-  // Booking approved
+  // Booking approved (legacy path, kept for backward compatibility)
   'approved.subject': {
     es: 'Reserva aprobada',
     en: 'Booking approved',
@@ -59,7 +59,7 @@ const t: Record<string, Record<Locale, string>> = {
     en: 'Booking approved',
   },
   'approved.body': {
-    es: 'Tu reserva ha sido aprobada y tu pago ha sido procesado.',
+    es: 'Tu reserva fue aprobada y tu pago fue procesado.',
     en: 'Your booking has been approved and your payment has been processed.',
   },
   'approved.closing': {
@@ -67,26 +67,78 @@ const t: Record<string, Record<Locale, string>> = {
     en: 'We look forward to hosting you.',
   },
 
-  // Booking rejected
+  // Booking rejected (manual rejection by admin, generic)
   'rejected.subject': {
-    es: 'Actualizacion de reserva',
+    es: 'Actualización de reserva',
     en: 'Booking update',
   },
   'rejected.heading': {
-    es: 'Actualizacion de reserva',
+    es: 'Actualización de reserva',
     en: 'Booking update',
   },
   'rejected.body': {
-    es: 'Lamentablemente, no podemos acomodar tu solicitud de reserva.',
-    en: 'Unfortunately, we are unable to accommodate your booking request.',
+    es: 'Lamentablemente no podemos confirmar tu solicitud de reserva.',
+    en: 'Unfortunately we are unable to confirm your booking request.',
   },
   'rejected.reason': {
     es: 'Motivo',
     en: 'Reason',
   },
   'rejected.closing': {
-    es: 'Si tienes alguna consulta, no dudes en contactarnos.',
+    es: 'Si tenés alguna consulta, no dudes en escribirnos.',
     en: 'If you have any questions, please do not hesitate to reach out.',
+  },
+
+  // Conflict rejection (explicit refund language to prevent panic)
+  'conflict.subject': {
+    es: 'No pudimos confirmar tu reserva',
+    en: 'We could not confirm your booking',
+  },
+  'conflict.heading': {
+    es: 'No pudimos confirmar tu reserva',
+    en: 'We could not confirm your booking',
+  },
+  'conflict.body': {
+    es: 'Tu solicitud llegó casi al mismo tiempo que otra reserva para las mismas fechas y, lamentablemente, no pudimos confirmarla.',
+    en: 'Your request arrived at nearly the same time as another booking for the same dates, and unfortunately we were unable to confirm yours.',
+  },
+  'conflict.refund': {
+    es: 'Revertimos el cobro en este momento. El reintegro aparece en tu tarjeta en un plazo estimado de 5 a 10 días hábiles, según el tiempo de procesamiento de tu banco.',
+    en: 'We have reversed the charge. The refund will appear on your card within an estimated 5 to 10 business days, depending on your bank\'s processing time.',
+  },
+  'conflict.nextSteps': {
+    es: 'Si querés, podemos ayudarte a encontrar otras fechas o unidades disponibles. Respondé a este correo y te asistimos de inmediato.',
+    en: 'If you would like, we can help you find other dates or available units. Reply to this email and we will assist you right away.',
+  },
+  'conflict.closing': {
+    es: 'Gracias por tu paciencia.',
+    en: 'Thank you for your patience.',
+  },
+
+  // Under review (manual path, preauthorization placed)
+  'underReview.subject': {
+    es: 'Estamos verificando tu reserva',
+    en: 'We are verifying your booking',
+  },
+  'underReview.heading': {
+    es: 'Estamos verificando tu reserva',
+    en: 'We are verifying your booking',
+  },
+  'underReview.body': {
+    es: 'Tu tarjeta tiene una autorización temporal por el monto de la reserva mientras confirmamos la disponibilidad. No se realizó un cobro todavía.',
+    en: 'Your card has a temporary authorization for the amount of the booking while we confirm availability. No charge has been completed yet.',
+  },
+  'underReview.timeline': {
+    es: 'Normalmente confirmamos dentro de las próximas horas. Te avisamos por correo apenas esté resuelto.',
+    en: 'We usually confirm within the next few hours. We will email you as soon as it is resolved.',
+  },
+  'underReview.ifConflict': {
+    es: 'Si por algún motivo no podemos confirmar las fechas, liberamos la autorización y no se te cobra nada.',
+    en: 'If for any reason we cannot confirm the dates, we release the authorization and nothing is charged.',
+  },
+  'underReview.closing': {
+    es: 'Gracias por confiar en Park Lofts.',
+    en: 'Thank you for trusting Park Lofts.',
   },
 
   // Payment confirmed
@@ -99,7 +151,7 @@ const t: Record<string, Record<Locale, string>> = {
     en: 'Payment confirmed',
   },
   'payment.body': {
-    es: 'Tu pago ha sido procesado exitosamente. Aqui estan los detalles de tu reserva:',
+    es: 'Tu pago fue procesado con éxito. Estos son los detalles de tu reserva:',
     en: 'Your payment has been processed successfully. Here are your reservation details:',
   },
   'payment.unit': {
@@ -141,11 +193,11 @@ const t: Record<string, Record<Locale, string>> = {
     en: 'Payment not processed',
   },
   'paymentFailed.body': {
-    es: 'Tu pago no pudo ser procesado. Esto puede ocurrir si la tarjeta fue rechazada o la transaccion expiro.',
+    es: 'Tu pago no pudo ser procesado. Esto puede ocurrir si la tarjeta fue rechazada o la transacción expiró.',
     en: 'Your payment could not be processed. This can happen if the card was declined or the transaction timed out.',
   },
   'paymentFailed.closing': {
-    es: 'Podes intentar nuevamente desde tu link de reserva, o contactanos si necesitas asistencia.',
+    es: 'Podés intentar nuevamente desde tu link de reserva, o escribinos si necesitás asistencia.',
     en: 'You can try again from your booking link, or contact us if you need assistance.',
   },
 };
@@ -210,6 +262,10 @@ function paragraph(text: string): string {
   return `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:${COLORS.charcoal};">${text}</p>`;
 }
 
+function infoBlock(text: string, accent: string = COLORS.gold): string {
+  return `<div style="margin:16px 0 20px;padding:14px 18px;background-color:${COLORS.cream};border-left:3px solid ${accent};font-size:14px;line-height:1.6;color:${COLORS.charcoal};">${text}</div>`;
+}
+
 function closing(text: string): string {
   return `<p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:${COLORS.gray};">${text}</p>`;
 }
@@ -222,7 +278,7 @@ function detailRow(label: string, value: string, isLast = false): string {
   </tr>`;
 }
 
-// ─── PUBLIC API ──────────────────────────────────────────────────────────
+// Public API
 
 export function bookingRequestEmail(params: {
   guestName: string;
@@ -231,7 +287,7 @@ export function bookingRequestEmail(params: {
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
   const reference = params.bookingId.slice(0, 8).toUpperCase();
-  const refLabel = locale === 'es' ? 'Tu numero de referencia' : 'Your reference number';
+  const refLabel = locale === 'es' ? 'Tu número de referencia' : 'Your reference number';
   const subject = get('request.subject', locale);
   const html = wrap(locale, [
     heading(get('request.heading', locale)),
@@ -278,6 +334,54 @@ export function bookingRejectedEmail(params: {
   return { subject, html };
 }
 
+export function bookingUnderReviewEmail(params: {
+  guestName: string;
+  bookingId: string;
+  locale?: string | null;
+}): { subject: string; html: string } {
+  const locale = resolveLocale(params.locale);
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
+  const refLabel = locale === 'es' ? 'Referencia' : 'Reference';
+  const subject = get('underReview.subject', locale);
+  const html = wrap(locale, [
+    heading(get('underReview.heading', locale)),
+    greeting(params.guestName, locale),
+    paragraph(get('underReview.body', locale)),
+    paragraph(get('underReview.timeline', locale)),
+    infoBlock(get('underReview.ifConflict', locale)),
+    `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
+      <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>
+      <div style="margin-top:4px;font-family:monospace;font-size:18px;font-weight:600;letter-spacing:0.08em;color:${COLORS.charcoal};">${reference}</div>
+    </div>`,
+    closing(get('underReview.closing', locale)),
+  ].join(''));
+  return { subject, html };
+}
+
+export function bookingConflictRejectionEmail(params: {
+  guestName: string;
+  bookingId: string;
+  locale?: string | null;
+}): { subject: string; html: string } {
+  const locale = resolveLocale(params.locale);
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
+  const refLabel = locale === 'es' ? 'Referencia' : 'Reference';
+  const subject = get('conflict.subject', locale);
+  const html = wrap(locale, [
+    heading(get('conflict.heading', locale)),
+    greeting(params.guestName, locale),
+    paragraph(get('conflict.body', locale)),
+    infoBlock(get('conflict.refund', locale)),
+    paragraph(get('conflict.nextSteps', locale)),
+    `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
+      <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>
+      <div style="margin-top:4px;font-family:monospace;font-size:18px;font-weight:600;letter-spacing:0.08em;color:${COLORS.charcoal};">${reference}</div>
+    </div>`,
+    closing(get('conflict.closing', locale)),
+  ].join(''));
+  return { subject, html };
+}
+
 export function paymentConfirmedEmail(params: {
   guestName: string;
   unitName: string;
@@ -320,5 +424,56 @@ export function paymentFailedEmail(params: {
     paragraph(get('paymentFailed.body', locale)),
     closing(get('paymentFailed.closing', locale)),
   ].join(''));
+  return { subject, html };
+}
+
+export function stuckPreauthInternalAlertEmail(params: {
+  bookings: Array<{
+    bookingId: string;
+    guestName: string;
+    unitName: string;
+    checkIn: string;
+    checkOut: string;
+    createdAt: string;
+    ageDays: number;
+  }>;
+  thresholdDays: number;
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const count = params.bookings.length;
+  const subject = `[Park Lofts] ${count} preautorización(es) sin resolver > ${params.thresholdDays} días`;
+
+  const rows = params.bookings
+    .map(
+      (b) => `<tr>
+        <td style="padding:8px 10px;border-bottom:1px solid ${COLORS.border};font-family:monospace;font-size:12px;color:${COLORS.charcoal};">${b.bookingId.slice(0, 8).toUpperCase()}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid ${COLORS.border};font-size:13px;color:${COLORS.charcoal};">${b.unitName}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid ${COLORS.border};font-size:13px;color:${COLORS.charcoal};">${b.guestName}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid ${COLORS.border};font-size:13px;color:${COLORS.charcoal};">${b.checkIn} → ${b.checkOut}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid ${COLORS.border};font-size:13px;text-align:right;color:${COLORS.charcoal};">${b.ageDays}d</td>
+      </tr>`
+    )
+    .join('');
+
+  const html = wrap('es', [
+    heading('Preautorizaciones sin resolver'),
+    paragraph(
+      `Hay ${count} reserva(s) en el flujo manual con una preautorización pendiente por más de ${params.thresholdDays} días. Revisá el dashboard y resolvé (aprobar o rechazar) antes de que la autorización expire en el banco emisor.`
+    ),
+    `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:8px 0 16px;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.gray};border-bottom:2px solid ${COLORS.border};">Ref</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.gray};border-bottom:2px solid ${COLORS.border};">Unidad</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.gray};border-bottom:2px solid ${COLORS.border};">Huésped</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.gray};border-bottom:2px solid ${COLORS.border};">Fechas</th>
+          <th style="text-align:right;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.gray};border-bottom:2px solid ${COLORS.border};">Antigüedad</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`,
+    `<p style="margin:24px 0 0;"><a href="${params.dashboardUrl}" style="display:inline-block;padding:12px 20px;background-color:${COLORS.charcoal};color:${COLORS.cream};text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Abrir dashboard</a></p>`,
+  ].join(''));
+
   return { subject, html };
 }
