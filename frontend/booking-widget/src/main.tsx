@@ -1,5 +1,17 @@
+import * as Sentry from "@sentry/react";
 import { StrictMode, Suspense, useEffect } from "react";
 import { createRoot } from "react-dom/client";
+
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: import.meta.env.MODE,
+    tracesSampleRate: import.meta.env.PROD ? 0.1 : 0,
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: import.meta.env.PROD ? 1 : 0,
+  });
+}
 import {
   RouterProvider,
   createBrowserRouter,

@@ -55,6 +55,34 @@ router.get('/units/:id', async (req, res) => {
 
   return res.json(data);
 });
+
+/**
+ * POST /api/admin/units/:id/regenerate-ical-token
+ *
+ * Rotates the public iCal feed token for a unit. The previous token stops
+ * working the moment the new one is persisted, so Airbnb will receive a 404
+ * on the next poll until the operator updates the Import URL in Airbnb with
+ * the new token. That is intentional and the whole point of rotation: when a
+ * token leaks, the only way to cut off access is to invalidate it.
+ */
+router.post('/units/:id/regenerate-ical-token', async (req, res) => {
+  const unitId = req.params.id;
+
+  const { data, error } = await supabaseAdmin
+    .from('units')
+    .update({ ical_feed_token: uuidv4() })
+    .eq('id', unitId)
+    .select('ical_feed_token')
+    .single();
+
+  if (error || !data) {
+    logger.error('Failed to regenerate iCal token', { error: error?.message, unitId });
+    return res.status(500).json({ error: 'Failed to regenerate iCal token' });
+  }
+
+  return res.json({ ical_feed_token: data.ical_feed_token });
+});
+
 router.get('/booking-requests', async (req, res) => {
   const status = req.query.status as string | undefined;
   const limit = Number(req.query.limit ?? 20);

@@ -12,6 +12,7 @@
         "format": "prettier --write ."
     },
     "dependencies": {
+        "@sentry/node": "^10.49.0",
         "@supabase/supabase-js": "^2.47.0",
         "axios": "^1.6.8",
         "cors": "^2.8.5",

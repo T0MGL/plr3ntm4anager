@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import UnitCard from './UnitCard';
+import IcalFeedPanel from './IcalFeedPanel';
 import { api } from '../../utils/api';
 import { supabase } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -13,6 +14,7 @@ export interface UnitRow {
   max_guests: number;
   airbnb_listing_url: string | null;
   airbnb_ical_url: string;
+  ical_feed_token: string;
   image_urls: string[] | null;
   category?: string | null;
   place_type?: string | null;
@@ -115,29 +117,41 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
       <section className="space-y-4" aria-label="Unit listings">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {units.map((unit) => (
-            <UnitCard
-              key={unit.id}
-              name={unit.name}
-              description={unit.description}
-              imageUrl={unit.image_urls?.[0] ?? null}
-              nightlyRate={unit.nightly_rate_usd}
-              maxGuests={unit.max_guests}
-              status={unit.status}
-              onEdit={async () => {
-                if (!onEditUnit) {
-                  return;
-                }
+            <div key={unit.id} className="space-y-3">
+              <UnitCard
+                name={unit.name}
+                description={unit.description}
+                imageUrl={unit.image_urls?.[0] ?? null}
+                nightlyRate={unit.nightly_rate_usd}
+                maxGuests={unit.max_guests}
+                status={unit.status}
+                onEdit={async () => {
+                  if (!onEditUnit) {
+                    return;
+                  }
 
-                try {
-                  const freshUnit = await getUnitById(unit.id);
-                  onEditUnit(freshUnit);
-                } catch (error) {
-                  console.error('Failed to load unit details:', error);
-                  toast.error('Failed to load unit details');
-                }
-              }}
-              onDelete={() => requestDelete(unit)}
-            />
+                  try {
+                    const freshUnit = await getUnitById(unit.id);
+                    onEditUnit(freshUnit);
+                  } catch (error) {
+                    console.error('Failed to load unit details:', error);
+                    toast.error('Failed to load unit details');
+                  }
+                }}
+                onDelete={() => requestDelete(unit)}
+              />
+              {unit.ical_feed_token && (
+                <IcalFeedPanel
+                  unitId={unit.id}
+                  icalFeedToken={unit.ical_feed_token}
+                  onTokenRotated={(newToken) =>
+                    setUnits((prev) =>
+                      prev.map((u) => (u.id === unit.id ? { ...u, ical_feed_token: newToken } : u))
+                    )
+                  }
+                />
+              )}
+            </div>
           ))}
         </div>
       </section>
