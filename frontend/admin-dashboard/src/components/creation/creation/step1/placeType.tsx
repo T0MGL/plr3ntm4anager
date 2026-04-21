@@ -195,7 +195,7 @@ const Step1PlaceType = ({ onValidityChange, onDataChange }) => {
       {/* Fixed Header Section */}
       <div className="flex-shrink-0 w-full bg-white z-10 ">
         <h1 className="text-xl md:text-2xl font-semibold text-[#222222] text-center">
-          Which of these best describes your place?
+          Tipo de unidad
         </h1>
       </div>
 

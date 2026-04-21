@@ -162,10 +162,10 @@ const PlaceOffer = ({ onValidityChange, onDataChange }) => {
       {/* Fixed Header Section */}
       <div className="flex-shrink-0 max-w-3xl w-full bg-white z-10 ">
         <h1 className="text-2xl  font-semibold text-[#222222] text-left">
-          Tell guests what your place has to offer
+          Amenidades de la unidad
         </h1>
         <p className="text-sm md:text-base text-[#717171] text-left mt-2">
-          You can add more amenities after you publish your listing.
+          Podes agregar mas o editar este listado despues de publicar.
         </p>
       </div>
 

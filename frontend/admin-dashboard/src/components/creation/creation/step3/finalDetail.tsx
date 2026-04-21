@@ -132,17 +132,17 @@ const FinalDetail = ({ onValidityChange, onDataChange }) => {
         className="mb-8"
       >
         <h1 className="text-3xl font-semibold text-secondary tracking-tight">
-          Provide a few final details
+          Datos fiscales del propietario
         </h1>
       </motion.div>
 
       <div className="space-y-6 mb-12">
         <div>
           <h2 className="text-[18px] font-semibold text-secondary mb-1">
-            What's your residential address?
+            Direccion fiscal del propietario
           </h2>
           <p className="text-[14px] text-forth mb-6 font-normal">
-            Guests won't see this information.
+            Uso interno para facturacion. No se comparte con el huesped.
           </p>
         </div>
 
@@ -329,14 +329,10 @@ const FinalDetail = ({ onValidityChange, onDataChange }) => {
       <div className="space-y-6">
         <div>
           <h2 className="text-[18px] font-semibold text-secondary mb-1">
-            Are you hosting as a business?
+            ¿Operas como empresa?
           </h2>
           <p className="text-[14px] text-forth font-normal">
-            This means your business is most likely registered with your state
-            or government.{" "}
-            <span className=" font-semibold text-secondary cursor-pointer">
-              Get details
-            </span>
+            Marca si esta unidad se factura a nombre de una empresa (RUC) registrada en SET.
           </p>
         </div>
 
@@ -349,7 +345,7 @@ const FinalDetail = ({ onValidityChange, onDataChange }) => {
                 : "border-[#EBEBEB] hover:border-secondary/30"
             }`}
           >
-            Yes
+            Si
           </button>
           <button
             onClick={() => setIsBusiness(false)}

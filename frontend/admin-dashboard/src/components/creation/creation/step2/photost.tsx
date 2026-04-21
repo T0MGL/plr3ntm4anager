@@ -181,15 +181,14 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
       >
         <div className="mb-6">
           <h1 className="mb-1 text-2xl font-semibold text-secondary md:text-3xl">
-            Add some photos of your {category}
+            Fotos de la unidad
           </h1>
           <p className="text-[10px] text-[#6A6A6A] md:text-[12px]">
-            You'll need at least {MIN_PHOTOS} photos to get started. You can add
-            more or make changes later.
+            Minimo {MIN_PHOTOS} fotos. Podes agregar mas o editarlas despues.
             <span
               className={`ml-2 font-semibold ${photos.length >= MIN_PHOTOS ? "text-green-600" : "text-[#1e3a8a]"}`}
             >
-              ({photos.length} uploaded, minimum {MIN_PHOTOS})
+              ({photos.length} cargadas, minimo {MIN_PHOTOS})
             </span>
           </p>
         </div>

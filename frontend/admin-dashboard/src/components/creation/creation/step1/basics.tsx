@@ -79,27 +79,27 @@ const Step1Basics = ({ onValidityChange, onDataChange }) => {
         transition={{ duration: 0.5 }}
       >
         <h1 className="mb-4 text-2xl font-semibold text-[#222222]">
-          Let's start with the basics
+          Capacidad y configuracion
         </h1>
 
         <div className="mb-8">
           <h2 className="mb-4 text-md font-medium text-[#222222]">
-            How many people can stay here?
+            Capacidad maxima de la unidad
           </h2>
           <div className="flex flex-col">
             <Counter
-              label="Guests"
+              label="Huespedes"
               value={basics.guests}
               onChange={(v) => setBasics((prev) => ({ ...prev, guests: v }))}
               min={1}
             />
             <Counter
-              label="Bedrooms"
+              label="Habitaciones"
               value={basics.bedrooms}
               onChange={(v) => setBasics((prev) => ({ ...prev, bedrooms: v }))}
             />
             <Counter
-              label="Beds"
+              label="Camas"
               value={basics.beds}
               onChange={(v) => setBasics((prev) => ({ ...prev, beds: v }))}
             />
@@ -108,7 +108,7 @@ const Step1Basics = ({ onValidityChange, onDataChange }) => {
 
         <div>
           <h2 className="mb-6 text-md font-medium text-[#222222]">
-            Does every bedroom have a lock?
+            ¿Todas las habitaciones tienen cerradura?
           </h2>
 
           <div className="space-y-4">
@@ -127,7 +127,7 @@ const Step1Basics = ({ onValidityChange, onDataChange }) => {
                   <div className="absolute h-3 w-3 rounded-full bg-black" />
                 )}
               </div>
-              <span className="text-lg text-[#222222]">Yes</span>
+              <span className="text-lg text-[#222222]">Si</span>
             </label>
 
             <label className="group flex cursor-pointer items-start gap-4">

@@ -777,18 +777,16 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                   <HiOutlineInformationCircle className="text-4xl text-blue-500" />
                 </div>
                 <h3 className="text-2xl font-bold mb-4 text-secondary">
-                  Complete Corrections
+                  Campos pendientes
                 </h3>
                 <p className="text-[#717171] leading-relaxed mb-8">
-                  You must solve all errors to publish your listing. Please
-                  click <strong>Next</strong> to continue fixing the remaining
-                  issues.
+                  Resta informacion obligatoria para publicar la unidad. Seguí con <strong>Siguiente</strong> para completar los pasos faltantes.
                 </p>
                 <button
                   onClick={() => setShowNavWarningModal(false)}
                   className="w-full py-4 bg-black text-white font-bold rounded-2xl shadow-lg hover:bg-zinc-800 transition-all active:scale-95"
                 >
-                  Got it
+                  Entendido
                 </button>
               </motion.div>
             </motion.div>

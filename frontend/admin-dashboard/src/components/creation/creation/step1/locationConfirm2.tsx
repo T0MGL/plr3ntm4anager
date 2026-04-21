@@ -517,11 +517,10 @@ const Step1LocationConfirm2 = ({ onValidityChange, onDataChange }) => {
     <div className="w-full max-w-2xl mx-auto md:px-4 py-8 pt-0 overflow-y-auto no-scrollbar h-full">
       <div className="mb-8">
         <h1 className="text-2xl md:text-2xl font-semibold text-[#222222]">
-          Confirm your address
+          Confirma la direccion
         </h1>
         <p className="text-[#6A6A6A] text-[15px] mt-2 font-normal">
-          Your address is only shared with guests after they've made a
-          reservation.
+          La direccion exacta solo se comparte con el huesped despues de confirmar la reserva.
         </p>
       </div>
 

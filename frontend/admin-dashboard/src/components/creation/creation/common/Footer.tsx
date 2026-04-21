@@ -25,10 +25,10 @@ const Footer = ({
               : "rounded-full border border-[#d1d5db] px-4 py-2 text-sm font-semibold text-[#374151] hover:border-[#9ca3af]"
           }
         >
-          Back
+          Atras
         </button>
 
-        <div className="text-xs text-[#6b7280]">Step {currentStep} of 4</div>
+        <div className="text-xs text-[#6b7280]">Paso {currentStep} de 4</div>
 
         {!hideNextButton ? (
           <button
@@ -41,7 +41,7 @@ const Footer = ({
                 : "rounded-full bg-[#1e3a8a] px-5 py-2 text-sm font-semibold text-white hover:bg-[#172d69]"
             }
           >
-            {isLast ? "Publish" : "Next"}
+            {isLast ? "Publicar" : "Siguiente"}
           </button>
         ) : (
           <div className="w-[76px]" aria-hidden="true" />

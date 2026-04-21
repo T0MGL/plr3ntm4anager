@@ -91,25 +91,25 @@ const Step1BathroomTypes = ({ onValidityChange, onDataChange }) => {
         transition={{ duration: 0.5 }}
       >
         <h1 className="text-2xl font-semibold text-[#222222] mb-6">
-          What kind of bathrooms are available to guests?
+          Configuracion de banos
         </h1>
 
         <div className="flex flex-col mb-10">
           <Counter
-            label="Private and attached"
-            subLabel="It's connected to the guest's room and is just for them."
+            label="Privado en suite"
+            subLabel="Conectado directamente a la habitacion del huesped."
             value={bathrooms.private}
             onChange={(v) => updateCount("private", v)}
           />
           <Counter
-            label="Dedicated"
-            subLabel="It's private, but accessed via a shared space, like a hallway."
+            label="Privado dedicado"
+            subLabel="Privado pero accedido desde un espacio comun, como un pasillo."
             value={bathrooms.dedicated}
             onChange={(v) => updateCount("dedicated", v)}
           />
           <Counter
-            label="Shared"
-            subLabel="It's shared with other people."
+            label="Compartido"
+            subLabel="Compartido con otras personas."
             value={bathrooms.shared}
             onChange={(v) => updateCount("shared", v)}
           />

@@ -39,10 +39,10 @@ const Step2Description = ({ onValidityChange, onDataChange }) => {
       >
         <div className="mb-3">
           <h1 className="text-3xl font-semibold text-[#222222] mb-1">
-            Create your description
+            Descripcion de la unidad
           </h1>
           <p className="text-[#717171] text-[16px] font-normal">
-            Share what makes your place special.
+            Texto que el huesped ve en el listado publico.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ const Step2Description = ({ onValidityChange, onDataChange }) => {
             onChange={(e) => setDescription(e.target.value)}
             className="w-full h-[190px] md:h-[240px] p-4 md:p-5 text-base md:text-lg font-normal text-[#222222] border border-gray-300 rounded-xl focus:border-[#1e3a8a] focus:ring-1 focus:ring-[#1e3a8a] focus:outline-none transition-all resize-none placeholder:text-[#B0B0B0]"
             maxLength={MAX_CHARS}
-            placeholder="You'll enjoy your time at this cheerful getaway."
+            placeholder="Ej: Departamento luminoso en el corazon de Villa Morra, con vista abierta y amenidades completas."
           />
 
           <div className="mt-4 flex justify-end">

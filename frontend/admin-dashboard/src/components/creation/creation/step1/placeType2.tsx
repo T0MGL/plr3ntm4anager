@@ -6,9 +6,9 @@ import { StorageService } from "../../../../services/storageService";
 const OPTIONS = [
   {
     id: "entire_place",
-    title: "An entire place",
+    title: "Unidad completa",
     loading: "lazy",
-    description: "Guests have the whole place to themselves.",
+    description: "El huesped ocupa la unidad completa durante su estadia.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-8 w-8">
         <path d="M3 10.5L12 3l9 7.5" />
@@ -19,10 +19,9 @@ const OPTIONS = [
   },
   {
     id: "room",
-    title: "A room",
+    title: "Habitacion privada",
     loading: "lazy",
-    description:
-      "Guests have their own room in a home, plus access to shared spaces.",
+    description: "El huesped tiene habitacion privada con acceso a espacios comunes.",
     icon: (
       <img
         src="https://res.cloudinary.com/di9tb45rl/image/upload/v1769541481/Container_gwglcz.png"
@@ -32,10 +31,9 @@ const OPTIONS = [
   },
   {
     id: "shared_room",
-    title: "A shared room in a hostel",
+    title: "Habitacion compartida",
     loading: "lazy",
-    description:
-      "Guests sleep in a shared room in a professionally managed hostel with staff onsite 24/7.",
+    description: "El huesped comparte habitacion con otros huespedes.",
     icon: (
       <img
         src="https://res.cloudinary.com/di9tb45rl/image/upload/v1769541481/Container_1_artjue.png"
@@ -88,7 +86,7 @@ const Step1PlaceType2 = ({ onValidityChange, onDataChange }) => {
     <div className="w-full h-full flex flex-col items-center">
       <div className="w-full max-w-2xl px-4">
         <h1 className="text-2xl font-semibold text-[#222222] mb-4 text-left">
-          What type of place will guests have?
+          Espacio ocupado por el huesped
         </h1>
       </div>
 

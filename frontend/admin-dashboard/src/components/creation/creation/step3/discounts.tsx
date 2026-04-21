@@ -25,26 +25,26 @@ const Discounts = ({ onValidityChange, onDataChange }) => {
     {
       id: "new_listing",
       value: "20%",
-      title: "New listing promotion",
-      description: "Offer 20% off your first 3 bookings",
+      title: "Promocion de lanzamiento",
+      description: "20% off en las primeras 3 reservas",
     },
     {
       id: "last_minute",
       value: "11%",
-      title: "Last-minute discount",
-      description: "For stays booked 14 days or less before arrival",
+      title: "Descuento last-minute",
+      description: "Reservas con check-in a 14 dias o menos",
     },
     {
       id: "weekly",
       value: "5%",
-      title: "Weekly discount",
-      description: "For stays of 7 nights or more",
+      title: "Descuento semanal",
+      description: "Estadias de 7 noches o mas",
     },
     {
       id: "monthly",
       value: "10%",
-      title: "Monthly discount",
-      description: "For stays of 28 nights or more",
+      title: "Descuento mensual",
+      description: "Estadias de 28 noches o mas",
     },
   ];
 
@@ -63,11 +63,10 @@ const Discounts = ({ onValidityChange, onDataChange }) => {
     <div className="w-full max-w-4xl mx-auto md:px-6 flex flex-col justify-center min-h-[70vh] pt-40 pb-8 md:pt-40 md:pb-10">
       <div className="mb-8 md:mb-12 text-left">
         <h1 className="text-2xl md:text-[32px] font-semibold text-secondary mb-2 tracking-tight">
-          Add discounts
+          Descuentos aplicables
         </h1>
         <p className="text-forth text-base md:text-lg leading-relaxed">
-          Help your place stand out to get booked faster and earn your first
-          reviews.
+          Opcionales. Se aplican automaticamente cuando la reserva cumple la condicion.
         </p>
       </div>
 

@@ -188,10 +188,10 @@ const Step1LocationConfirm = ({ onValidityChange, onDataChange }) => {
     <div className="w-full h-full flex flex-col items-center md:px-4">
       <div className="w-full max-w-4xl text-left mb-8">
         <h1 className="text-2xl md:text-2xl font-semibold text-[#222222]">
-          Is the pin in the right spot?
+          Confirma la ubicacion de la unidad
         </h1>
         <p className="text-[#6A6A6A] text-[15px] mt-2 font-normal">
-          Your address is only shared with guests after they've made a reservation.
+          La direccion exacta solo se comparte con el huesped despues de confirmar la reserva.
         </p>
       </div>
 

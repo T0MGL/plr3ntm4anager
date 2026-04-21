@@ -42,11 +42,10 @@ const Step2Title = ({ onValidityChange, onDataChange }) => {
       >
         <div className="mb-5">
           <h1 className="text-2xl md:text-3xl font-semibold text-secondary mb-2">
-            Now, let's give your {category} a title
+            Titulo de la unidad
           </h1>
           <p className="text-[#6A6A6A] text-[14px] md:text-[16px] leading-relaxed">
-            Short titles work best. Have fun with it—you can always change it
-            later.
+            Titulos cortos y descriptivos funcionan mejor. Editable despues de publicar.
           </p>
         </div>
 
@@ -54,7 +53,7 @@ const Step2Title = ({ onValidityChange, onDataChange }) => {
           <textarea
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Type here..."
+            placeholder="Ej: Departamento moderno en Villa Morra"
             className="w-full h-[180px] md:h-[220px] p-4 md:p-5 text-base md:text-lg font-normal text-secondary border border-gray-200 rounded-2xl focus:border-[#1e3a8a] focus:ring-1 focus:ring-[#1e3a8a] focus:outline-none transition-all resize-none placeholder:text-[#B0B0B0]"
             maxLength={MAX_CHARS}
           />

@@ -39,10 +39,10 @@ const BookingSettings = ({ onValidityChange, onDataChange }) => {
   const settings = [
     {
       id: "approve_first_5",
-      title: "Approve your first 5 bookings",
+      title: "Aprobar manualmente cada reserva",
       recommended: true,
       description:
-        "Start by reviewing reservation requests, then switch to Instant Book, so guests can start booking automatically.",
+        "Cada solicitud pasa por revision del equipo antes de confirmarse. Recomendado para control total.",
       // Matching the "calendar with check" icon from the image
       icon: (
         <img
@@ -55,9 +55,9 @@ const BookingSettings = ({ onValidityChange, onDataChange }) => {
     },
     {
       id: "instant_book",
-      title: "Use Instant Book",
+      title: "Reserva automatica",
       recommended: false,
-      description: "Let guests book automatically.",
+      description: "La reserva se confirma al instante sin revision manual.",
       // Matching the "lightning bolt" icon from the image
       icon: (
         <img
@@ -82,13 +82,10 @@ const BookingSettings = ({ onValidityChange, onDataChange }) => {
       >
         <div className="mb-14">
           <h1 className="text-2xl md:text-3xl font-semibold text-[#222222] mb-3">
-            Pick your booking settings
+            Politica de reservas
           </h1>
           <p className="text-[#6A6A6A] text-[14px] md:text-[16px] leading-relaxed">
-            You can change this at any time.{" "}
-            <span className=" cursor-pointer font-medium text-[#222222]">
-              Learn more
-            </span>
+            Editable en cualquier momento desde el panel de la unidad.
           </p>
         </div>
 
@@ -117,7 +114,7 @@ const BookingSettings = ({ onValidityChange, onDataChange }) => {
                   </h3>
                   {setting.recommended && (
                     <p className="text-[#008A05] text-[14px] font-medium mb-2">
-                      Recommended
+                      Recomendado
                     </p>
                   )}
                   <p className="text-[#6A6A6A] text-[14px] leading-[1.45] max-w-sm">

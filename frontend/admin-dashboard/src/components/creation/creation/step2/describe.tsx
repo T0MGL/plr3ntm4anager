@@ -88,11 +88,10 @@ const Step2Describe = ({ onValidityChange, onDataChange }) => {
       >
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-semibold text-secondary mb-3">
-            Next, let's describe your {category}
+            Atributos destacados de la unidad
           </h1>
           <p className="text-[#6A6A6A] text-[14px] md:text-[16px] leading-relaxed">
-            Choose as many highlights as you'd like. We'll use these to get your
-            description started.
+            Selecciona los atributos que mejor describen esta unidad. Se usan para generar la descripcion inicial.
           </p>
         </div>
 
