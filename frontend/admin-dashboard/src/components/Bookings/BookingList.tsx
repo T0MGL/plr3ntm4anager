@@ -8,6 +8,8 @@ import ApprovalButtons from './ApprovalButtons';
 import BookingDetails from './BookingDetails';
 import { supabase } from '../../context/AuthContext';
 
+type ApprovalPath = 'auto' | 'manual';
+
 interface BookingRow {
   id: string;
   guest_name: string;
@@ -21,12 +23,17 @@ interface BookingRow {
   created_at?: string;
   rejection_reason?: string | null;
   units?: { name: string } | null;
+  approval_path?: ApprovalPath | null;
+  approval_decision_reason?: string | null;
+  sync_age_minutes_at_decision?: number | null;
 }
 
 interface BookingResponse {
   data: BookingRow[];
   count: number;
 }
+
+type Tab = 'needs_review' | 'all';
 
 function statusChipClass(status: string): string {
   if (status === 'pending') return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -36,8 +43,32 @@ function statusChipClass(status: string): string {
   return 'bg-slate-50 text-slate-700 border-slate-200';
 }
 
+function approvalPathBadge(path: ApprovalPath | null | undefined): {
+  label: string;
+  className: string;
+} | null {
+  if (path === 'auto') {
+    return {
+      label: 'Auto',
+      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
+  }
+  if (path === 'manual') {
+    return {
+      label: 'Needs review',
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+    };
+  }
+  return null;
+}
+
+function isAutoApproved(booking: BookingRow): boolean {
+  return booking.approval_path === 'auto' && (booking.status === 'paid' || booking.status === 'approved');
+}
+
 export default function BookingList() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [tab, setTab] = useState<Tab>('needs_review');
   const [status, setStatus] = useState<string>('');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +82,7 @@ export default function BookingList() {
 
   const fetchBookings = async () => {
     const { data } = await api.get<BookingResponse>('/admin/booking-requests', {
-      params: status ? { status } : {}
+      params: status ? { status } : {},
     });
     setBookings(data.data ?? []);
   };
@@ -93,7 +124,13 @@ export default function BookingList() {
       await fetchBookings();
       setError(null);
     } catch (approveError) {
-      const message = approveError instanceof Error ? approveError.message : 'Failed to approve booking';
+      const message =
+        approveError && typeof approveError === 'object' && 'response' in approveError
+          ? (approveError as { response?: { data?: { error?: string } } }).response?.data?.error ??
+            'Failed to approve booking'
+          : approveError instanceof Error
+            ? approveError.message
+            : 'Failed to approve booking';
       setError(message);
     } finally {
       setActingBookingId(null);
@@ -120,7 +157,9 @@ export default function BookingList() {
 
     try {
       setActingBookingId(rejectModalBookingId);
-      await api.post(`/admin/booking-requests/${rejectModalBookingId}/reject`, { rejection_reason: reason });
+      await api.post(`/admin/booking-requests/${rejectModalBookingId}/reject`, {
+        rejection_reason: reason,
+      });
       await fetchBookings();
       closeRejectModal();
       setError(null);
@@ -140,9 +179,10 @@ export default function BookingList() {
         if (booking.status === 'approved') acc.approved += 1;
         if (booking.status === 'paid') acc.paid += 1;
         if (booking.status === 'rejected') acc.rejected += 1;
+        if (booking.status === 'pending' && booking.approval_path === 'manual') acc.needsReview += 1;
         return acc;
       },
-      { total: 0, pending: 0, approved: 0, paid: 0, rejected: 0 },
+      { total: 0, pending: 0, approved: 0, paid: 0, rejected: 0, needsReview: 0 },
     );
   }, [bookings]);
 
@@ -165,14 +205,20 @@ export default function BookingList() {
 
   const unitNames = useMemo(() => {
     const names = new Set<string>();
-    bookings.forEach((b) => { if (b.units?.name) names.add(b.units.name); });
+    bookings.forEach((b) => {
+      if (b.units?.name) names.add(b.units.name);
+    });
     return Array.from(names).sort();
   }, [bookings]);
 
   const displayBookings = useMemo(() => {
-    if (!unitFilter) return filteredBookings;
-    return filteredBookings.filter((b) => b.units?.name === unitFilter);
-  }, [filteredBookings, unitFilter]);
+    let rows = filteredBookings;
+    if (unitFilter) rows = rows.filter((b) => b.units?.name === unitFilter);
+    if (tab === 'needs_review') {
+      rows = rows.filter((b) => b.status === 'pending' && b.approval_path === 'manual');
+    }
+    return rows;
+  }, [filteredBookings, unitFilter, tab]);
 
   const calendarEvents = useMemo(() => {
     return displayBookings.map((b) => {
@@ -196,6 +242,38 @@ export default function BookingList() {
 
   return (
     <div className="grid gap-4">
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 w-fit">
+        <button
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            tab === 'needs_review'
+              ? 'bg-slate-900 text-white'
+              : 'bg-transparent text-slate-600 hover:bg-slate-50'
+          }`}
+          onClick={() => setTab('needs_review')}
+        >
+          Necesitan revisión
+          {summary.needsReview > 0 ? (
+            <span
+              className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                tab === 'needs_review' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              {summary.needsReview}
+            </span>
+          ) : null}
+        </button>
+        <button
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            tab === 'all'
+              ? 'bg-slate-900 text-white'
+              : 'bg-transparent text-slate-600 hover:bg-slate-50'
+          }`}
+          onClick={() => setTab('all')}
+        >
+          Todas
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3">
           <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
@@ -230,6 +308,8 @@ export default function BookingList() {
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
+          disabled={tab === 'needs_review'}
+          title={tab === 'needs_review' ? 'Status filter disabled while on Necesitan revisión' : undefined}
         >
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
@@ -244,18 +324,26 @@ export default function BookingList() {
         >
           <option value="">All units</option>
           {unitNames.map((name) => (
-            <option key={name} value={name}>{name}</option>
+            <option key={name} value={name}>
+              {name}
+            </option>
           ))}
         </select>
         <div className="flex rounded-lg border border-slate-300 overflow-hidden">
           <button
-            className={`px-3 py-2 text-sm font-medium ${view === 'list' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+            className={`px-3 py-2 text-sm font-medium ${
+              view === 'list' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
             onClick={() => setView('list')}
           >
             List
           </button>
           <button
-            className={`px-3 py-2 text-sm font-medium ${view === 'calendar' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+            className={`px-3 py-2 text-sm font-medium ${
+              view === 'calendar'
+                ? 'bg-slate-900 text-white'
+                : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
             onClick={() => setView('calendar')}
           >
             Calendar
@@ -270,12 +358,24 @@ export default function BookingList() {
         </button>
       </div>
 
-      {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div> : null}
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
 
-      {isLoading ? <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Loading bookings...</div> : null}
+      {isLoading ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          Loading bookings...
+        </div>
+      ) : null}
 
       {!isLoading && displayBookings.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">No bookings found for current filters.</div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          {tab === 'needs_review'
+            ? 'No hay reservas en revisión manual. Todo bajo control.'
+            : 'No bookings found for current filters.'}
+        </div>
       ) : null}
 
       {!isLoading && view === 'calendar' ? (
@@ -299,18 +399,35 @@ export default function BookingList() {
             const created = booking.created_at
               ? formatDistanceToNow(parseISO(booking.created_at), { addSuffix: true })
               : null;
+            const pathBadge = approvalPathBadge(booking.approval_path ?? null);
+            const hideApproveButton = isAutoApproved(booking);
 
             return (
               <div key={booking.id} className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <h3 className="text-base font-semibold text-slate-900">{booking.units?.name ?? 'Unit'}</h3>
-                    <p className="text-xs text-slate-500">Ref: {booking.id.slice(0, 8).toUpperCase()}</p>
+                    <h3 className="text-base font-semibold text-slate-900">
+                      {booking.units?.name ?? 'Unit'}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Ref: {booking.id.slice(0, 8).toUpperCase()}
+                    </p>
                     {created ? <p className="text-xs text-slate-500">Requested {created}</p> : null}
                   </div>
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusChipClass(booking.status)}`}>
-                    {booking.status}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {pathBadge ? (
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${pathBadge.className}`}
+                      >
+                        {pathBadge.label}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusChipClass(booking.status)}`}
+                    >
+                      {booking.status}
+                    </span>
+                  </div>
                 </div>
 
                 <BookingDetails booking={booking} />
@@ -321,13 +438,19 @@ export default function BookingList() {
                   </div>
                 ) : null}
 
-                {booking.status === 'pending' ? (
+                {booking.status === 'pending' && !hideApproveButton ? (
                   <div className="mt-3">
                     <ApprovalButtons
                       onApprove={() => void approve(booking.id)}
                       onReject={() => openRejectModal(booking.id)}
                       isLoading={actingBookingId === booking.id}
                     />
+                  </div>
+                ) : null}
+
+                {hideApproveButton ? (
+                  <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    Auto-aprobado tras el pago, no requiere acción del admin.
                   </div>
                 ) : null}
               </div>

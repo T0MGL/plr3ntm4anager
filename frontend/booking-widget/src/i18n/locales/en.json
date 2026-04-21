@@ -158,29 +158,13 @@
       "change": "Edit"
     },
     "step2": {
-      "title": "Choose when to pay",
-      "payFull": "Pay ${{price}} now",
-      "payFullDesc": "Pay the total to finalize your reservation instantly.",
-      "payPart": "Pay part now, part later",
-      "payPartDesc": "Secure the booking with a small deposit today.",
-      "back": "Back",
-      "continue": "Continue"
-    },
-    "step3": {
-      "title": "Payment method",
-      "bancard": "Bancard",
-      "bancardDesc": "Secure credit or debit card payment.",
-      "cash": "Cash on arrival",
-      "cashDesc": "Pay when you check in.",
-      "back": "Back",
-      "review": "Review booking"
-    },
-    "step4": {
-      "title": "Review and confirm",
+      "title": "Review and pay",
+      "method": "Bancard",
+      "methodDesc": "Secure credit or debit card payment.",
       "summaryHeading": "Final summary",
       "guestLabel": "Guest",
-      "paymentLabel": "Payment",
-      "legal": "By selecting the button below, you agree to the {{rules}}, {{safety}}, and {{cancellation}}.",
+      "totalLabel": "Total",
+      "legal": "By confirming, you agree to the {{rules}}, {{safety}}, and {{cancellation}}.",
       "houseRules": "house rules",
       "safetyDisclosures": "safety disclosures",
       "cancellationPolicy": "cancellation policy",
@@ -204,8 +188,7 @@
     "loading": "Preparing secure payment...",
     "errors": {
       "createFailed": "Failed to process booking. Please try again.",
-      "missingProcessId": "Could not start payment. Contact the team.",
-      "cashConfirmed": "Booking received. You can pay in cash at check-in."
+      "missingProcessId": "Could not start payment. Contact the team."
     }
   },
   "payment": {

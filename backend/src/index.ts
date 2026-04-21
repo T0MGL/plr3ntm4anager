@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin.routes';
 import paymentRoutes from './routes/payment.routes';
 import icalRoutes from './routes/ical.routes';
 import { startIcalCron } from './jobs/ical-cron';
+import { startStuckPreauthAlertCron } from './jobs/stuck-preauth-alert';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -128,4 +129,5 @@ app.listen(env.PORT, () => {
     payment_mode: env.PAYMENT_MODE
   });
   startIcalCron();
+  startStuckPreauthAlertCron();
 });
