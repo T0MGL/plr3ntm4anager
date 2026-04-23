@@ -92,6 +92,14 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
 
   const disabledDays = useMemo<Matcher[]>(() => [{ before: today }, { after: maxDate }, ...blockedDates], [blockedDates, maxDate, today]);
 
+  // Modifier that marks Airbnb-blocked future dates so we can style them
+  // differently from past dates. Past dates share the same `disabled` flag
+  // but are not in `blockedDates`, so only future unavailable nights light up.
+  const modifiers = useMemo(
+    () => ({ airbnbBlocked: blockedDates }),
+    [blockedDates],
+  );
+
   // react-day-picker lets users span a range across disabled days. Validate the
   // range before committing and reset to the new endpoint if it crosses any
   // blocked date. This matches the Airbnb UX where picking across an
@@ -151,6 +159,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
           selected={range}
           onSelect={handleSelectRange}
           disabled={disabledDays}
+          modifiers={modifiers}
+          modifiersClassNames={{ airbnbBlocked: "rdp-airbnb-blocked" }}
           excludeDisabled
           showOutsideDays
           hideNavigation

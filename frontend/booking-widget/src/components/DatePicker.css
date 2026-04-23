@@ -160,7 +160,7 @@
     opacity: 0.5;
 }
 
-/* Disabled days */
+/* Disabled days (past dates by default) */
 .date-picker-container .rdp-day_button:disabled {
     color: #e5e7eb;
     text-decoration: line-through;
@@ -170,6 +170,33 @@
 
 .date-picker-container .rdp-day_button:disabled:hover {
     background-color: transparent;
+}
+
+/* Airbnb-blocked future dates: visually distinct from past dates so guests
+   can clearly see which nights are unavailable. Stronger contrast, no
+   strikethrough (that reads as "expired"), red slash instead. */
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled {
+    color: #9f1239;
+    text-decoration: none;
+    opacity: 1;
+    background-color: #fef2f2;
+    position: relative;
+}
+
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 18%;
+    right: 18%;
+    height: 1.5px;
+    background-color: #9f1239;
+    transform: rotate(-20deg);
+    pointer-events: none;
+}
+
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled:hover {
+    background-color: #fee2e2;
 }
 
 /* Hidden days */
