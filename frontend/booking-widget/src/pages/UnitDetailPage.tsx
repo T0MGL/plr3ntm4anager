@@ -26,93 +26,12 @@ type GuestState = {
   pets: number;
 };
 
-const fallbackImage = "https://picsum.photos/1600/900?blur=1";
+type LoadState = "loading" | "not-found" | "error" | "ready";
 
-const amenityIcons = {
-  default: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_5213_qnbqbg.png",
-  wifi: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770001/l_d_5243_ia6dvf.png",
-  tv: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_5213_qnbqbg.png",
-  kitchen: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_5291_ry1asq.png",
-  washer: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_5388_dvcpgw.png",
-  freeParking: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_5411_aphx5c.png",
-  paidParking: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_5499_nq0zz2.png",
-  airConditioning: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769771269/l_d_5563_izqndj.png",
-  workspace: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_5536_pmledh.png",
-  pool: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_5575_dyplg0.png",
-  hotTub: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_5615_dcw0qm.png",
-  patio: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_5663_cfmqfb.png",
-  bbq: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_5716_xsm7sb.png",
-  dining: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_5785_awbhlf.png",
-  firePit: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769997/l_d_5817_vcadcl.png",
-  poolTable: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769997/l_d_5941_p8b0kp.png",
-  indoorFireplace: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_5981_ytb2rl.png",
-  piano: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_6020_ckg39u.png",
-  exercise: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769999/l_d_6073_tny0mh.png",
-  lake: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_6097_icgflz.png",
-  beach: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769770000/l_d_6205_gdpip3.png",
-  ski: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_6317_ccozya.png",
-  outdoorShower: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_6348_xgfbfw.png",
-  smokeAlarm: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_6542_yqhvdc.png",
-  firstAid: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769998/l_d_6577_qcmfth.png",
-  fireExtinguisher: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769997/l_d_6636_oy4sas.png",
-  carbonMonoxide: "https://res.cloudinary.com/di9tb45rl/image/upload/v1769769997/l_d_6677_cyzdbb.png",
-};
+const FALLBACK_IMAGE =
+  "https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/projects/tower/parkloftstowerlobby.jpeg";
 
 const asText = (value?: string | null) => (value && value.trim().length > 0 ? value.trim() : undefined);
-
-const normalizeItems = (items?: string[] | null): string[] => {
-  if (!Array.isArray(items)) return [];
-  return Array.from(
-    new Set(items.map((item) => item?.trim()).filter((item): item is string => Boolean(item))),
-  );
-};
-
-const formatAmenityTitle = (title: string): string => {
-  return title
-    .replace(/_/g, " ")
-    .split(" ")
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join(" ");
-};
-
-const getAmenityIcon = (title: string): string => {
-  const value = title.toLowerCase().replace(/_/g, " ");
-  if (value.includes("kitchen")) return amenityIcons.kitchen;
-  if (value.includes("wifi")) return amenityIcons.wifi;
-  if (value.includes("air conditioning")) return amenityIcons.airConditioning;
-  if (value.includes("workspace") || value.includes("dedicated workspace")) return amenityIcons.workspace;
-  if (value.includes("free parking")) return amenityIcons.freeParking;
-  if (value.includes("paid parking")) return amenityIcons.paidParking;
-  if (value.includes("pool") && !value.includes("table")) return amenityIcons.pool;
-  if (value.includes("hot tub")) return amenityIcons.hotTub;
-  if (value.includes("washer")) return amenityIcons.washer;
-  if (value === "tv" || value.includes("television") || value.includes("tv")) return amenityIcons.tv;
-  if (value.includes("patio") || value.includes("balcony")) return amenityIcons.patio;
-  if (value.includes("bbq") || value.includes("grill")) return amenityIcons.bbq;
-  if (value.includes("dining")) return amenityIcons.dining;
-  if (value.includes("fire pit")) return amenityIcons.firePit;
-  if (value.includes("pool table")) return amenityIcons.poolTable;
-  if (value.includes("indoor fireplace")) return amenityIcons.indoorFireplace;
-  if (value.includes("piano")) return amenityIcons.piano;
-  if (value.includes("exercise") || value.includes("gym")) return amenityIcons.exercise;
-  if (value.includes("lake access") || value.includes("lake")) return amenityIcons.lake;
-  if (value.includes("beach access") || value.includes("beach")) return amenityIcons.beach;
-  if (value.includes("ski")) return amenityIcons.ski;
-  if (value.includes("outdoor shower")) return amenityIcons.outdoorShower;
-  if (value.includes("smoke alarm")) return amenityIcons.smokeAlarm;
-  if (value.includes("first aid")) return amenityIcons.firstAid;
-  if (value.includes("fire extinguisher")) return amenityIcons.fireExtinguisher;
-  if (value.includes("carbon monoxide")) return amenityIcons.carbonMonoxide;
-  return amenityIcons.default;
-};
-
-const mapAmenities = (items: string[]): Amenity[] => {
-  return items.map((title) => ({
-    title: formatAmenityTitle(title),
-    img: getAmenityIcon(title),
-    available: true,
-  }));
-};
 
 const buildAddressLine = (unit: UnitSummary): string | null => {
   const parts = [asText(unit.street_address), asText(unit.city), asText(unit.state), asText(unit.country)]
@@ -128,7 +47,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
   const mobileReservationRef = useRef<HTMLDivElement>(null);
   const [openModal, setOpenModal] = useState<OpenModal>(null);
   const [unit, setUnit] = useState<UnitSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingPayload, setBookingPayload] = useState<any>(null);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
@@ -144,17 +63,27 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
   }, [range?.from, range?.to]);
 
   useEffect(() => {
-    if (!unitId) return;
+    if (!unitId) {
+      setLoadState("not-found");
+      return;
+    }
     let isMounted = true;
     const loadUnit = async () => {
       try {
-        setIsLoading(true);
+        setLoadState("loading");
         const selected = await getUnitById(unitId);
-        if (isMounted) setUnit(selected);
+        if (isMounted) {
+          setUnit(selected);
+          setLoadState("ready");
+        }
       } catch (err) {
-        console.error(err);
-      } finally {
-        if (isMounted) setIsLoading(false);
+        if (!isMounted) return;
+        const message = err instanceof Error ? err.message : "";
+        if (message === "Unit not found" || message.includes("404")) {
+          setLoadState("not-found");
+        } else {
+          setLoadState("error");
+        }
       }
     };
     loadUnit();
@@ -165,7 +94,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
 
   const images = useMemo(() => {
     const source = unit?.image_urls?.filter((v): v is string => typeof v === "string" && v.trim().length > 0) ?? [];
-    return source.length > 0 ? source : [fallbackImage];
+    return source.length > 0 ? source : [FALLBACK_IMAGE];
   }, [unit]);
 
   const detailLines = useMemo(() => {
@@ -173,30 +102,23 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
     const location = [asText(unit.neighborhood), asText(unit.city), asText(unit.country)].filter(Boolean).join(", ");
     return [
       location,
-      unit.category,
       t("unitDetail.metaSummary", {
         guests: unit.max_guests,
         bedrooms: unit.bedrooms || 0,
         beds: unit.beds || 0,
-        bathrooms: unit.private_bathroom || 0,
+        bathrooms: 0,
       }),
     ].filter(Boolean) as string[];
   }, [unit, t]);
 
-  const amenitySections = useMemo(() => {
-    if (!unit) return [];
-    const items = mapAmenities(normalizeItems(unit.amenities));
-    return items.length > 0 ? [{ heading: t("unitDetail.amenitiesHeading"), items }] : [];
-  }, [unit, t]);
-
-  const primaryAmenities = amenitySections.flatMap((s) => s.items);
+  const primaryAmenities: Amenity[] = [];
 
   const handleReserve = (data: any) => {
     setBookingPayload({
       listing: {
         id: unit?.id,
         title: unit?.name || "",
-        pricePerNight: unit?.weekday_price ?? unit?.nightly_rate_usd ?? 0,
+        pricePerNight: unit?.nightly_rate_usd ?? 0,
         image: images[0],
       },
       selectedDates: data.selectedDates,
@@ -205,7 +127,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
     setIsBookingOpen(true);
   };
 
-  if (isLoading) {
+  if (loadState === "loading") {
     return (
       <div className="pl-container py-24">
         <div className="space-y-6">
@@ -217,11 +139,27 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
     );
   }
 
-  if (!unit) {
+  if (loadState === "not-found" || !unit) {
     return (
       <div className="pl-container py-24 text-center">
         <h2 className="font-display text-3xl text-charcoal">{t("unitDetail.notFoundTitle")}</h2>
         <p className="mt-3 text-sm text-charcoal-500">{t("unitDetail.notFoundBody")}</p>
+      </div>
+    );
+  }
+
+  if (loadState === "error") {
+    return (
+      <div className="pl-container py-24 text-center">
+        <h2 className="font-display text-3xl text-charcoal">{t("listing.errorTitle")}</h2>
+        <p className="mt-3 text-sm text-charcoal-500">{t("listing.errorFallback")}</p>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="pl-btn-ghost mt-8"
+        >
+          <span>{t("listing.retry")}</span>
+        </button>
       </div>
     );
   }
@@ -265,7 +203,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
           <div id="reservation-card-mobile" className="lg:hidden scroll-mt-24" ref={mobileReservationRef}>
             <ReservationCard
               unitId={unit.id}
-              nightlyRateUsd={unit.weekday_price ?? unit.nightly_rate_usd ?? 0}
+              nightlyRateUsd={unit.nightly_rate_usd ?? 0}
               maxGuests={unit.max_guests}
               range={range}
               onSelectRange={setRange}
@@ -276,13 +214,15 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
             />
           </div>
 
-          <section className="border-b border-stone/60 pb-10">
-            <AmenitiesSection
-              amenities={primaryAmenities}
-              maxVisible={10}
-              onShowAll={() => setOpenModal("amenities")}
-            />
-          </section>
+          {primaryAmenities.length > 0 && (
+            <section className="border-b border-stone/60 pb-10">
+              <AmenitiesSection
+                amenities={primaryAmenities}
+                maxVisible={10}
+                onShowAll={() => setOpenModal("amenities")}
+              />
+            </section>
+          )}
 
           <UnitLocationMap
             unitName={unit.name}
@@ -299,7 +239,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
           <div className="lg:sticky lg:top-28">
             <ReservationCard
               unitId={unit.id}
-              nightlyRateUsd={unit.weekday_price ?? unit.nightly_rate_usd ?? 0}
+              nightlyRateUsd={unit.nightly_rate_usd ?? 0}
               maxGuests={unit.max_guests}
               range={range}
               onSelectRange={setRange}

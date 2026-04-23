@@ -36,14 +36,23 @@ router.get('/:id', async (req, res) => {
   const { data, error } = await supabasePublic
     .from('units')
     .select(
-      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at, neighborhood, street_address, city, state, country, latitude, longitude, google_maps_url, category, place_type, private_bathroom, dedicated_bathroom, shared_bathroom, bathroom_usage, amenities, safety_items, highlights, safety_details, favorites, weekday_price, weekday_after_tax_price, home_precise, bedroom_lock'
+      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at, neighborhood, street_address, city, state, country, postal_code, latitude, longitude, google_maps_url'
     )
     .eq('id', unitId)
     .eq('status', 'active')
     .single();
 
-  if (error || !data) {
-    logger.warn('Unit not found', { unitId, error: error?.message });
+  if (error) {
+    if (error.code === 'PGRST116') {
+      logger.warn('Unit not found', { unitId });
+      return res.status(404).json({ error: 'Unit not found' });
+    }
+    logger.error('Failed to fetch unit', { unitId, message: error.message, code: error.code });
+    return res.status(500).json({ error: 'Failed to fetch unit' });
+  }
+
+  if (!data) {
+    logger.warn('Unit not found', { unitId });
     return res.status(404).json({ error: 'Unit not found' });
   }
 

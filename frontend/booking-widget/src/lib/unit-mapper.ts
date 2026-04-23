@@ -38,7 +38,7 @@ export function toUnitListing(unit: Unit): UnitListing {
       )
     : [];
 
-  const price = unit.weekday_price ?? unit.nightly_rate_usd ?? 0;
+  const price = unit.nightly_rate_usd ?? 0;
 
   const extended = unit as Unit & {
     latitude?: number | string | null;
