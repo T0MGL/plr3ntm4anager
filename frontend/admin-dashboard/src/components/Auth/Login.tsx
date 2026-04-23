@@ -56,7 +56,7 @@ export default function Login() {
               <span className="login-chip">Bancard</span>
               <span className="login-chip">Airbnb</span>
               <span className="login-chip">Booking</span>
-              <span className="login-chip">iCal</span>
+              <span className="login-chip">WhatsApp</span>
             </div>
           </div>
         </div>
