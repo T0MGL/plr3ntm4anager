@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
 import { supabase } from '../../context/AuthContext';
 
@@ -21,6 +22,7 @@ function statusBadgeClass(status: string): string {
 }
 
 export default function SyncLogs() {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,27 +77,27 @@ export default function SyncLogs() {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">Recent sync logs</h3>
+        <h3 className="text-lg font-semibold text-slate-900">{t('syncLogs.title')}</h3>
         <button
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 sm:w-auto"
           onClick={() => void fetchLogs()}
           disabled={isLoading}
         >
-          Refresh
+          {t('syncLogs.refresh')}
         </button>
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-        <div className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-700">Success: {summary.success}</div>
-        <div className="rounded-lg bg-rose-50 px-3 py-2 text-rose-700">Failed: {summary.failed}</div>
-        <div className="rounded-lg bg-amber-50 px-3 py-2 text-amber-700">In progress: {summary.inProgress}</div>
+        <div className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-700">{t('syncLogs.successCount', { count: summary.success })}</div>
+        <div className="rounded-lg bg-rose-50 px-3 py-2 text-rose-700">{t('syncLogs.failedCount', { count: summary.failed })}</div>
+        <div className="rounded-lg bg-amber-50 px-3 py-2 text-amber-700">{t('syncLogs.inProgressCount', { count: summary.inProgress })}</div>
       </div>
 
       {error ? <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div> : null}
 
-      {isLoading ? <p className="text-sm text-slate-500">Loading logs...</p> : null}
+      {isLoading ? <p className="text-sm text-slate-500">{t('syncLogs.loading')}</p> : null}
 
-      {!isLoading && logs.length === 0 ? <p className="text-sm text-slate-500">No sync logs yet.</p> : null}
+      {!isLoading && logs.length === 0 ? <p className="text-sm text-slate-500">{t('syncLogs.noLogs')}</p> : null}
 
       {!isLoading && logs.length > 0 ? (
         <>
@@ -104,15 +106,17 @@ export default function SyncLogs() {
               <article key={log.id} className="rounded-xl border border-slate-200 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadgeClass(log.sync_status)}`}>
-                    {log.sync_status === 'in_progress' ? 'In progress' : log.sync_status}
+                    {log.sync_status === 'in_progress' ? t('syncLogs.inProgressLabel') : log.sync_status}
                   </span>
-                  <span className="text-xs text-slate-500">{log.unit_id ?? 'All units'}</span>
+                  <span className="text-xs text-slate-500">{log.unit_id ?? t('syncLogs.allUnits')}</span>
                 </div>
-                <p className="text-xs text-slate-600">Started: {format(new Date(log.sync_started_at), 'MMM dd, yyyy HH:mm')}</p>
+                <p className="text-xs text-slate-600">{t('syncLogs.startedLabel', { time: format(new Date(log.sync_started_at), 'MMM dd, yyyy HH:mm') })}</p>
                 <p className="mt-1 text-xs text-slate-600">
-                  Completed: {log.sync_completed_at ? format(new Date(log.sync_completed_at), 'MMM dd, yyyy HH:mm') : 'In progress'}
+                  {log.sync_completed_at
+                    ? t('syncLogs.completedLabel', { time: format(new Date(log.sync_completed_at), 'MMM dd, yyyy HH:mm') })
+                    : t('syncLogs.inProgressCompletion')}
                 </p>
-                <p className="mt-1 text-xs text-slate-700">Blocked dates: {log.blocked_dates_found ?? 0}</p>
+                <p className="mt-1 text-xs text-slate-700">{t('syncLogs.blockedDatesLabel', { count: log.blocked_dates_found ?? 0 })}</p>
                 {log.error_message ? <p className="mt-2 text-xs text-rose-700">{log.error_message}</p> : null}
               </article>
             ))}
@@ -122,12 +126,12 @@ export default function SyncLogs() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Unit ID</th>
-                  <th className="py-2 pr-4">Started</th>
-                  <th className="py-2 pr-4">Completed</th>
-                  <th className="py-2 pr-4">Blocked dates</th>
-                  <th className="py-2">Error</th>
+                  <th className="py-2 pr-4">{t('syncLogs.status')}</th>
+                  <th className="py-2 pr-4">{t('syncLogs.unitId')}</th>
+                  <th className="py-2 pr-4">{t('syncLogs.started')}</th>
+                  <th className="py-2 pr-4">{t('syncLogs.completed')}</th>
+                  <th className="py-2 pr-4">{t('syncLogs.blockedDates')}</th>
+                  <th className="py-2">{t('syncLogs.error')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,17 +139,17 @@ export default function SyncLogs() {
                   <tr key={log.id} className="border-b border-slate-100 align-top last:border-b-0">
                     <td className="py-2 pr-4">
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadgeClass(log.sync_status)}`}>
-                        {log.sync_status === 'in_progress' ? 'In progress' : log.sync_status}
+                        {log.sync_status === 'in_progress' ? t('syncLogs.inProgressLabel') : log.sync_status}
                       </span>
                     </td>
-                    <td className="max-w-[200px] py-2 pr-4 text-xs text-slate-600" title={log.unit_id ?? 'All units'}>
-                      {log.unit_id ?? 'All units'}
+                    <td className="max-w-[200px] py-2 pr-4 text-xs text-slate-600" title={log.unit_id ?? t('syncLogs.allUnits')}>
+                      {log.unit_id ?? t('syncLogs.allUnits')}
                     </td>
                     <td className="whitespace-nowrap py-2 pr-4 text-slate-600">
                       {format(new Date(log.sync_started_at), 'MMM dd, yyyy HH:mm')}
                     </td>
                     <td className="whitespace-nowrap py-2 pr-4 text-slate-600">
-                      {log.sync_completed_at ? format(new Date(log.sync_completed_at), 'MMM dd, yyyy HH:mm') : 'In progress'}
+                      {log.sync_completed_at ? format(new Date(log.sync_completed_at), 'MMM dd, yyyy HH:mm') : t('syncLogs.inProgressCompletion')}
                     </td>
                     <td className="py-2 pr-4 text-slate-700">{log.blocked_dates_found ?? 0}</td>
                     <td className="max-w-[260px] py-2 text-xs text-rose-700">{log.error_message ?? '-'}</td>

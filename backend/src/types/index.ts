@@ -59,6 +59,28 @@ export interface BookingRequest {
   updated_at: string;
 }
 
+export interface AdminUserRow {
+  id: string;
+  auth_id: string | null;
+  name: string;
+  email: string;
+  role: 'admin' | 'staff';
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  authId: string | null;
+  name: string;
+  email: string;
+  role: 'admin' | 'staff';
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PaymentRecord {
   id: string;
   booking_id: string;

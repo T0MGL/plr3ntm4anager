@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient, Session, User } from '@supabase/supabase-js';
+import { setAuthToken } from '../utils/api';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
+      setAuthToken(data.session?.access_token ?? null);
       setSession(data.session);
       setUser(data.session?.user ?? null);
       supabase.realtime.setAuth(data.session?.access_token ?? '');
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void init();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setAuthToken(newSession?.access_token ?? null);
       setSession(newSession);
       setUser(newSession?.user ?? null);
       supabase.realtime.setAuth(newSession?.access_token ?? '');

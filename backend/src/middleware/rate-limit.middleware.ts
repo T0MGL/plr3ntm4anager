@@ -27,3 +27,13 @@ export const paymentCreateRateLimit = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many payment attempts, please wait a few minutes.' }
 });
+
+// Protects admin user write operations (password set/reset, invite). Generous
+// enough for normal admin use but blocks automated abuse.
+export const adminWriteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try later.' }
+});

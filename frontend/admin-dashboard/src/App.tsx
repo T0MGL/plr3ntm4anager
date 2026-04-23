@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { FiCalendar, FiCompass, FiCreditCard, FiHome, FiRefreshCw } from 'react-icons/fi';
+import { useTranslation } from 'react-i18next';
 import Login from './components/Auth/Login';
 import AppLayout from './components/layout/AppLayout';
 import type { LayoutNavItem } from './components/layout/types';
@@ -11,45 +11,6 @@ import Bookings from './pages/Bookings';
 import Sync from './pages/Sync';
 import Payments from './pages/Payments';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { setAuthToken } from './utils/api';
-
-const navItems: LayoutNavItem[] = [
-  {
-    label: 'Dashboard',
-    path: '/',
-    icon: FiHome,
-    title: 'Operations Overview',
-    description: 'Monitor platform performance, unit health, and latest activity.',
-  },
-  {
-    label: 'Units',
-    path: '/units',
-    icon: FiCompass,
-    title: 'Unit Management',
-    description: 'Create, update, and maintain listing inventory with confidence.',
-  },
-  {
-    label: 'Bookings',
-    path: '/bookings',
-    icon: FiCalendar,
-    title: 'Booking Pipeline',
-    description: 'Review reservations, guest details, and upcoming check-ins.',
-  },
-  {
-    label: 'Sync',
-    path: '/sync',
-    icon: FiRefreshCw,
-    title: 'Sync Center',
-    description: 'Keep availability synchronized across Airbnb and connected calendars.',
-  },
-  {
-    label: 'Payments',
-    path: '/payments',
-    icon: FiCreditCard,
-    title: 'Payments & Reconciliation',
-    description: 'Track payouts and maintain accurate financial records.',
-  },
-];
 
 const routes = [
   { path: '/', element: <Dashboard /> },
@@ -65,11 +26,46 @@ if (!import.meta.env.VITE_SUPABASE_URL) missingEnv.push('VITE_SUPABASE_URL');
 if (!import.meta.env.VITE_SUPABASE_ANON_KEY) missingEnv.push('VITE_SUPABASE_ANON_KEY');
 
 function Shell() {
-  const { user, session, loading, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
+  const { t } = useTranslation();
 
-  useEffect(() => {
-    setAuthToken(session?.access_token ?? null);
-  }, [session]);
+  const navItems: LayoutNavItem[] = [
+    {
+      label: t('nav.dashboard'),
+      path: '/',
+      icon: FiHome,
+      title: t('nav.operationsOverview'),
+      description: t('nav.operationsOverviewDesc'),
+    },
+    {
+      label: t('nav.units'),
+      path: '/units',
+      icon: FiCompass,
+      title: t('nav.unitManagement'),
+      description: t('nav.unitManagementDesc'),
+    },
+    {
+      label: t('nav.bookings'),
+      path: '/bookings',
+      icon: FiCalendar,
+      title: t('nav.bookingPipeline'),
+      description: t('nav.bookingPipelineDesc'),
+    },
+    {
+      label: t('nav.sync'),
+      path: '/sync',
+      icon: FiRefreshCw,
+      title: t('nav.syncCenter'),
+      description: t('nav.syncCenterDesc'),
+    },
+    {
+      label: t('nav.payments'),
+      path: '/payments',
+      icon: FiCreditCard,
+      title: t('nav.paymentsReconciliation'),
+      description: t('nav.paymentsReconciliationDesc'),
+    },
+  ];
 
   if (missingEnv.length > 0) {
     return (

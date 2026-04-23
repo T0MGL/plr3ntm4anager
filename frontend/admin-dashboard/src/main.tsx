@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/react';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './i18n';
 import './index.css';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;

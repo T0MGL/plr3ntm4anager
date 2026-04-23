@@ -814,6 +814,15 @@ body.sidebar-open {
   scrollbar-width: none;
 }
 
+@media print {
+  aside { display: none !important; }
+  header[role="banner"] { display: none !important; }
+  main { margin-left: 0 !important; }
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+}
+
 /* Layout Theme Overrides (Minimal Black & White) */
 :root {
   --admin-bg: #ffffff;

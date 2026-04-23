@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { FiLogOut } from "react-icons/fi";
+import { useTranslation } from "react-i18next";
 import type { LayoutNavItem } from "./types";
 
 interface SidebarProps {
@@ -17,6 +18,7 @@ export default function Sidebar({
   onNavigate,
   onSignOut,
 }: SidebarProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex h-full flex-col gap-3 px-4 py-5">
       <div className="space-y-2">
@@ -81,7 +83,7 @@ export default function Sidebar({
           onClick={onSignOut}
         >
           <FiLogOut aria-hidden="true" />
-          {!collapsed && <span>Sign out</span>}
+          {!collapsed && <span>{t('layout.signOut')}</span>}
         </button>
       </div>
     </div>

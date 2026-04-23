@@ -54,15 +54,12 @@ export async function syncUnit(unitId: string, icalUrl: string): Promise<void> {
     const blockedRanges: BlockedDateRange[] = [];
 
     for (const event of Object.values(icalData)) {
-      if (event.type === 'VEVENT') {
-        const summary = (event.summary ?? '').toString();
-        if (summary === 'Reserved' || summary === 'Blocked') {
-          blockedRanges.push({
-            start: event.start as Date,
-            end: event.end as Date,
-            summary
-          });
-        }
+      if (event.type === 'VEVENT' && event.start && event.end) {
+        blockedRanges.push({
+          start: event.start as Date,
+          end: event.end as Date,
+          summary: (event.summary ?? '').toString()
+        });
       }
     }
 

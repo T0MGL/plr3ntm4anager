@@ -2,6 +2,16 @@ type Locale = 'es' | 'en';
 
 const LOGO_URL = 'https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/logo/park-lofts-logogold.png';
 
+const ADMIN_DASHBOARD_URL = 'https://admin.parkloftsparaguay.com';
+
+const HTML_ESCAPE: Record<string, string> = {
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+};
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (ch) => HTML_ESCAPE[ch]!);
+}
+
 const COLORS = {
   charcoal: '#2C2926',
   cream: '#F5F2ED',
@@ -425,6 +435,55 @@ export function paymentFailedEmail(params: {
     closing(get('paymentFailed.closing', locale)),
   ].join(''));
   return { subject, html };
+}
+
+export function adminInviteEmail(params: {
+  name: string;
+  email: string;
+  tempPassword: string;
+}): { subject: string; html: string } {
+  const safeName = escapeHtml(params.name);
+  const safeEmail = escapeHtml(params.email);
+  const safePassword = escapeHtml(params.tempPassword);
+
+  const html = wrap('es', [
+    heading('Tu acceso al panel de administración'),
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:${COLORS.charcoal};">Hola ${safeName},</p>`,
+    paragraph('Se creó tu cuenta con acceso al panel de administración de Park Lofts. Ingresá con las credenciales de abajo y cambiá tu contraseña en el primer inicio de sesión.'),
+    `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:16px 0 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
+      <tr><td style="padding:18px 20px;">
+        ${detailRow('Email', `<span style="font-family:monospace;letter-spacing:0.04em;">${safeEmail}</span>`)}
+        ${detailRow('Contraseña', `<span style="font-family:monospace;letter-spacing:0.08em;font-size:15px;font-weight:600;color:${COLORS.charcoal};">${safePassword}</span>`, true)}
+      </td></tr>
+    </table>`,
+    `<p style="margin:20px 0 24px;">
+      <a href="${ADMIN_DASHBOARD_URL}/login" style="display:inline-block;padding:13px 24px;background-color:${COLORS.charcoal};color:${COLORS.cream};text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;letter-spacing:0.02em;">Acceder al panel</a>
+    </p>`,
+    closing('Cambiá tu contraseña apenas ingreses por primera vez.'),
+  ].join(''));
+
+  return { subject: 'Tu acceso al panel Park Lofts', html };
+}
+
+export function adminPasswordResetEmail(params: {
+  name: string;
+  resetUrl: string;
+}): { subject: string; html: string } {
+  const safeName = escapeHtml(params.name);
+  const safeUrl = escapeHtml(params.resetUrl);
+
+  const html = wrap('es', [
+    heading('Recuperá tu contraseña'),
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:${COLORS.charcoal};">Hola ${safeName},</p>`,
+    paragraph('Recibimos una solicitud para crear una nueva contraseña en tu cuenta del panel de administración.'),
+    infoBlock('El enlace es válido por 1 hora. Si no fuiste vos, podés ignorar este correo.'),
+    `<p style="margin:20px 0 24px;">
+      <a href="${safeUrl}" style="display:inline-block;padding:13px 24px;background-color:${COLORS.charcoal};color:${COLORS.cream};text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;letter-spacing:0.02em;">Crear nueva contraseña</a>
+    </p>`,
+    closing('Tu contraseña actual sigue funcionando hasta que completes el cambio.'),
+  ].join(''));
+
+  return { subject: 'Recuperación de contraseña - Park Lofts Admin', html };
 }
 
 export function stuckPreauthInternalAlertEmail(params: {

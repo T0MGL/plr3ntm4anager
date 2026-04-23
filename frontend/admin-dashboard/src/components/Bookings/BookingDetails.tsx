@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 interface BookingDetailsProps {
   booking: {
@@ -17,48 +18,52 @@ interface BookingDetailsProps {
   };
 }
 
-const REASON_LABELS: Record<string, string> = {
-  fresh_sync_dates_free: 'Sync fresco, fechas libres',
-  stale_sync: 'Sync antiguo al momento de decidir',
-  no_sync_recorded: 'Sin sync previo registrado',
-  inline_sync_failed: 'Inline sync falló al momento de decidir',
-  dates_conflict: 'Conflicto de fechas detectado',
-  availability_check_failed: 'Consulta de disponibilidad falló',
-};
-
 export default function BookingDetails({ booking }: BookingDetailsProps) {
+  const { t } = useTranslation();
+
   const approvalPath = booking.approval_path ?? null;
   const reason = booking.approval_decision_reason ?? null;
   const syncAge = booking.sync_age_minutes_at_decision ?? null;
+
+  const reasonLabel = reason
+    ? (t(`bookingDetails.reasons.${reason}`, { defaultValue: reason }) as string)
+    : null;
 
   return (
     <div className="grid gap-3 text-sm text-slate-700">
       <div className="grid gap-1 sm:grid-cols-2">
         <p>
-          <span className="font-medium text-slate-900">Guest:</span> {booking.guest_name}
+          <span className="font-medium text-slate-900">{t('bookingDetails.guest')}</span>{' '}
+          {booking.guest_name}
         </p>
         <p>
-          <span className="font-medium text-slate-900">Email:</span> {booking.guest_email}
+          <span className="font-medium text-slate-900">{t('bookingDetails.email')}</span>{' '}
+          {booking.guest_email}
         </p>
         <p>
-          <span className="font-medium text-slate-900">Phone:</span> {booking.guest_phone}
+          <span className="font-medium text-slate-900">{t('bookingDetails.phone')}</span>{' '}
+          {booking.guest_phone}
         </p>
         <p>
-          <span className="font-medium text-slate-900">Status:</span> {booking.status}
+          <span className="font-medium text-slate-900">{t('bookingDetails.status')}</span>{' '}
+          {booking.status}
         </p>
       </div>
 
       <div className="rounded-lg bg-slate-50 p-3 text-slate-700">
         <p>
-          <span className="font-medium text-slate-900">Stay:</span> {booking.check_in_date} to{' '}
-          {booking.check_out_date}
+          <span className="font-medium text-slate-900">{t('bookingDetails.stay')}</span>{' '}
+          {booking.check_in_date} {t('bookingDetails.to')} {booking.check_out_date}
         </p>
         <p className="mt-1">
-          <span className="font-medium text-slate-900">Total:</span> ${booking.total_price_usd}
+          <span className="font-medium text-slate-900">{t('bookingDetails.total')}</span> $
+          {booking.total_price_usd}
         </p>
         {booking.created_at ? (
           <p className="mt-1 text-xs text-slate-500">
-            Requested on {format(new Date(booking.created_at), 'MMM dd, yyyy HH:mm')}
+            {t('bookingDetails.requestedOn', {
+              date: format(new Date(booking.created_at), 'MMM dd, yyyy HH:mm'),
+            })}
           </p>
         ) : null}
       </div>
@@ -66,24 +71,30 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
       {approvalPath ? (
         <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Approval routing
+            {t('bookingDetails.approvalRouting')}
           </p>
           <dl className="mt-2 grid gap-1 sm:grid-cols-2">
             <div>
-              <dt className="font-medium text-slate-900">Path</dt>
+              <dt className="font-medium text-slate-900">{t('bookingDetails.path')}</dt>
               <dd className="mt-0.5 capitalize">{approvalPath}</dd>
             </div>
-            {reason ? (
+            {reasonLabel ? (
               <div>
-                <dt className="font-medium text-slate-900">Reason</dt>
-                <dd className="mt-0.5">{REASON_LABELS[reason] ?? reason}</dd>
+                <dt className="font-medium text-slate-900">{t('bookingDetails.reason')}</dt>
+                <dd className="mt-0.5">{reasonLabel}</dd>
               </div>
             ) : null}
             {syncAge !== null ? (
               <div>
-                <dt className="font-medium text-slate-900">Sync age at decision</dt>
+                <dt className="font-medium text-slate-900">{t('bookingDetails.syncAge')}</dt>
                 <dd className="mt-0.5">
-                  {syncAge} min ({syncAge > 60 ? `${Math.round(syncAge / 60)}h` : 'reciente'})
+                  {t('bookingDetails.syncAgeValue', {
+                    minutes: syncAge,
+                    label:
+                      syncAge > 60
+                        ? `${Math.round(syncAge / 60)}${t('bookingDetails.hours')}`
+                        : t('bookingDetails.recent'),
+                  })}
                 </dd>
               </div>
             ) : null}
@@ -93,7 +104,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
 
       {booking.special_requests ? (
         <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
-          <p className="font-medium text-slate-900">Special requests</p>
+          <p className="font-medium text-slate-900">{t('bookingDetails.specialRequests')}</p>
           <p className="mt-1 whitespace-pre-wrap">{booking.special_requests}</p>
         </div>
       ) : null}

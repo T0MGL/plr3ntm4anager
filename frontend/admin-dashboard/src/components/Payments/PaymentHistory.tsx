@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
 import { supabase } from '../../context/AuthContext';
 
@@ -23,6 +24,7 @@ function statusChipClass(status: string): string {
 }
 
 export default function PaymentHistory() {
+  const { t } = useTranslation();
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -111,23 +113,23 @@ export default function PaymentHistory() {
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Payments</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">{t('paymentHistory.payments')}</p>
           <p className="mt-1 text-xl font-semibold text-slate-900">{summary.totalCount}</p>
         </div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-emerald-700">Completed</p>
+          <p className="text-xs uppercase tracking-wide text-emerald-700">{t('paymentHistory.completed')}</p>
           <p className="mt-1 text-xl font-semibold text-emerald-800">{summary.completed}</p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-amber-700">Pending</p>
+          <p className="text-xs uppercase tracking-wide text-amber-700">{t('paymentHistory.pending')}</p>
           <p className="mt-1 text-xl font-semibold text-amber-800">{summary.pending}</p>
         </div>
         <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-rose-700">Failed</p>
+          <p className="text-xs uppercase tracking-wide text-rose-700">{t('paymentHistory.failed')}</p>
           <p className="mt-1 text-xl font-semibold text-rose-800">{summary.failed}</p>
         </div>
         <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-sky-700">Completed volume</p>
+          <p className="text-xs uppercase tracking-wide text-sky-700">{t('paymentHistory.completedVolume')}</p>
           <p className="mt-1 text-xl font-semibold text-sky-800">${summary.completedAmount.toLocaleString()}</p>
         </div>
       </div>
@@ -136,7 +138,7 @@ export default function PaymentHistory() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search booking ID, payment ID, transaction ID"
+          placeholder={t('paymentHistory.search')}
           className="w-full min-w-[240px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
 
@@ -145,11 +147,11 @@ export default function PaymentHistory() {
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-          <option value="refunded">Refunded</option>
+          <option value="">{t('paymentHistory.allStatuses')}</option>
+          <option value="pending">{t('paymentHistory.pending')}</option>
+          <option value="completed">{t('paymentHistory.completed')}</option>
+          <option value="failed">{t('paymentHistory.failed')}</option>
+          <option value="refunded">{t('paymentHistory.refunded')}</option>
         </select>
 
         <button
@@ -157,17 +159,17 @@ export default function PaymentHistory() {
           onClick={() => void fetchPayments(status || undefined)}
           disabled={isLoading}
         >
-          Refresh
+          {t('paymentHistory.refresh')}
         </button>
       </div>
 
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div> : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        {isLoading ? <p className="text-sm text-slate-500">Loading payments...</p> : null}
+        {isLoading ? <p className="text-sm text-slate-500">{t('paymentHistory.loading')}</p> : null}
 
         {!isLoading && filteredPayments.length === 0 ? (
-          <p className="text-sm text-slate-500">No payments found for current filters.</p>
+          <p className="text-sm text-slate-500">{t('paymentHistory.noPayments')}</p>
         ) : null}
 
         {!isLoading && filteredPayments.length > 0 ? (
@@ -175,13 +177,13 @@ export default function PaymentHistory() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Amount</th>
-                  <th className="py-2 pr-4">Booking</th>
-                  <th className="py-2 pr-4">Method</th>
-                  <th className="py-2 pr-4">Transaction</th>
-                  <th className="py-2 pr-4">Created</th>
-                  <th className="py-2">Failure reason</th>
+                  <th className="py-2 pr-4">{t('paymentHistory.status')}</th>
+                  <th className="py-2 pr-4">{t('paymentHistory.amount')}</th>
+                  <th className="py-2 pr-4">{t('paymentHistory.booking')}</th>
+                  <th className="py-2 pr-4">{t('paymentHistory.method')}</th>
+                  <th className="py-2 pr-4">{t('paymentHistory.transaction')}</th>
+                  <th className="py-2 pr-4">{t('paymentHistory.created')}</th>
+                  <th className="py-2">{t('paymentHistory.failureReason')}</th>
                 </tr>
               </thead>
               <tbody>

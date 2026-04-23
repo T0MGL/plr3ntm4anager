@@ -26,6 +26,7 @@ const normalizePhotos = (photoList = []) =>
 const PhotoUpload = ({ onValidityChange, onDataChange }) => {
   const [photos, setPhotos] = useState([]);
   const [category, setCategory] = useState("place");
+  const [dragIndex, setDragIndex] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -134,6 +135,33 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
     });
   };
 
+  const handleDragStart = (e, idx) => {
+    setDragIndex(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, idx) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === idx) {
+      setDragIndex(null);
+      return;
+    }
+    setPhotos((prev) => {
+      const newPhotos = [...prev];
+      const [dragged] = newPhotos.splice(dragIndex, 1);
+      newPhotos.splice(idx, 0, dragged);
+      return newPhotos;
+    });
+    setDragIndex(null);
+  };
+
+  const handleDragEnd = () => setDragIndex(null);
+
   const renderPhotoCard = (
     photo,
     idx,
@@ -142,7 +170,14 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
   ) => (
     <div
       key={photo.id || `photo-${idx}`}
-      className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50 group"
+      draggable
+      onDragStart={(e) => handleDragStart(e, idx)}
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, idx)}
+      onDragEnd={handleDragEnd}
+      className={`relative overflow-hidden rounded-xl border bg-gray-50 group cursor-grab active:cursor-grabbing transition-opacity ${
+        dragIndex === idx ? 'opacity-40 border-blue-400' : 'border-gray-200'
+      }`}
     >
       <img
         src={
@@ -153,6 +188,7 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
         alt={`Photo ${idx + 1}`}
         loading="lazy"
         className={imageClass}
+        draggable={false}
       />
       <button
         onClick={() => removePhoto(photo.id)}
@@ -240,7 +276,16 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
         ) : (
           <div className="flex flex-1 flex-col gap-4">
             <div className="grid min-h-[400px] grid-cols-1 grid-rows-2 gap-3 md:grid-cols-4">
-              <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-gray-50 md:col-span-2 md:row-span-2 group">
+              <div
+                draggable={!!photos[0]}
+                onDragStart={(e) => photos[0] && handleDragStart(e, 0)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, 0)}
+                onDragEnd={handleDragEnd}
+                className={`relative overflow-hidden rounded-2xl border bg-gray-50 md:col-span-2 md:row-span-2 group transition-opacity ${
+                  dragIndex === 0 ? 'opacity-40 border-blue-400 cursor-grabbing' : 'border-gray-100 cursor-grab'
+                }`}
+              >
                 {photos[0] ? (
                   <>
                     <img
@@ -255,6 +300,7 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
                       alt="Main room"
                       loading="lazy"
                       className="h-full w-full object-cover"
+                      draggable={false}
                     />
                     <button
                       onClick={() => removePhoto(photos[0].id)}
@@ -279,7 +325,14 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
               {[1, 2, 3, 4].map((idx) => (
                 <div
                   key={idx}
-                  className="relative overflow-hidden rounded-2xl border border-gray-100 bg-gray-50 group"
+                  draggable={!!photos[idx]}
+                  onDragStart={(e) => photos[idx] && handleDragStart(e, idx)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative overflow-hidden rounded-2xl border bg-gray-50 group transition-opacity ${
+                    dragIndex === idx ? 'opacity-40 border-blue-400 cursor-grabbing' : 'border-gray-100 cursor-grab'
+                  }`}
                 >
                   {photos[idx] ? (
                     <>
@@ -295,6 +348,7 @@ const PhotoUpload = ({ onValidityChange, onDataChange }) => {
                         alt={`View ${idx}`}
                         loading="lazy"
                         className="h-full w-full object-cover"
+                        draggable={false}
                       />
                       <button
                         onClick={() => removePhoto(photos[idx].id)}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { FiCopy, FiRefreshCw } from 'react-icons/fi';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
 
 interface IcalFeedPanelProps {
@@ -9,15 +10,13 @@ interface IcalFeedPanelProps {
   onTokenRotated: (newToken: string) => void;
 }
 
-// The API base URL points at /api, but the iCal route sits above that prefix
-// because Airbnb does not carry custom prefixes. Strip the trailing /api so
-// the operator gets the exact URL to paste into Airbnb.
 function resolveIcalOrigin(): string {
   const raw = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000/api';
   return raw.replace(/\/api\/?$/, '');
 }
 
 export default function IcalFeedPanel({ unitId, icalFeedToken, onTokenRotated }: IcalFeedPanelProps) {
+  const { t } = useTranslation();
   const [isRotating, setIsRotating] = useState(false);
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
 
@@ -26,9 +25,9 @@ export default function IcalFeedPanel({ unitId, icalFeedToken, onTokenRotated }:
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(icalUrl);
-      toast.success('URL copiada');
+      toast.success(t('ical.copied'));
     } catch {
-      toast.error('No se pudo copiar');
+      toast.error(t('ical.copyFailed'));
     }
   };
 
@@ -36,47 +35,41 @@ export default function IcalFeedPanel({ unitId, icalFeedToken, onTokenRotated }:
     setIsRotating(true);
     try {
       const { data } = await api.post<{ ical_feed_token: string }>(
-        `/admin/units/${unitId}/regenerate-ical-token`
+        `/admin/units/${unitId}/regenerate-ical-token`,
       );
       onTokenRotated(data.ical_feed_token);
-      toast.success('Token regenerado. Actualizá la URL en Airbnb.');
+      toast.success(t('ical.regenerated'));
       setShowRotateConfirm(false);
     } catch {
-      toast.error('No se pudo regenerar el token');
+      toast.error(t('ical.regenerateFailed'));
     } finally {
       setIsRotating(false);
     }
   };
 
   return (
-    <div className="space-y-2 rounded-xl border border-[#ebebeb] bg-[#fafafa] p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#6a6a6a]">
-          URL iCal para Airbnb
-        </p>
+    <>
+      <div className="flex items-center gap-1.5 px-1">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-[#aaa] shrink-0">iCal</span>
+        <code className="flex-1 truncate text-[11px] text-[#888]">{icalUrl}</code>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-xs font-medium text-[#b91c1c] hover:underline disabled:opacity-50"
-          onClick={() => setShowRotateConfirm(true)}
-          disabled={isRotating}
-          aria-label="Regenerar URL iCal"
-        >
-          <FiRefreshCw className="h-3 w-3" aria-hidden="true" />
-          Regenerar
-        </button>
-      </div>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 truncate rounded-lg border border-[#ebebeb] bg-white px-2 py-1.5 text-xs text-[#222]">
-          {icalUrl}
-        </code>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded-lg border border-[#dddddd] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#484848] hover:bg-[#f2f2f2]"
           onClick={copy}
-          aria-label="Copiar URL iCal"
+          className="shrink-0 rounded-md p-1 text-[#aaa] hover:bg-[#f7f7f7] hover:text-[#484848] transition-colors"
+          aria-label={t('ical.copyAriaLabel')}
+          title={t('ical.copy')}
         >
           <FiCopy className="h-3.5 w-3.5" aria-hidden="true" />
-          Copiar
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowRotateConfirm(true)}
+          disabled={isRotating}
+          className="shrink-0 rounded-md p-1 text-[#aaa] hover:bg-[#f7f7f7] hover:text-[#c1355b] transition-colors disabled:opacity-40"
+          aria-label={t('ical.regenerateAriaLabel')}
+          title={t('ical.regenerate')}
+        >
+          <FiRefreshCw className={`h-3.5 w-3.5 ${isRotating ? 'animate-spin' : ''}`} aria-hidden="true" />
         </button>
       </div>
 
@@ -89,11 +82,8 @@ export default function IcalFeedPanel({ unitId, icalFeedToken, onTokenRotated }:
             className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-[#222]">¿Regenerar URL iCal?</h3>
-            <p className="mt-2 text-sm text-[#6a6a6a]">
-              La URL actual deja de funcionar inmediatamente. Tenés que pegar la nueva URL en Airbnb
-              o Airbnb dejará de ver la disponibilidad.
-            </p>
+            <h3 className="text-lg font-semibold text-[#222]">{t('ical.confirmTitle')}</h3>
+            <p className="mt-2 text-sm text-[#6a6a6a]">{t('ical.confirmDesc')}</p>
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
@@ -101,7 +91,7 @@ export default function IcalFeedPanel({ unitId, icalFeedToken, onTokenRotated }:
                 onClick={() => setShowRotateConfirm(false)}
                 disabled={isRotating}
               >
-                Cancelar
+                {t('ical.cancel')}
               </button>
               <button
                 type="button"
@@ -109,12 +99,12 @@ export default function IcalFeedPanel({ unitId, icalFeedToken, onTokenRotated }:
                 onClick={() => void rotate()}
                 disabled={isRotating}
               >
-                {isRotating ? 'Regenerando...' : 'Regenerar'}
+                {isRotating ? t('ical.regenerating') : t('ical.regenerate')}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

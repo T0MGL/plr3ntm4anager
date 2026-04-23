@@ -1,21 +1,25 @@
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
 const formSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6)
+  password: z.string().min(6),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export default function Login() {
   const { signIn } = useAuth();
+  const { t, i18n } = useTranslation();
+  const currentLang = (i18n.resolvedLanguage ?? i18n.language).startsWith('es') ? 'es' : 'en';
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
   const onSubmit = async (values: FormValues) => {
@@ -28,30 +32,26 @@ export default function Login() {
         <div className="login-panel-inner">
           <LoginBrandmark />
 
-          <h1 className="login-title">
-            Operaciones que mantienen cada loft impecable.
-          </h1>
-          <p className="login-subtitle">
-            Gestion de reservas, pagos Bancard y sincronizacion de disponibilidad en un solo lugar.
-          </p>
+          <h1 className="login-title">{t('login.tagline')}</h1>
+          <p className="login-subtitle">{t('login.description')}</p>
 
           <div className="login-stats">
             <div>
               <p className="login-stat-value">98%</p>
-              <p className="login-stat-label">Payout accuracy</p>
+              <p className="login-stat-label">{t('login.payoutAccuracy')}</p>
             </div>
             <div>
               <p className="login-stat-value">24/7</p>
-              <p className="login-stat-label">Calendar sync</p>
+              <p className="login-stat-label">{t('login.calendarSync')}</p>
             </div>
             <div>
               <p className="login-stat-value">1 dashboard</p>
-              <p className="login-stat-label">For all listings</p>
+              <p className="login-stat-label">{t('login.forAllListings')}</p>
             </div>
           </div>
 
           <div className="login-integrations">
-            <span className="login-integrations-label">Integraciones</span>
+            <span className="login-integrations-label">{t('login.integrations')}</span>
             <div className="login-integrations-row">
               <span className="login-chip">Bancard</span>
               <span className="login-chip">Airbnb</span>
@@ -65,11 +65,9 @@ export default function Login() {
         <div className="login-card">
           <div className="login-card-header">
             <div>
-              <p className="login-eyebrow">Secure access</p>
-              <h2 className="login-card-title">Ingresar al Admin</h2>
-              <p className="login-card-sub">
-                Usa tus credenciales para continuar.
-              </p>
+              <p className="login-eyebrow">{t('login.secureAccess')}</p>
+              <h2 className="login-card-title">{t('login.title')}</h2>
+              <p className="login-card-sub">{t('login.subtitle')}</p>
             </div>
             <div className="login-brand-mark">
               <img
@@ -83,7 +81,7 @@ export default function Login() {
           <form className="login-form" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label className="login-label" htmlFor="email">
-                Email
+                {t('login.email')}
               </label>
               <input
                 id="email"
@@ -96,7 +94,7 @@ export default function Login() {
             </div>
             <div>
               <label className="login-label" htmlFor="password">
-                Contrasena
+                {t('login.password')}
               </label>
               <input
                 id="password"
@@ -109,13 +107,23 @@ export default function Login() {
               {errors.password && <p className="login-error">{errors.password.message}</p>}
             </div>
             <button className="login-submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Ingresando...' : 'Ingresar'}
+              {isSubmitting ? t('login.loggingIn') : t('login.login')}
             </button>
           </form>
 
           <div className="login-footer">
             <span className="login-footer-dot" />
-            Acceso restringido al equipo de operaciones.
+            {t('login.footer')}
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              className="text-xs font-medium text-[#9ca3af] hover:text-[#6b7280] transition-colors"
+              onClick={() => i18n.changeLanguage(currentLang === 'es' ? 'en' : 'es')}
+            >
+              {currentLang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
+            </button>
           </div>
         </div>
       </div>

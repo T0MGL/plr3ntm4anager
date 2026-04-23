@@ -40,11 +40,24 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 
-// Allowlist the two frontends we ship (widget + admin dashboard). Anything else
-// is rejected at the CORS layer so a stolen JWT cannot be replayed from an
-// attacker origin with credentials. Origin null covers curl, healthchecks, and
-// same-origin server-to-server calls, none of which carry cookies.
-const corsAllowlist = new Set([env.FRONTEND_URL, env.ADMIN_DASHBOARD_URL]);
+// Allowlist the frontends we ship (widget + admin dashboard, plus any extra
+// origins declared via CORS_EXTRA_ORIGINS as a comma separated list). Anything
+// else is rejected at the CORS layer so a stolen JWT cannot be replayed from
+// an attacker origin with credentials. Origin null covers curl, healthchecks,
+// and same-origin server-to-server calls, none of which carry cookies.
+//
+// We deliberately do NOT throw when an origin is not allowed. Throwing funnels
+// the request into the generic error handler which then responds without any
+// CORS headers. The browser surfaces that as an opaque preflight failure,
+// masking the real cause. Returning callback(null, false) lets cors() respond
+// with the request echoed back minus the ACAO header, which is the documented
+// behaviour and keeps the error observable from the console.
+const baseOrigins = [env.FRONTEND_URL, env.ADMIN_DASHBOARD_URL];
+const extraOrigins = (env.CORS_EXTRA_ORIGINS ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const corsAllowlist = new Set([...baseOrigins, ...extraOrigins]);
 
 app.use(
   cors({
@@ -53,11 +66,12 @@ app.use(
         return callback(null, true);
       }
       logger.warn('CORS blocked origin', { origin });
-      return callback(new Error('Origin not allowed by CORS'));
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204
   })
 );
 

@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
   const { data, error } = await supabasePublic
     .from('units')
     .select(
-      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at, neighborhood, street_address, city, state, country, latitude, longitude, google_maps_url'
+      'id, name, description, nightly_rate_usd, max_guests, bedrooms, beds, airbnb_listing_url, airbnb_ical_url, image_urls, status, created_at, updated_at, neighborhood, street_address, city, state, country, latitude, longitude, google_maps_url, category, place_type, private_bathroom, dedicated_bathroom, shared_bathroom, bathroom_usage, amenities, safety_items, highlights, safety_details, favorites, weekday_price, weekday_after_tax_price, home_precise, bedroom_lock'
     )
     .eq('id', unitId)
     .eq('status', 'active')

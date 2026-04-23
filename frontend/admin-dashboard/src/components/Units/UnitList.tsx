@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import UnitCard from './UnitCard';
 import IcalFeedPanel from './IcalFeedPanel';
 import { api } from '../../utils/api';
@@ -49,6 +50,7 @@ interface UnitListProps {
 }
 
 export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) {
+  const { t } = useTranslation();
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [unitPendingDelete, setUnitPendingDelete] = useState<UnitRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -92,12 +94,12 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
     setIsDeleting(true);
     try {
       await api.delete(`/admin/units/${unitPendingDelete.id}`);
-      toast.success('Unit deleted');
+      toast.success(t('unitList.deleted'));
       setUnitPendingDelete(null);
       await fetchUnits();
     } catch (error) {
       console.error('Failed to delete unit:', error);
-      toast.error('Failed to delete unit');
+      toast.error(t('unitList.deleteFailed'));
     } finally {
       setIsDeleting(false);
     }
@@ -106,8 +108,8 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
   if (units.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-black/15 bg-white p-12 text-center">
-        <h3 className="text-lg font-semibold text-[#222222]">No units yet</h3>
-        <p className="mt-2 text-sm text-[#717171]">Create your first unit to start managing listings.</p>
+        <h3 className="text-lg font-semibold text-[#222222]">{t('unitList.noUnits')}</h3>
+        <p className="mt-2 text-sm text-[#717171]">{t('unitList.noUnitsDesc')}</p>
       </div>
     );
   }
@@ -117,7 +119,7 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
       <section className="space-y-4" aria-label="Unit listings">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {units.map((unit) => (
-            <div key={unit.id} className="space-y-3">
+            <div key={unit.id} className="group flex flex-col overflow-hidden rounded-[24px] border border-[#ebebeb] bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
               <UnitCard
                 name={unit.name}
                 description={unit.description}
@@ -135,21 +137,23 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
                     onEditUnit(freshUnit);
                   } catch (error) {
                     console.error('Failed to load unit details:', error);
-                    toast.error('Failed to load unit details');
+                    toast.error(t('unitList.loadFailed'));
                   }
                 }}
                 onDelete={() => requestDelete(unit)}
               />
               {unit.ical_feed_token && (
-                <IcalFeedPanel
-                  unitId={unit.id}
-                  icalFeedToken={unit.ical_feed_token}
-                  onTokenRotated={(newToken) =>
-                    setUnits((prev) =>
-                      prev.map((u) => (u.id === unit.id ? { ...u, ical_feed_token: newToken } : u))
-                    )
-                  }
-                />
+                <div className="border-t border-[#f0f0f0] px-5 py-2.5">
+                  <IcalFeedPanel
+                    unitId={unit.id}
+                    icalFeedToken={unit.ical_feed_token}
+                    onTokenRotated={(newToken) =>
+                      setUnits((prev) =>
+                        prev.map((u) => (u.id === unit.id ? { ...u, ical_feed_token: newToken } : u))
+                      )
+                    }
+                  />
+                </div>
               )}
             </div>
           ))}
@@ -169,9 +173,9 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
             className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-[#222222]">Delete unit?</h3>
+            <h3 className="text-lg font-semibold text-[#222222]">{t('unitList.deleteTitle')}</h3>
             <p className="mt-2 text-sm text-[#6a6a6a]">
-              This will permanently delete <span className="font-semibold">{unitPendingDelete.name}</span> and related sync logs.
+              {t('unitList.deleteConfirm', { name: unitPendingDelete.name })}
             </p>
 
             <div className="mt-5 flex items-center justify-end gap-3">
@@ -181,7 +185,7 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
                 onClick={() => setUnitPendingDelete(null)}
                 disabled={isDeleting}
               >
-                Cancel
+                {t('unitList.cancel')}
               </button>
               <button
                 type="button"
@@ -189,7 +193,7 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
                 onClick={() => void confirmDelete()}
                 disabled={isDeleting}
               >
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                {isDeleting ? t('unitList.deleting') : t('unitList.delete')}
               </button>
             </div>
           </div>

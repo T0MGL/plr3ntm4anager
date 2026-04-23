@@ -18,6 +18,11 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   FRONTEND_URL: z.string().url(),
   ADMIN_DASHBOARD_URL: z.string().url(),
+  // Optional comma separated list of additional origins allowed by CORS.
+  // Used to whitelist short lived preview deploys or migration domains
+  // without redeploying code. Example:
+  // CORS_EXTRA_ORIGINS=https://admin.parkloftsparaguay.com,https://staging-admin.parkloftsparaguay.com
+  CORS_EXTRA_ORIGINS: z.string().optional(),
   SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
   // Dual-path approval threshold. A booking whose most recent successful Airbnb
   // sync is younger than this (measured at decision time) is eligible for the

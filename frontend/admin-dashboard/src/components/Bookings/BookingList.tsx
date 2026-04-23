@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -43,21 +44,16 @@ function statusChipClass(status: string): string {
   return 'bg-slate-50 text-slate-700 border-slate-200';
 }
 
-function approvalPathBadge(path: ApprovalPath | null | undefined): {
-  label: string;
-  className: string;
-} | null {
+function approvalPathBadge(
+  path: ApprovalPath | null | undefined,
+  autoLabel: string,
+  manualLabel: string,
+): { label: string; className: string } | null {
   if (path === 'auto') {
-    return {
-      label: 'Auto',
-      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    };
+    return { label: autoLabel, className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
   }
   if (path === 'manual') {
-    return {
-      label: 'Needs review',
-      className: 'bg-amber-50 text-amber-700 border-amber-200',
-    };
+    return { label: manualLabel, className: 'bg-amber-50 text-amber-700 border-amber-200' };
   }
   return null;
 }
@@ -67,6 +63,7 @@ function isAutoApproved(booking: BookingRow): boolean {
 }
 
 export default function BookingList() {
+  const { t } = useTranslation();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [tab, setTab] = useState<Tab>('needs_review');
   const [status, setStatus] = useState<string>('');
@@ -139,7 +136,7 @@ export default function BookingList() {
 
   const openRejectModal = (bookingId: string) => {
     setRejectModalBookingId(bookingId);
-    setRejectionReason('Not available for selected dates.');
+    setRejectionReason('');
   };
 
   const closeRejectModal = () => {
@@ -151,7 +148,7 @@ export default function BookingList() {
     if (!rejectModalBookingId) return;
     const reason = rejectionReason.trim();
     if (reason.length < 2) {
-      setError('Rejection reason must be at least 2 characters.');
+      setError(t('bookingList.rejectionMinLength'));
       return;
     }
 
@@ -251,7 +248,7 @@ export default function BookingList() {
           }`}
           onClick={() => setTab('needs_review')}
         >
-          Necesitan revisión
+          {t('bookingList.needsReview')}
           {summary.needsReview > 0 ? (
             <span
               className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -270,29 +267,29 @@ export default function BookingList() {
           }`}
           onClick={() => setTab('all')}
         >
-          Todas
+          {t('bookingList.all')}
         </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">{t('bookingList.total')}</p>
           <p className="mt-1 text-xl font-semibold text-slate-900">{summary.total}</p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-amber-700">Pending</p>
+          <p className="text-xs uppercase tracking-wide text-amber-700">{t('bookingList.pending')}</p>
           <p className="mt-1 text-xl font-semibold text-amber-800">{summary.pending}</p>
         </div>
         <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-sky-700">Approved</p>
+          <p className="text-xs uppercase tracking-wide text-sky-700">{t('bookingList.approved')}</p>
           <p className="mt-1 text-xl font-semibold text-sky-800">{summary.approved}</p>
         </div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-emerald-700">Paid</p>
+          <p className="text-xs uppercase tracking-wide text-emerald-700">{t('bookingList.paid')}</p>
           <p className="mt-1 text-xl font-semibold text-emerald-800">{summary.paid}</p>
         </div>
         <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3">
-          <p className="text-xs uppercase tracking-wide text-rose-700">Rejected</p>
+          <p className="text-xs uppercase tracking-wide text-rose-700">{t('bookingList.rejected')}</p>
           <p className="mt-1 text-xl font-semibold text-rose-800">{summary.rejected}</p>
         </div>
       </div>
@@ -301,7 +298,7 @@ export default function BookingList() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by ref, guest, email, or unit"
+          placeholder={t('bookingList.search')}
           className="w-full min-w-[230px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <select
@@ -309,20 +306,20 @@ export default function BookingList() {
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           disabled={tab === 'needs_review'}
-          title={tab === 'needs_review' ? 'Status filter disabled while on Necesitan revisión' : undefined}
+          title={tab === 'needs_review' ? t('bookingList.statusFilterDisabled') : undefined}
         >
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="paid">Paid</option>
+          <option value="">{t('bookingList.allStatuses')}</option>
+          <option value="pending">{t('bookingList.pending')}</option>
+          <option value="approved">{t('bookingList.approved')}</option>
+          <option value="rejected">{t('bookingList.rejected')}</option>
+          <option value="paid">{t('bookingList.paid')}</option>
         </select>
         <select
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           value={unitFilter}
           onChange={(e) => setUnitFilter(e.target.value)}
         >
-          <option value="">All units</option>
+          <option value="">{t('bookingList.allUnits')}</option>
           {unitNames.map((name) => (
             <option key={name} value={name}>
               {name}
@@ -336,7 +333,7 @@ export default function BookingList() {
             }`}
             onClick={() => setView('list')}
           >
-            List
+            {t('bookingList.list')}
           </button>
           <button
             className={`px-3 py-2 text-sm font-medium ${
@@ -346,7 +343,7 @@ export default function BookingList() {
             }`}
             onClick={() => setView('calendar')}
           >
-            Calendar
+            {t('bookingList.calendar')}
           </button>
         </div>
         <button
@@ -354,7 +351,7 @@ export default function BookingList() {
           onClick={() => void fetchBookings()}
           disabled={isLoading}
         >
-          Refresh
+          {t('bookingList.refresh')}
         </button>
       </div>
 
@@ -366,15 +363,15 @@ export default function BookingList() {
 
       {isLoading ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-          Loading bookings...
+          {t('bookingList.loading')}
         </div>
       ) : null}
 
       {!isLoading && displayBookings.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
           {tab === 'needs_review'
-            ? 'No hay reservas en revisión manual. Todo bajo control.'
-            : 'No bookings found for current filters.'}
+            ? t('bookingList.emptyNeedsReview')
+            : t('bookingList.emptyFiltered')}
         </div>
       ) : null}
 
@@ -399,7 +396,11 @@ export default function BookingList() {
             const created = booking.created_at
               ? formatDistanceToNow(parseISO(booking.created_at), { addSuffix: true })
               : null;
-            const pathBadge = approvalPathBadge(booking.approval_path ?? null);
+            const pathBadge = approvalPathBadge(
+              booking.approval_path ?? null,
+              t('bookingList.pathBadgeAuto'),
+              t('bookingList.pathBadgeManual'),
+            );
             const hideApproveButton = isAutoApproved(booking);
 
             return (
@@ -407,12 +408,16 @@ export default function BookingList() {
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h3 className="text-base font-semibold text-slate-900">
-                      {booking.units?.name ?? 'Unit'}
+                      {booking.units?.name ?? t('bookingList.unit')}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Ref: {booking.id.slice(0, 8).toUpperCase()}
+                      {t('bookingList.ref', { ref: booking.id.slice(0, 8).toUpperCase() })}
                     </p>
-                    {created ? <p className="text-xs text-slate-500">Requested {created}</p> : null}
+                    {created ? (
+                      <p className="text-xs text-slate-500">
+                        {t('bookingList.requested', { time: created })}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {pathBadge ? (
@@ -434,7 +439,7 @@ export default function BookingList() {
 
                 {booking.rejection_reason ? (
                   <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                    Rejection reason: {booking.rejection_reason}
+                    {t('bookingList.rejectionReason')}{booking.rejection_reason}
                   </div>
                 ) : null}
 
@@ -450,7 +455,7 @@ export default function BookingList() {
 
                 {hideApproveButton ? (
                   <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                    Auto-aprobado tras el pago, no requiere acción del admin.
+                    {t('bookingList.autoApproved')}
                   </div>
                 ) : null}
               </div>
@@ -462,17 +467,15 @@ export default function BookingList() {
       {rejectModalBookingId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-lg">
-            <h4 className="text-lg font-semibold text-slate-900">Reject booking request</h4>
-            <p className="mt-1 text-sm text-slate-500">
-              Provide a clear reason. This message is sent to the guest.
-            </p>
+            <h4 className="text-lg font-semibold text-slate-900">{t('bookingList.rejectTitle')}</h4>
+            <p className="mt-1 text-sm text-slate-500">{t('bookingList.rejectDesc')}</p>
 
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               rows={4}
               className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Reason for rejection"
+              placeholder={t('bookingList.reasonPlaceholder')}
             />
 
             <div className="mt-4 flex justify-end gap-2">
@@ -481,14 +484,16 @@ export default function BookingList() {
                 onClick={closeRejectModal}
                 disabled={actingBookingId === rejectModalBookingId}
               >
-                Cancel
+                {t('bookingList.cancel')}
               </button>
               <button
                 className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => void confirmReject()}
                 disabled={actingBookingId === rejectModalBookingId}
               >
-                {actingBookingId === rejectModalBookingId ? 'Rejecting...' : 'Confirm reject'}
+                {actingBookingId === rejectModalBookingId
+                  ? t('bookingList.rejecting')
+                  : t('bookingList.confirmReject')}
               </button>
             </div>
           </div>

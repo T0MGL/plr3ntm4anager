@@ -1,6 +1,7 @@
 ﻿// @ts-nocheck
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { StorageService } from "../../../services/storageService";
 import { useCreation } from "../../../context/CreationContext";
@@ -84,6 +85,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
     resetCreation,
   } = useCreation();
 
+  const { t } = useTranslation();
   const isAdminUnitFlow = mode === "admin-unit";
   const containerHeightClass = isAdminUnitFlow ? "h-full" : "h-screen";
   const containerWidthClass = isAdminUnitFlow ? "max-w-5xl" : "max-w-8xl";
@@ -176,7 +178,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
               .filter(Boolean)
               .join(", ");
             await StorageService.setItem("step 1 host", {
-              placeType: unitDraft.category || "",
+              placeType: unitDraft.category || "apartment",
               guestPlaceType: unitDraft.place_type
                 ? { id: unitDraft.place_type }
                 : { id: "" },
@@ -460,7 +462,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
     if (currentScreen === "step2-photos") {
       const photosData = currentStepData?.["step 2 photos"]?.photos || [];
       if (photosData.length < MIN_UNIT_PHOTOS) {
-        toast.error("Please add at least " + MIN_UNIT_PHOTOS + " photos.");
+        toast.error(t("creation.minPhotos", { count: MIN_UNIT_PHOTOS }));
         return;
       }
 
@@ -473,7 +475,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
         for (const p of photosData) {
           if (!p.isUploaded && p.file) {
             i++;
-            toast.loading(`Uploading photo ${i} of ${photosData.length}...`, {
+            toast.loading(t("creation.uploadingPhoto", { current: i, total: photosData.length }), {
               id: uploadToastId,
             });
 
@@ -497,7 +499,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
         }
 
         if (finalPhotos.length < MIN_UNIT_PHOTOS) {
-          toast.error("Please add at least " + MIN_UNIT_PHOTOS + " valid photos.", { id: uploadToastId });
+          toast.error(t("creation.minValidPhotos", { count: MIN_UNIT_PHOTOS }), { id: uploadToastId });
           setIsSubmitting(false);
           return;
         }
@@ -516,7 +518,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
           })),
         });
 
-        toast.success("Photos saved locally!", { id: uploadToastId });
+        toast.success(t("creation.photosSaved"), { id: uploadToastId });
       } catch (err) {
         console.error("Photo upload failed:", err);
         toast.error("Upload failed. Please try again.", { id: uploadToastId });
@@ -535,10 +537,10 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
           const payload = await buildUnitPayload();
           if (unitDraft?.id) {
             await api.put(`/admin/units/${unitDraft.id}`, payload);
-            toast.success("Unit updated!");
+            toast.success(t("creation.unitUpdated"));
           } else {
             await api.post(`/admin/units`, payload);
-            toast.success("Unit created!");
+            toast.success(t("creation.unitCreated"));
           }
           await resetCreation();
           navigate("/units");
@@ -554,7 +556,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                 ? backendMsg.split(", ")
                 : [backendMsg],
           );
-          toast.error(typeof backendMsg === "string" ? backendMsg : (unitDraft?.id ? "Failed to update unit" : "Failed to create unit"));
+          toast.error(typeof backendMsg === "string" ? backendMsg : (unitDraft?.id ? t("creation.updateFailed") : t("creation.createFailed")));
         } finally {
           setIsSubmitting(false);
         }
@@ -697,7 +699,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                   <HiOutlineExclamationCircle className="text-4xl text-red-500" />
                 </div>
                 <h3 className="text-xl font-bold mb-4 text-center text-secondary">
-                  Action Required
+                  {t("creation.actionRequired")}
                 </h3>
                 <div className="bg-red-50 p-4 rounded-2xl border border-red-100 max-h-48 overflow-y-auto no-scrollbar mb-6">
                   {errorMessages.map((m, i) => (
@@ -724,11 +726,12 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                       className="w-full py-4 bg-gray-50 hover:bg-gray-100 text-[#222222] font-semibold rounded-2xl border border-gray-200 transition-colors flex items-center justify-between px-6"
                     >
                       <span className="text-left pr-4">
-                        Fix{" "}
-                        {screens[errorQueue[0]]
-                          .split("-")
-                          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                          .join(" ")}
+                        {t("creation.fix", {
+                          screen: screens[errorQueue[0]]
+                            .split("-")
+                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                            .join(" "),
+                        })}
                       </span>
                       <HiOutlineChevronRight className="w-5 h-5 flex-shrink-0" />
                     </button>
@@ -743,7 +746,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                     }}
                     className="w-full py-4 bg-white text-secondary font-bold rounded-2xl border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    Skip and Exit to Units
+                    {t("creation.skipAndExit")}
                   </button>
 
                   <button
@@ -753,7 +756,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                     }}
                     className="w-full py-4 bg-black text-white font-bold rounded-2xl shadow-lg hover:bg-zinc-800 transition-colors"
                   >
-                    Dismiss
+                    {t("creation.dismiss")}
                   </button>
                 </div>
               </motion.div>
@@ -777,16 +780,16 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
                   <HiOutlineInformationCircle className="text-4xl text-blue-500" />
                 </div>
                 <h3 className="text-2xl font-bold mb-4 text-secondary">
-                  Campos pendientes
+                  {t("creation.pendingFields")}
                 </h3>
                 <p className="text-[#717171] leading-relaxed mb-8">
-                  Resta informacion obligatoria para publicar la unidad. Seguí con <strong>Siguiente</strong> para completar los pasos faltantes.
+                  {t("creation.pendingFieldsDesc")}
                 </p>
                 <button
                   onClick={() => setShowNavWarningModal(false)}
                   className="w-full py-4 bg-black text-white font-bold rounded-2xl shadow-lg hover:bg-zinc-800 transition-all active:scale-95"
                 >
-                  Entendido
+                  {t("creation.understood")}
                 </button>
               </motion.div>
             </motion.div>

@@ -4,9 +4,10 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
-import { manualSyncRateLimit } from '../middleware/rate-limit.middleware';
+import { manualSyncRateLimit, adminWriteLimiter } from '../middleware/rate-limit.middleware';
+import { adminUserService } from '../services/admin-user.service';
 import { supabaseAdmin } from '../config/supabase';
-import { BookingStatus, PaymentStatus } from '../types';
+import { BookingStatus, PaymentStatus, UnitStatus } from '../types';
 import { capturePaymentForBooking, rollbackPayment } from '../services/payment.service';
 import { recheckAvailabilityOrFail } from '../services/approval-routing.service';
 import { sendEmail } from '../services/email.service';
@@ -603,6 +604,108 @@ router.get('/sync-logs', async (req, res) => {
   return res.json(data ?? []);
 });
 
+router.get('/dashboard-stats', async (_req, res) => {
+  const now = new Date();
+
+  // --- monthly revenue (last 12 months) ---
+  const twelveMonthsAgo = new Date(now);
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+  twelveMonthsAgo.setDate(1);
+  twelveMonthsAgo.setHours(0, 0, 0, 0);
+
+  const { data: payments, error: paymentsError } = await supabaseAdmin
+    .from('payments')
+    .select('amount_usd, created_at')
+    .eq('payment_status', PaymentStatus.Completed)
+    .gte('created_at', twelveMonthsAgo.toISOString());
+
+  if (paymentsError) {
+    logger.error('dashboard-stats: failed to fetch payments', { error: paymentsError.message });
+    return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyMap: Record<string, number> = {};
+
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 11 + i);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    monthlyMap[key] = 0;
+  }
+
+  for (const p of payments ?? []) {
+    const d = new Date(p.created_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (key in monthlyMap) {
+      monthlyMap[key] += Number(p.amount_usd ?? 0);
+    }
+  }
+
+  const monthlyRevenue = Object.entries(monthlyMap).map(([key, revenue]) => {
+    const monthIdx = Number(key.split('-')[1]);
+    return { name: MONTH_NAMES[monthIdx], revenue: Math.round(revenue) };
+  });
+
+  // --- weekly occupancy (last 28 days) ---
+  const fourWeeksAgo = new Date(now);
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0];
+  const todayStr = now.toISOString().split('T')[0];
+
+  const [bookingsResult, unitsResult] = await Promise.all([
+    supabaseAdmin
+      .from('booking_requests')
+      .select('check_in_date, check_out_date')
+      .in('status', [BookingStatus.Approved, BookingStatus.Paid])
+      .lte('check_in_date', todayStr)
+      .gte('check_out_date', fourWeeksAgoStr),
+    supabaseAdmin
+      .from('units')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', UnitStatus.Active)
+  ]);
+
+  if (bookingsResult.error) {
+    logger.error('dashboard-stats: failed to fetch bookings', { error: bookingsResult.error.message });
+    return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+
+  const totalUnits = unitsResult.count ?? 1;
+
+  // occupied unit-days per day-of-week index (0=Sun..6=Sat)
+  const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+  const dayTotals = [0, 0, 0, 0, 0, 0, 0];
+
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(fourWeeksAgo);
+    d.setDate(d.getDate() + i);
+    if (d <= now) dayTotals[d.getDay()] += totalUnits;
+  }
+
+  for (const booking of bookingsResult.data ?? []) {
+    const checkIn = new Date(booking.check_in_date);
+    const checkOut = new Date(booking.check_out_date);
+    for (const d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+      if (d >= fourWeeksAgo && d <= now) dayCounts[d.getDay()]++;
+    }
+  }
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MON_SUN_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const weeklyOccupancy = MON_SUN_ORDER.map((dayIdx) => ({
+    name: DAY_NAMES[dayIdx],
+    value: dayTotals[dayIdx] > 0 ? Math.round((dayCounts[dayIdx] / dayTotals[dayIdx]) * 100) : 0
+  }));
+
+  const avgOccupancy =
+    weeklyOccupancy.length > 0
+      ? Math.round(weeklyOccupancy.reduce((a, b) => a + b.value, 0) / weeklyOccupancy.length)
+      : 0;
+
+  return res.json({ monthlyRevenue, weeklyOccupancy, avgOccupancy });
+});
+
 router.get('/payments', async (req, res) => {
   const status = req.query.status as string | undefined;
   const limit = Number(req.query.limit ?? 50);
@@ -627,11 +730,135 @@ router.get('/payments', async (req, res) => {
   return res.json(data ?? []);
 });
 
+// ============================================================================
+// Admin user management
+// All routes require the caller to be an authenticated admin (requireAuth).
+// ============================================================================
+
+const createUserSchema = z.object({
+  body: z.object({
+    name: z.string().min(2).max(200),
+    email: z.string().trim().toLowerCase().email().max(320),
+    role: z.enum(['admin', 'staff']),
+  }),
+});
+
+const updateUserSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    name: z.string().min(2).max(200).optional(),
+    role: z.enum(['admin', 'staff']).optional(),
+    status: z.enum(['active', 'inactive']).optional(),
+  }),
+});
+
+const userIdSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+});
+
+const setPasswordSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    password: z
+      .string()
+      .min(10, 'Password must be at least 10 characters')
+      .max(128, 'Password cannot exceed 128 characters')
+      .refine((v) => /[A-Za-z]/.test(v) && /[0-9]/.test(v), {
+        message: 'Password must include at least one letter and one number',
+      }),
+  }),
+});
+
+router.get('/users', async (_req, res) => {
+  try {
+    const users = await adminUserService.list();
+    return res.json(users);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to fetch users';
+    logger.error('GET /admin/users failed', { error: msg });
+    return res.status(500).json({ error: msg });
+  }
+});
+
+router.post('/users', validate(createUserSchema), async (req, res) => {
+  try {
+    const user = await adminUserService.createWithInvite(req.body);
+    return res.status(201).json(user);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const msg = err instanceof Error ? err.message : 'Failed to create user';
+    if (code === 'CAP_REACHED') return res.status(409).json({ error: msg });
+    if (code === 'CONFLICT') return res.status(409).json({ error: msg });
+    logger.error('POST /admin/users failed', { error: msg });
+    return res.status(500).json({ error: msg });
+  }
+});
+
+router.post('/users/:id/reinvite', validate(userIdSchema), async (req, res) => {
+  try {
+    const user = await adminUserService.reinvite(req.params.id);
+    return res.json(user);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const msg = err instanceof Error ? err.message : 'Failed to reinvite user';
+    if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+    logger.error('POST /admin/users/:id/reinvite failed', { error: msg, id: req.params.id });
+    return res.status(500).json({ error: msg });
+  }
+});
+
+router.put('/users/:id', validate(updateUserSchema), async (req, res) => {
+  try {
+    const user = await adminUserService.update(req.params.id, req.body);
+    return res.json(user);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    const msg = err instanceof Error ? err.message : 'Failed to update user';
+    if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+    logger.error('PUT /admin/users/:id failed', { error: msg, id: req.params.id });
+    return res.status(500).json({ error: msg });
+  }
+});
+
+router.post(
+  '/users/:id/password',
+  adminWriteLimiter,
+  validate(setPasswordSchema),
+  async (req, res) => {
+    try {
+      const user = await adminUserService.setPassword(req.params.id, req.body.password);
+      return res.json(user);
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const msg = err instanceof Error ? err.message : 'Failed to set password';
+      if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+      if (code === 'PRECONDITION_FAILED') return res.status(400).json({ error: msg });
+      logger.error('POST /admin/users/:id/password failed', { error: msg, id: req.params.id });
+      return res.status(500).json({ error: msg });
+    }
+  },
+);
+
+router.post(
+  '/users/:id/send-password-reset',
+  adminWriteLimiter,
+  validate(userIdSchema),
+  async (req, res) => {
+    try {
+      const result = await adminUserService.sendPasswordResetEmail(req.params.id);
+      return res.json({ ok: true, email: result.email });
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const msg = err instanceof Error ? err.message : 'Failed to send reset email';
+      if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+      if (code === 'PRECONDITION_FAILED') return res.status(400).json({ error: msg });
+      logger.error('POST /admin/users/:id/send-password-reset failed', { error: msg, id: req.params.id });
+      return res.status(500).json({ error: msg });
+    }
+  },
+);
+
 export default router;
-
-
-
-
 
 
 
