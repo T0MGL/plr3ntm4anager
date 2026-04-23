@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiSave, FiLoader } from 'react-icons/fi';
+import { FiLoader, FiSave, FiSettings, FiUsers } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { api } from '../utils/api';
+import { useAdminRole } from '../hooks/useAdminRole';
+import { useAuth } from '../context/AuthContext';
+import TeamMembersSection from '../components/Settings/TeamMembersSection';
 
 interface SettingRow {
   key: string;
@@ -10,27 +13,31 @@ interface SettingRow {
   updated_at: string;
 }
 
-type PageStatus = 'loading' | 'ready' | 'saving' | 'error';
+type GeneralStatus = 'loading' | 'ready' | 'saving' | 'error';
+type TabKey = 'general' | 'team';
 
 export default function Settings() {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<PageStatus>('loading');
+  const { user } = useAuth();
+  const { isAdmin, status: roleStatus } = useAdminRole();
+  const [tab, setTab] = useState<TabKey>('general');
+  const [generalStatus, setGeneralStatus] = useState<GeneralStatus>('loading');
   const [airbnbHostId, setAirbnbHostId] = useState('');
   const [savedAirbnbHostId, setSavedAirbnbHostId] = useState('');
   const [fieldError, setFieldError] = useState('');
 
   useEffect(() => {
     const load = async () => {
-      setStatus('loading');
+      setGeneralStatus('loading');
       try {
         const { data } = await api.get<SettingRow[]>('/admin/settings');
         const hostRow = data.find((r) => r.key === 'airbnb_host_id');
         const hostId = hostRow?.value ?? '';
         setAirbnbHostId(hostId);
         setSavedAirbnbHostId(hostId);
-        setStatus('ready');
+        setGeneralStatus('ready');
       } catch {
-        setStatus('error');
+        setGeneralStatus('error');
       }
     };
     void load();
@@ -47,95 +54,153 @@ export default function Settings() {
       return;
     }
     setFieldError('');
-    setStatus('saving');
+    setGeneralStatus('saving');
     try {
       await api.patch('/admin/settings', [{ key: 'airbnb_host_id', value: trimmed }]);
       setSavedAirbnbHostId(trimmed);
-      setStatus('ready');
+      setGeneralStatus('ready');
       toast.success(t('settings.saved'));
     } catch {
-      setStatus('ready');
+      setGeneralStatus('ready');
       toast.error(t('settings.saveFailed'));
     }
   };
 
   const isDirty = airbnbHostId.trim() !== savedAirbnbHostId;
+  const tabs: Array<{ key: TabKey; label: string; icon: typeof FiSettings; visible: boolean }> = [
+    { key: 'general', label: t('settings.tabGeneral'), icon: FiSettings, visible: true },
+    { key: 'team', label: t('settings.tabTeam'), icon: FiUsers, visible: isAdmin },
+  ];
 
   return (
-    <div className="space-y-6 max-w-xl">
+    <div className="space-y-6 max-w-3xl">
       <div>
-        <h2 className="text-2xl font-semibold text-[#222222]">{t('settings.title')}</h2>
-        <p className="mt-1 text-sm text-[#717171]">{t('settings.subtitle')}</p>
+        <h2 className="text-2xl font-semibold text-slate-900">{t('settings.title')}</h2>
+        <p className="mt-1 text-sm text-slate-500">{t('settings.subtitle')}</p>
       </div>
 
-      {status === 'loading' && (
-        <div className="flex items-center gap-2 text-sm text-[#717171]">
-          <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
-          {t('common.loading')}
+      <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 w-fit">
+        {tabs
+          .filter((tabItem) => tabItem.visible)
+          .map((tabItem) => {
+            const Icon = tabItem.icon;
+            const active = tab === tabItem.key;
+            return (
+              <button
+                key={tabItem.key}
+                type="button"
+                onClick={() => setTab(tabItem.key)}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-transparent text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {tabItem.label}
+              </button>
+            );
+          })}
+        {!isAdmin && roleStatus === 'ready' ? (
+          <span className="px-3 py-2 text-xs text-slate-400" title={t('settings.teamAdminOnlyHint')}>
+            {t('settings.teamAdminOnlyBadge')}
+          </span>
+        ) : null}
+      </div>
+
+      {tab === 'general' ? (
+        <div>
+          {generalStatus === 'loading' ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
+              {t('common.loading')}
+            </div>
+          ) : null}
+
+          {generalStatus === 'error' ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {t('settings.loadFailed')}
+            </div>
+          ) : null}
+
+          {(generalStatus === 'ready' || generalStatus === 'saving') ? (
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 space-y-5">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">
+                  {t('settings.airbnbSection')}
+                </h3>
+                <p className="text-sm text-slate-500">{t('settings.airbnbSectionDesc')}</p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="airbnb-host-id"
+                  className="block text-sm font-medium text-slate-700 mb-1.5"
+                >
+                  {t('settings.airbnbHostIdLabel')}
+                </label>
+                <input
+                  id="airbnb-host-id"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="744342154"
+                  value={airbnbHostId}
+                  onChange={(e) => {
+                    setAirbnbHostId(e.target.value);
+                    if (fieldError) setFieldError('');
+                  }}
+                  disabled={generalStatus === 'saving'}
+                  className={`w-full rounded-xl border px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 transition-colors disabled:opacity-60 ${
+                    fieldError
+                      ? 'border-rose-300 bg-rose-50'
+                      : 'border-slate-300 bg-white hover:border-slate-400'
+                  }`}
+                />
+                {fieldError ? (
+                  <p className="mt-1 text-xs text-rose-600">{fieldError}</p>
+                ) : null}
+                <p className="mt-1.5 text-xs text-slate-500">{t('settings.airbnbHostIdHint')}</p>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
+                  onClick={() => void save()}
+                  disabled={generalStatus === 'saving' || !isDirty}
+                >
+                  {generalStatus === 'saving' ? (
+                    <>
+                      <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      {t('settings.saving')}
+                    </>
+                  ) : (
+                    <>
+                      <FiSave className="h-4 w-4" aria-hidden="true" />
+                      {t('settings.save')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {status === 'error' && (
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t('settings.loadFailed')}
-        </div>
-      )}
-
-      {(status === 'ready' || status === 'saving') && (
-        <div className="rounded-3xl border border-[#ebebeb] bg-white p-6 space-y-5">
-          <div>
-            <h3 className="text-base font-semibold text-[#222222] mb-1">{t('settings.airbnbSection')}</h3>
-            <p className="text-sm text-[#717171]">{t('settings.airbnbSectionDesc')}</p>
+      {tab === 'team' ? (
+        roleStatus === 'loading' ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+            <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
+            {t('common.loading')}
           </div>
-
-          <div>
-            <label
-              htmlFor="airbnb-host-id"
-              className="block text-sm font-medium text-[#484848] mb-1.5"
-            >
-              {t('settings.airbnbHostIdLabel')}
-            </label>
-            <input
-              id="airbnb-host-id"
-              type="text"
-              inputMode="numeric"
-              placeholder="744342154"
-              value={airbnbHostId}
-              onChange={(e) => {
-                setAirbnbHostId(e.target.value);
-                if (fieldError) setFieldError('');
-              }}
-              disabled={status === 'saving'}
-              className={`w-full rounded-xl border px-3 py-2.5 text-sm text-[#222222] placeholder:text-[#b0b0b0] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 transition-colors disabled:opacity-60 ${
-                fieldError ? 'border-red-300 bg-red-50' : 'border-[#dddddd] bg-white hover:border-[#c0c0c0]'
-              }`}
-            />
-            {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
-            <p className="mt-1.5 text-xs text-[#717171]">{t('settings.airbnbHostIdHint')}</p>
+        ) : !isAdmin ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {t('settings.teamAdminOnlyMessage')}
           </div>
-
-          <div className="flex justify-end pt-1">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full bg-[#222222] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#111111] disabled:opacity-50"
-              onClick={() => void save()}
-              disabled={status === 'saving' || !isDirty}
-            >
-              {status === 'saving' ? (
-                <>
-                  <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  {t('settings.saving')}
-                </>
-              ) : (
-                <>
-                  <FiSave className="h-4 w-4" aria-hidden="true" />
-                  {t('settings.save')}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
+        ) : (
+          <TeamMembersSection currentUserEmail={user?.email ?? null} />
+        )
+      ) : null}
     </div>
   );
 }

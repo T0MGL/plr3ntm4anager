@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, requireAdmin } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { manualSyncRateLimit, adminWriteLimiter } from '../middleware/rate-limit.middleware';
 import { adminUserService } from '../services/admin-user.service';
@@ -931,7 +931,11 @@ router.get('/payments', async (req, res) => {
 
 // ============================================================================
 // Admin user management
-// All routes require the caller to be an authenticated admin (requireAuth).
+//
+// Every endpoint in this section requires role === 'admin' on top of the
+// router-wide requireAuth. Staff accounts and authenticated non-admin users
+// receive 403. The middleware also blocks inactive accounts so a deactivated
+// admin cannot keep mutating the team after their own row was flipped.
 // ============================================================================
 
 const createUserSchema = z.object({
@@ -968,7 +972,7 @@ const setPasswordSchema = z.object({
   }),
 });
 
-router.get('/users', async (_req, res) => {
+router.get('/users', requireAdmin, async (_req, res) => {
   try {
     const users = await adminUserService.list();
     return res.json(users);
@@ -979,7 +983,7 @@ router.get('/users', async (_req, res) => {
   }
 });
 
-router.post('/users', validate(createUserSchema), async (req, res) => {
+router.post('/users', requireAdmin, validate(createUserSchema), async (req, res) => {
   try {
     const user = await adminUserService.createWithInvite(req.body);
     return res.status(201).json(user);
@@ -993,7 +997,7 @@ router.post('/users', validate(createUserSchema), async (req, res) => {
   }
 });
 
-router.post('/users/:id/reinvite', validate(userIdSchema), async (req, res) => {
+router.post('/users/:id/reinvite', requireAdmin, validate(userIdSchema), async (req, res) => {
   try {
     const user = await adminUserService.reinvite(req.params.id);
     return res.json(user);
@@ -1006,7 +1010,7 @@ router.post('/users/:id/reinvite', validate(userIdSchema), async (req, res) => {
   }
 });
 
-router.put('/users/:id', validate(updateUserSchema), async (req, res) => {
+router.put('/users/:id', requireAdmin, validate(updateUserSchema), async (req, res) => {
   try {
     const user = await adminUserService.update(req.params.id, req.body);
     return res.json(user);
@@ -1021,6 +1025,7 @@ router.put('/users/:id', validate(updateUserSchema), async (req, res) => {
 
 router.post(
   '/users/:id/password',
+  requireAdmin,
   adminWriteLimiter,
   validate(setPasswordSchema),
   async (req, res) => {
@@ -1040,6 +1045,7 @@ router.post(
 
 router.post(
   '/users/:id/send-password-reset',
+  requireAdmin,
   adminWriteLimiter,
   validate(userIdSchema),
   async (req, res) => {
