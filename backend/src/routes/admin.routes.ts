@@ -785,6 +785,114 @@ router.post('/sync/manual', manualSyncRateLimit, validate(manualSyncSchema), asy
   }
 });
 
+// ============================================================================
+// GET /admin/sync/unit-status
+// Per-unit snapshot used by the Sync Center: last_synced_at, stagger slot,
+// whether a body hash has been cached, and a hit-rate summary of the last
+// N sync_log entries per unit. Designed so the UI does not need to join
+// units + sync_logs on the client.
+// ============================================================================
+router.get('/sync/unit-status', async (_req, res) => {
+  const { data: units, error: unitsError } = await supabaseAdmin
+    .from('units')
+    .select('id, name, airbnb_ical_url, status, sync_offset_minutes, last_synced_at, ical_body_hash, ical_last_etag')
+    .order('name', { ascending: true });
+
+  if (unitsError) {
+    logger.error('GET /admin/sync/unit-status: units fetch failed', { error: unitsError.message });
+    return res.status(500).json({ error: 'Failed to fetch unit sync status' });
+  }
+
+  // Pull the last 50 log rows per unit in one query, fan-out-then-filter style.
+  // 50 rows x 50 units is 2.5k rows max, trivial.
+  const WINDOW = 50;
+  const { data: recentLogs, error: logsError } = await supabaseAdmin
+    .from('sync_logs')
+    .select('unit_id, sync_status, sync_completed_at, etag_hit, body_hash_hit, rows_inserted, rows_deleted')
+    .order('sync_started_at', { ascending: false })
+    .limit(WINDOW * Math.max(1, units?.length ?? 1));
+
+  if (logsError) {
+    logger.error('GET /admin/sync/unit-status: logs fetch failed', { error: logsError.message });
+    return res.status(500).json({ error: 'Failed to fetch unit sync status' });
+  }
+
+  const statsByUnit = new Map<string, {
+    total: number;
+    success: number;
+    failed: number;
+    noChange: number;
+    etagHits: number;
+    hashHits: number;
+    lastStatus: string | null;
+    lastCompletedAt: string | null;
+    lastInserted: number;
+    lastDeleted: number;
+  }>();
+
+  for (const log of recentLogs ?? []) {
+    if (!log.unit_id) continue;
+    const acc = statsByUnit.get(log.unit_id) ?? {
+      total: 0,
+      success: 0,
+      failed: 0,
+      noChange: 0,
+      etagHits: 0,
+      hashHits: 0,
+      lastStatus: null as string | null,
+      lastCompletedAt: null as string | null,
+      lastInserted: 0,
+      lastDeleted: 0
+    };
+
+    acc.total += 1;
+    if (log.sync_status === 'success') acc.success += 1;
+    else if (log.sync_status === 'failed') acc.failed += 1;
+    else if (log.sync_status === 'no_change') acc.noChange += 1;
+    if (log.etag_hit === true) acc.etagHits += 1;
+    if (log.body_hash_hit === true) acc.hashHits += 1;
+
+    // Logs are ordered desc; the first seen per unit is the most recent.
+    if (acc.lastStatus === null) {
+      acc.lastStatus = String(log.sync_status ?? '');
+      acc.lastCompletedAt = log.sync_completed_at ?? null;
+      acc.lastInserted = Number(log.rows_inserted ?? 0);
+      acc.lastDeleted = Number(log.rows_deleted ?? 0);
+    }
+
+    statsByUnit.set(log.unit_id, acc);
+  }
+
+  const rows = (units ?? []).map((u) => {
+    const s = statsByUnit.get(u.id) ?? null;
+    const samples = s?.total ?? 0;
+    return {
+      unit_id: u.id,
+      name: u.name,
+      ical_url: u.airbnb_ical_url,
+      status: u.status,
+      sync_offset_minutes: u.sync_offset_minutes,
+      last_synced_at: u.last_synced_at,
+      has_body_hash: Boolean(u.ical_body_hash),
+      has_etag: Boolean(u.ical_last_etag),
+      last_status: s?.lastStatus ?? null,
+      last_completed_at: s?.lastCompletedAt ?? null,
+      last_rows_inserted: s?.lastInserted ?? 0,
+      last_rows_deleted: s?.lastDeleted ?? 0,
+      recent: {
+        samples,
+        success: s?.success ?? 0,
+        failed: s?.failed ?? 0,
+        no_change: s?.noChange ?? 0,
+        etag_hit_rate: samples > 0 ? (s?.etagHits ?? 0) / samples : 0,
+        hash_hit_rate: samples > 0 ? (s?.hashHits ?? 0) / samples : 0
+      }
+    };
+  });
+
+  return res.json(rows);
+});
+
 router.get('/sync-logs', async (req, res) => {
   const unitId = req.query.unit_id as string | undefined;
   const limit = Number(req.query.limit ?? 50);
