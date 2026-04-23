@@ -199,3 +199,45 @@ async function blockWidgetDates(unitId: string, checkIn: string, checkOut: strin
     });
   }
 }
+
+/**
+ * Releases widget-sourced blocks for a booking range. Must be called whenever a
+ * booking_request transitions to `rejected` (manual reject, conflict-on-approve,
+ * or abandoned-pending cleanup). Without this, stale widget blocks accumulate
+ * and leak into the guest-facing DatePicker, desyncing from the admin calendar
+ * (which filters source IN ('airbnb','manual')).
+ *
+ * Scope is intentionally narrow: only rows with source='widget' for the given
+ * unit and the check-in inclusive / check-out exclusive range. Airbnb- and
+ * manual-sourced rows are never touched.
+ */
+export async function unblockWidgetDates(
+  unitId: string,
+  checkIn: string,
+  checkOut: string
+): Promise<void> {
+  const checkInDate = parseISO(checkIn);
+  const checkOutDate = parseISO(checkOut);
+
+  const lastNight = new Date(checkOutDate.getTime() - 24 * 60 * 60 * 1000);
+  if (lastNight < checkInDate) {
+    return;
+  }
+
+  const { error } = await supabaseAdmin
+    .from('availability')
+    .delete()
+    .eq('unit_id', unitId)
+    .eq('source', 'widget')
+    .gte('blocked_date', format(checkInDate, 'yyyy-MM-dd'))
+    .lte('blocked_date', format(lastNight, 'yyyy-MM-dd'));
+
+  if (error) {
+    logger.error('unblockWidgetDates: failed to delete availability rows', {
+      error: error.message,
+      unitId,
+      checkIn,
+      checkOut
+    });
+  }
+}

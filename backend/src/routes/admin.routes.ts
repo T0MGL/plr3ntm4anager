@@ -18,6 +18,7 @@ import {
   paymentConfirmedEmail
 } from '../templates/emails';
 import { syncAllUnits, syncUnit } from '../services/ical-sync.service';
+import { unblockWidgetDates } from '../services/booking.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 import { nightsBetween } from '../utils/date.utils';
@@ -271,6 +272,11 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
       });
     }
 
+    // Release the widget-sourced availability rows so the guest-facing calendar
+    // re-opens those nights on the next fetch. Without this, rejected bookings
+    // leave stale blocks behind that desync the widget from the admin view.
+    await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
+
     const conflictEmail = bookingConflictRejectionEmail({
       guestName: booking.guest_name,
       bookingId,
@@ -368,7 +374,7 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
 
   const { data: booking, error: bookingError } = await supabaseAdmin
     .from('booking_requests')
-    .select('id, guest_email, guest_name, status, locale')
+    .select('id, guest_email, guest_name, status, locale, unit_id, check_in_date, check_out_date')
     .eq('id', bookingId)
     .single();
 
@@ -394,6 +400,11 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
     logger.error('Failed to reject booking', { error: updateError.message });
     return res.status(500).json({ error: 'Failed to reject booking' });
   }
+
+  // Release the widget-sourced availability rows so the guest-facing calendar
+  // re-opens those nights on the next fetch. Without this, rejected bookings
+  // leave stale blocks behind that desync the widget from the admin view.
+  await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
 
   try {
     await rollbackPayment(bookingId);

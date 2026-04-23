@@ -36,6 +36,10 @@ const envSchema = z.object({
   // the auth hold before it expires on the issuer side (Bancard typically
   // honors a preauth for 7 days, we alert earlier to leave a margin).
   PREAUTH_STUCK_ALERT_DAYS: z.coerce.number().int().min(1).max(14).default(5),
+  // Abandoned-checkout expiry. Pending booking_requests with no completed or
+  // preauthorized payment older than this are auto-rejected and their widget
+  // blocks released. Must exceed Bancard's session window (~60 min).
+  PENDING_EXPIRY_HOURS: z.coerce.number().int().min(1).max(48).default(2),
   // Operational mailbox that receives stuck-preauth alerts.
   ALERT_EMAIL_TO: z.string().email().optional(),
   JWT_SECRET: z.string().min(32),
