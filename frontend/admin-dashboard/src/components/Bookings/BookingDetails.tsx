@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 interface BookingDetailsProps {
   booking: {
+    id: string;
     guest_name: string;
     guest_email: string;
     guest_phone: string;
@@ -38,15 +39,23 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
         </p>
         <p>
           <span className="font-medium text-slate-900">{t('bookingDetails.email')}</span>{' '}
-          {booking.guest_email}
+          <a href={`mailto:${booking.guest_email}`} className="text-blue-600 hover:underline">
+            {booking.guest_email}
+          </a>
         </p>
         <p>
           <span className="font-medium text-slate-900">{t('bookingDetails.phone')}</span>{' '}
-          {booking.guest_phone}
+          <a href={`tel:${booking.guest_phone}`} className="text-blue-600 hover:underline">
+            {booking.guest_phone}
+          </a>
         </p>
         <p>
           <span className="font-medium text-slate-900">{t('bookingDetails.status')}</span>{' '}
           {booking.status}
+        </p>
+        <p>
+          <span className="font-medium text-slate-900">{t('bookingDetails.reference', { defaultValue: 'Ref.' })}</span>{' '}
+          <span className="font-mono tracking-wide">{booking.id.slice(0, 8).toUpperCase()}</span>
         </p>
       </div>
 

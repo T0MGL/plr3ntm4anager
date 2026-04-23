@@ -8,7 +8,9 @@ export enum BookingStatus {
   Approved = 'approved',
   Rejected = 'rejected',
   Paid = 'paid',
-  Cancelled = 'cancelled'
+  Cancelled = 'cancelled',
+  CheckedIn = 'checked_in',
+  CheckedOut = 'checked_out'
 }
 
 export enum PaymentStatus {

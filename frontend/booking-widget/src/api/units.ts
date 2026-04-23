@@ -22,6 +22,7 @@ export type UnitSummary = {
   google_maps_url?: string | null;
   bedrooms?: number | null;
   beds?: number | null;
+  bathrooms?: number | null;
   created_at?: string;
   updated_at?: string;
 };

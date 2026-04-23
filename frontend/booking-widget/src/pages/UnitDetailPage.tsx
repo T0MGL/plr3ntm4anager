@@ -106,7 +106,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
         guests: unit.max_guests,
         bedrooms: unit.bedrooms || 0,
         beds: unit.beds || 0,
-        bathrooms: 0,
+        bathrooms: unit.bathrooms || 0,
       }),
     ].filter(Boolean) as string[];
   }, [unit, t]);

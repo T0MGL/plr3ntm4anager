@@ -87,7 +87,7 @@ router.post('/units/:id/regenerate-ical-token', async (req, res) => {
 
 router.get('/booking-requests', async (req, res) => {
   const status = req.query.status as string | undefined;
-  const limit = Number(req.query.limit ?? 20);
+  const limit = Number(req.query.limit ?? 200);
   const offset = Number(req.query.offset ?? 0);
 
   let query = supabaseAdmin
@@ -357,7 +357,7 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
     });
     await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);
   } else {
-    const approvedEmail = bookingApprovedEmail({ guestName: booking.guest_name, locale: booking.locale });
+    const approvedEmail = bookingApprovedEmail({ guestName: booking.guest_name, bookingId, locale: booking.locale });
     await sendEmail(booking.guest_email, approvedEmail.subject, approvedEmail.html);
   }
 
@@ -416,6 +416,7 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
   const rejectedEmail = bookingRejectedEmail({
     guestName: booking.guest_name,
     reason: req.body.rejection_reason,
+    bookingId,
     locale: booking.locale
   });
   await sendEmail(booking.guest_email, rejectedEmail.subject, rejectedEmail.html);
@@ -423,6 +424,108 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
   return res.json({ success: true });
 });
 
+router.post('/booking-requests/:id/cancel', async (req, res) => {
+  const bookingId = req.params.id;
+
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id, status, unit_id, check_in_date, check_out_date')
+    .eq('id', bookingId)
+    .single();
+
+  if (bookingError || !booking) {
+    return res.status(404).json({ error: 'Booking not found' });
+  }
+
+  const cancellable = [BookingStatus.Pending, BookingStatus.Approved, BookingStatus.Paid];
+  if (!cancellable.includes(booking.status as BookingStatus)) {
+    return res.status(400).json({ error: `Cannot cancel a booking with status '${booking.status}'` });
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('booking_requests')
+    .update({ status: BookingStatus.Cancelled, updated_at: new Date().toISOString() })
+    .eq('id', bookingId);
+
+  if (updateError) {
+    logger.error('Failed to cancel booking', { error: updateError.message });
+    return res.status(500).json({ error: 'Failed to cancel booking' });
+  }
+
+  await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
+
+  if ([BookingStatus.Pending, BookingStatus.Approved].includes(booking.status as BookingStatus)) {
+    try {
+      await rollbackPayment(bookingId);
+    } catch (rollbackErr: unknown) {
+      const msg = rollbackErr instanceof Error ? rollbackErr.message : 'Rollback failed';
+      logger.warn('Payment rollback on cancel failed (non-blocking)', { error: msg, bookingId });
+    }
+  }
+
+  return res.json({ success: true });
+});
+
+router.post('/booking-requests/:id/check-in', async (req, res) => {
+  const bookingId = req.params.id;
+
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id, status')
+    .eq('id', bookingId)
+    .single();
+
+  if (bookingError || !booking) {
+    return res.status(404).json({ error: 'Booking not found' });
+  }
+
+  const checkinable = [BookingStatus.Approved, BookingStatus.Paid];
+  if (!checkinable.includes(booking.status as BookingStatus)) {
+    return res.status(400).json({ error: `Cannot check in a booking with status '${booking.status}'` });
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('booking_requests')
+    .update({ status: BookingStatus.CheckedIn, updated_at: new Date().toISOString() })
+    .eq('id', bookingId);
+
+  if (updateError) {
+    logger.error('Failed to check in booking', { error: updateError.message });
+    return res.status(500).json({ error: 'Failed to check in booking' });
+  }
+
+  return res.json({ success: true });
+});
+
+router.post('/booking-requests/:id/check-out', async (req, res) => {
+  const bookingId = req.params.id;
+
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id, status')
+    .eq('id', bookingId)
+    .single();
+
+  if (bookingError || !booking) {
+    return res.status(404).json({ error: 'Booking not found' });
+  }
+
+  if ((booking.status as BookingStatus) !== BookingStatus.CheckedIn) {
+    return res.status(400).json({ error: `Cannot check out a booking with status '${booking.status}'` });
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('booking_requests')
+    .update({ status: BookingStatus.CheckedOut, updated_at: new Date().toISOString() })
+    .eq('id', bookingId);
+
+  if (updateError) {
+    logger.error('Failed to check out booking', { error: updateError.message });
+    return res.status(500).json({ error: 'Failed to check out booking' });
+  }
+
+  return res.json({ success: true });
+});
 
 router.post('/units/photos/upload', upload.array('photos', 10), async (req, res) => {
   try {
@@ -469,6 +572,7 @@ const unitSchema = z.object({
     max_guests: z.number().int().positive().default(2),
     bedrooms: z.number().int().positive().optional(),
     beds: z.number().int().positive().optional(),
+    bathrooms: z.number().int().min(0).optional().nullable(),
     airbnb_listing_url: z.string().url().optional(),
     airbnb_ical_url: z.string().url(),
     image_urls: z.array(z.string().url()).min(5, 'At least 5 images are required').optional(),

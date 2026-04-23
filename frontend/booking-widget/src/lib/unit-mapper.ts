@@ -53,6 +53,7 @@ export function toUnitListing(unit: Unit): UnitListing {
     neighborhood: neighborhoodFromUnit(unit),
     bedrooms: Number(unit.bedrooms ?? 0),
     beds: Number(unit.beds ?? 0),
+    bathrooms: Number(unit.bathrooms ?? 0),
     maxGuests: Number(unit.max_guests ?? 1),
     pricePerNightUsd: Number(price),
     images: images.length > 0 ? images : [FALLBACK_IMAGE],

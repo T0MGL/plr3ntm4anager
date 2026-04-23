@@ -416,9 +416,7 @@ const CreationFlow = ({ mode = "listing", onClose, unitDraft = null }) => {
       postal_code: step1.location?.zip || step1.location?.zipCode || undefined,
       home_precise: !!step1.location?.preciseLocation,
       bedroom_lock: !!step1.basics?.hasLock,
-      private_bathroom: Number(step1.bathrooms?.private || 0),
-      dedicated_bathroom: Number(step1.bathrooms?.dedicated || 0),
-      shared_bathroom: Number(step1.bathrooms?.shared || 0),
+      bathrooms: Number(step1.bathrooms?.private || 0) + Number(step1.bathrooms?.dedicated || 0) + Number(step1.bathrooms?.shared || 0),
       bathroom_usage: (() => {
         const usage = [];
         if (step1.bathrooms?.private > 0) usage.push("Private and attached bathroom");

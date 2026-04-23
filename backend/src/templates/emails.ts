@@ -314,14 +314,21 @@ export function bookingRequestEmail(params: {
 
 export function bookingApprovedEmail(params: {
   guestName: string;
+  bookingId: string;
   locale?: string | null;
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
+  const refLabel = locale === 'es' ? 'Tu número de referencia' : 'Your reference number';
   const subject = get('approved.subject', locale);
   const html = wrap(locale, [
     heading(get('approved.heading', locale)),
     greeting(params.guestName, locale),
     paragraph(get('approved.body', locale)),
+    `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
+      <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>
+      <div style="margin-top:4px;font-family:monospace;font-size:18px;font-weight:600;letter-spacing:0.08em;color:${COLORS.charcoal};">${reference}</div>
+    </div>`,
     closing(get('approved.closing', locale)),
   ].join(''));
   return { subject, html };
@@ -330,15 +337,22 @@ export function bookingApprovedEmail(params: {
 export function bookingRejectedEmail(params: {
   guestName: string;
   reason: string;
+  bookingId: string;
   locale?: string | null;
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
+  const refLabel = locale === 'es' ? 'Referencia' : 'Reference';
   const subject = get('rejected.subject', locale);
   const html = wrap(locale, [
     heading(get('rejected.heading', locale)),
     greeting(params.guestName, locale),
     paragraph(get('rejected.body', locale)),
     paragraph(`<strong>${get('rejected.reason', locale)}:</strong> ${params.reason}`),
+    `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
+      <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>
+      <div style="margin-top:4px;font-family:monospace;font-size:18px;font-weight:600;letter-spacing:0.08em;color:${COLORS.charcoal};">${reference}</div>
+    </div>`,
     closing(get('rejected.closing', locale)),
   ].join(''));
   return { subject, html };

@@ -8,6 +8,7 @@ export type UnitListing = {
   neighborhood: string | null;
   bedrooms: number;
   beds: number;
+  bathrooms: number;
   maxGuests: number;
   pricePerNightUsd: number;
   images: string[];

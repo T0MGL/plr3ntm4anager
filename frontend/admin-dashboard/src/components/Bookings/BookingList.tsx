@@ -101,6 +101,9 @@ function statusChipClass(status: string): string {
   if (status === 'approved') return 'bg-sky-50 text-sky-700 border-sky-200';
   if (status === 'paid') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   if (status === 'rejected') return 'bg-rose-50 text-rose-700 border-rose-200';
+  if (status === 'checked_in') return 'bg-violet-50 text-violet-700 border-violet-200';
+  if (status === 'checked_out') return 'bg-slate-100 text-slate-600 border-slate-300';
+  if (status === 'cancelled') return 'bg-slate-50 text-slate-400 border-slate-200';
   return 'bg-slate-50 text-slate-700 border-slate-200';
 }
 
@@ -138,6 +141,7 @@ export default function BookingList() {
 
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
 
   const fetchBookings = async () => {
     const { data } = await api.get<BookingResponse>('/admin/booking-requests', {
@@ -251,6 +255,48 @@ export default function BookingList() {
     } catch (rejectError) {
       const message = rejectError instanceof Error ? rejectError.message : 'Failed to reject booking';
       setError(message);
+    } finally {
+      setActingBookingId(null);
+    }
+  };
+
+  const cancelBooking = async (bookingId: string) => {
+    try {
+      setActingBookingId(bookingId);
+      await api.post(`/admin/booking-requests/${bookingId}/cancel`);
+      await fetchBookings();
+      setError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to cancel booking';
+      setError(msg);
+    } finally {
+      setActingBookingId(null);
+    }
+  };
+
+  const checkIn = async (bookingId: string) => {
+    try {
+      setActingBookingId(bookingId);
+      await api.post(`/admin/booking-requests/${bookingId}/check-in`);
+      await fetchBookings();
+      setError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to check in';
+      setError(msg);
+    } finally {
+      setActingBookingId(null);
+    }
+  };
+
+  const checkOut = async (bookingId: string) => {
+    try {
+      setActingBookingId(bookingId);
+      await api.post(`/admin/booking-requests/${bookingId}/check-out`);
+      await fetchBookings();
+      setError(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to check out';
+      setError(msg);
     } finally {
       setActingBookingId(null);
     }
@@ -621,6 +667,18 @@ export default function BookingList() {
             headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' }}
             eventDisplay="block"
             dayMaxEvents={4}
+            eventClick={(info) => {
+              const { kind } = info.event.extendedProps as { kind: string };
+              if (kind === 'booking') {
+                const bookingId = info.event.id.replace('booking-', '');
+                setView('list');
+                setHighlightedBookingId(bookingId);
+                setTimeout(() => {
+                  const el = document.getElementById(`booking-${bookingId}`);
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 150);
+              }
+            }}
           />
         </div>
       ) : null}
@@ -638,8 +696,22 @@ export default function BookingList() {
             );
             const hideApproveButton = isAutoApproved(booking);
 
+            const isActing = actingBookingId === booking.id;
+            const cancellable = ['pending', 'approved', 'paid'].includes(booking.status);
+            const canCheckIn = ['approved', 'paid'].includes(booking.status);
+            const canCheckOut = booking.status === 'checked_in';
+            const isHighlighted = highlightedBookingId === booking.id;
+
             return (
-              <div key={booking.id} className="rounded-xl border border-slate-200 bg-white p-4">
+              <div
+                key={booking.id}
+                id={`booking-${booking.id}`}
+                className={`rounded-xl border bg-white p-4 transition-shadow ${
+                  isHighlighted
+                    ? 'border-sky-400 shadow-md shadow-sky-100 ring-1 ring-sky-300'
+                    : 'border-slate-200'
+                }`}
+              >
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h3 className="text-base font-semibold text-slate-900">
@@ -683,7 +755,7 @@ export default function BookingList() {
                     <ApprovalButtons
                       onApprove={() => void approve(booking.id)}
                       onReject={() => openRejectModal(booking.id)}
-                      isLoading={actingBookingId === booking.id}
+                      isLoading={isActing}
                     />
                   </div>
                 ) : null}
@@ -691,6 +763,38 @@ export default function BookingList() {
                 {hideApproveButton ? (
                   <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
                     {t('bookingList.autoApproved')}
+                  </div>
+                ) : null}
+
+                {(canCheckIn || canCheckOut || cancellable) ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {canCheckIn ? (
+                      <button
+                        onClick={() => void checkIn(booking.id)}
+                        disabled={isActing}
+                        className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isActing ? '...' : 'Check-in'}
+                      </button>
+                    ) : null}
+                    {canCheckOut ? (
+                      <button
+                        onClick={() => void checkOut(booking.id)}
+                        disabled={isActing}
+                        className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isActing ? '...' : 'Check-out'}
+                      </button>
+                    ) : null}
+                    {cancellable ? (
+                      <button
+                        onClick={() => void cancelBooking(booking.id)}
+                        disabled={isActing}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isActing ? '...' : t('bookingList.cancelBooking', { defaultValue: 'Cancelar reserva' })}
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
