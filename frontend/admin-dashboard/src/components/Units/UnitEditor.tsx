@@ -31,6 +31,18 @@ export default function UnitEditor({ unit, onClose }: UnitEditorProps) {
   const [status, setStatus] = useState<string>(unit.status || 'active');
   const [airbnbListingUrl, setAirbnbListingUrl] = useState(unit.airbnb_listing_url ?? '');
   const [airbnbIcalUrl, setAirbnbIcalUrl] = useState(unit.airbnb_ical_url ?? '');
+  const [streetAddress, setStreetAddress] = useState(unit.street_address ?? '');
+  const [neighborhood, setNeighborhood] = useState(unit.neighborhood ?? '');
+  const [city, setCity] = useState(unit.city ?? '');
+  const [stateRegion, setStateRegion] = useState(unit.state ?? '');
+  const [country, setCountry] = useState(unit.country ?? '');
+  const [latitude, setLatitude] = useState<string>(
+    unit.latitude != null ? String(unit.latitude) : '',
+  );
+  const [longitude, setLongitude] = useState<string>(
+    unit.longitude != null ? String(unit.longitude) : '',
+  );
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(unit.google_maps_url ?? '');
   const [photos, setPhotos] = useState<PhotoItem[]>(
     (unit.image_urls ?? []).map((url, idx) => ({
       id: `existing-${idx}-${url}`,
@@ -169,6 +181,19 @@ export default function UnitEditor({ unit, onClose }: UnitEditorProps) {
         return;
       }
 
+      const lat = latitude.trim() ? Number(latitude) : null;
+      const lng = longitude.trim() ? Number(longitude) : null;
+      if (lat !== null && !Number.isFinite(lat)) {
+        toast.error('Latitud invalida');
+        setIsSaving(false);
+        return;
+      }
+      if (lng !== null && !Number.isFinite(lng)) {
+        toast.error('Longitud invalida');
+        setIsSaving(false);
+        return;
+      }
+
       await api.put(`/admin/units/${unit.id}`, {
         name: name.trim(),
         description: description.trim() ? description.trim() : undefined,
@@ -180,6 +205,14 @@ export default function UnitEditor({ unit, onClose }: UnitEditorProps) {
         airbnb_ical_url: airbnbIcalUrl.trim(),
         image_urls: finalUrls,
         status: status === 'inactive' ? 'inactive' : 'active',
+        street_address: streetAddress.trim() || null,
+        neighborhood: neighborhood.trim() || null,
+        city: city.trim() || null,
+        state: stateRegion.trim() || null,
+        country: country.trim() || null,
+        latitude: lat,
+        longitude: lng,
+        google_maps_url: googleMapsUrl.trim() || null,
       });
 
       toast.success('Unidad actualizada');
@@ -410,6 +443,120 @@ export default function UnitEditor({ unit, onClose }: UnitEditorProps) {
                 <option value="active">Activa</option>
                 <option value="inactive">Inactiva</option>
               </select>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-[#222]">Ubicacion</h3>
+              <p className="text-xs text-[#6a6a6a]">
+                Se muestra en el widget y se usa como base para el link de Google Maps.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                Direccion
+              </label>
+              <input
+                type="text"
+                value={streetAddress}
+                onChange={(e) => setStreetAddress(e.target.value)}
+                placeholder="Calle y numero"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                  Barrio (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={neighborhood}
+                  onChange={(e) => setNeighborhood(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                  Ciudad
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                  Departamento / Estado
+                </label>
+                <input
+                  type="text"
+                  value={stateRegion}
+                  onChange={(e) => setStateRegion(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                  Pais
+                </label>
+                <input
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                  Latitud (opcional, para mapa)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  placeholder="-25.2637"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                  Longitud (opcional, para mapa)
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  placeholder="-57.5759"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                Link de Google Maps (opcional)
+              </label>
+              <input
+                type="url"
+                value={googleMapsUrl}
+                onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                placeholder="https://maps.google.com/?q=..."
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#222] shadow-sm focus:border-[#1e3a8a] focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-[#9ca3af]">
+                Si lo dejas vacio, el widget lo arma automaticamente con las coordenadas.
+              </p>
             </div>
           </section>
 

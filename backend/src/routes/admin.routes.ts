@@ -386,7 +386,16 @@ const unitSchema = z.object({
     airbnb_listing_url: z.string().url().optional(),
     airbnb_ical_url: z.string().url(),
     image_urls: z.array(z.string().url()).min(5, 'At least 5 images are required').optional(),
-    status: z.enum(['active', 'inactive']).optional()
+    status: z.enum(['active', 'inactive']).optional(),
+    neighborhood: z.string().max(200).optional().nullable(),
+    street_address: z.string().max(300).optional().nullable(),
+    city: z.string().max(200).optional().nullable(),
+    state: z.string().max(200).optional().nullable(),
+    country: z.string().max(200).optional().nullable(),
+    postal_code: z.string().max(50).optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
+    google_maps_url: z.string().url().optional().nullable()
   }),
   params: z.object({ id: z.string().uuid().optional() })
 });

@@ -305,9 +305,12 @@ const es = {
     description:
       'Esto escaneará tu perfil de host en Airbnb, lo comparará con tus unidades actuales y te dejará importar los listados nuevos. Los existentes no se modifican.',
     scan: 'Escanear listados',
-    scanning: 'Escaneando...',
+    setHostIdFirst: 'Primero seteá el ID de host en Settings',
+    hostIdMissing:
+      'No hay un ID de host de Airbnb configurado. Andá a Settings, cargá tu ID y volvé para sincronizar.',
+    scanning: 'Obteniendo listados...',
     scanningNote:
-      'Obteniendo tu perfil de host y scrapeando listados nuevos via Apify. Puede tardar hasta 60 segundos.',
+      'Esperá un momento mientras obtenemos las unidades desde Airbnb. Puede tardar hasta 60 segundos.',
     cancel: 'Cancelar',
     close: 'Cerrar',
     alreadyImported: '{{count}} ya importados',

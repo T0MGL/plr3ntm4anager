@@ -299,8 +299,11 @@ const en = {
     description:
       'This will scan your Airbnb host profile, compare it with your current units, and let you import any new listings. Existing listings are left untouched.',
     scan: 'Scan listings',
-    scanning: 'Scanning...',
-    scanningNote: 'Fetching your host profile and scraping new listings via Apify. This may take up to 60 seconds.',
+    setHostIdFirst: 'Set your host ID in Settings first',
+    hostIdMissing:
+      'No Airbnb host ID is configured. Go to Settings, save your host ID, and come back to sync.',
+    scanning: 'Fetching listings...',
+    scanningNote: 'Hang tight while we pull your units from Airbnb. This may take up to 60 seconds.',
     cancel: 'Cancel',
     close: 'Close',
     alreadyImported: '{{count}} already imported',

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiCheck, FiAlertCircle, FiUsers, FiHome } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api } from '../../utils/api';
 
@@ -50,6 +51,7 @@ interface AirbnbSyncModalProps {
 }
 
 type Phase = 'idle' | 'loading' | 'preview' | 'confirming' | 'done';
+type HostIdStatus = 'checking' | 'ready' | 'missing';
 
 export default function AirbnbSyncModal({ onClose, onImported }: AirbnbSyncModalProps) {
   const { t } = useTranslation();
@@ -58,6 +60,26 @@ export default function AirbnbSyncModal({ onClose, onImported }: AirbnbSyncModal
   const [userInputs, setUserInputs] = useState<UserInputs>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [hostIdStatus, setHostIdStatus] = useState<HostIdStatus>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkHostId = async () => {
+      try {
+        const { data } = await api.get<{ key: string; value: string }[]>('/admin/settings');
+        if (cancelled) return;
+        const hostRow = data.find((r) => r.key === 'airbnb_host_id');
+        const hostId = hostRow?.value?.trim() ?? '';
+        setHostIdStatus(hostId ? 'ready' : 'missing');
+      } catch {
+        if (!cancelled) setHostIdStatus('missing');
+      }
+    };
+    void checkHostId();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startSync = async () => {
     setPhase('loading');
@@ -212,6 +234,12 @@ export default function AirbnbSyncModal({ onClose, onImported }: AirbnbSyncModal
                       <FiHome className="h-7 w-7" />
                     </div>
                     <p className="text-sm text-[#484848] max-w-sm mx-auto">{t('airbnbSync.description')}</p>
+                    {hostIdStatus === 'missing' && (
+                      <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-left">
+                        <FiAlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <span>{t('airbnbSync.hostIdMissing')}</span>
+                      </div>
+                    )}
                     {apiError && (
                       <div className="mt-4 flex items-start gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                         <FiAlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -442,13 +470,24 @@ export default function AirbnbSyncModal({ onClose, onImported }: AirbnbSyncModal
               >
                 {t('airbnbSync.cancel')}
               </button>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => void startSync()}
-              >
-                {t('airbnbSync.scan')}
-              </button>
+              {hostIdStatus === 'missing' ? (
+                <Link
+                  to="/settings"
+                  onClick={onClose}
+                  className="primary-button"
+                >
+                  {t('airbnbSync.setHostIdFirst')}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="primary-button disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={() => void startSync()}
+                  disabled={hostIdStatus === 'checking'}
+                >
+                  {t('airbnbSync.scan')}
+                </button>
+              )}
             </>
           ) : phase === 'loading' ? (
             <button type="button" className="primary-button opacity-60 cursor-not-allowed" disabled>

@@ -42,6 +42,10 @@ export interface UnitRow {
   beds?: number | null;
   bedroom_count?: number | null;
   bed_count?: number | null;
+  neighborhood?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  google_maps_url?: string | null;
 }
 
 interface UnitListProps {
