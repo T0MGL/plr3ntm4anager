@@ -50,11 +50,13 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="login-panel-card">
-            <div className="login-panel-dot" />
-            <div>
-              <p className="text-sm font-semibold">Hosting Ops</p>
-              <p className="text-sm text-charcoal/60">Alertas inteligentes de cancelaciones y traslapes.</p>
+          <div className="login-integrations">
+            <span className="login-integrations-label">Integraciones</span>
+            <div className="login-integrations-row">
+              <span className="login-chip">Bancard</span>
+              <span className="login-chip">Airbnb</span>
+              <span className="login-chip">Booking</span>
+              <span className="login-chip">iCal</span>
             </div>
           </div>
         </div>

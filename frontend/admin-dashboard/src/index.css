@@ -476,7 +476,7 @@ body {
   font-size: 1.4rem;
   letter-spacing: 0.01em;
   line-height: 1;
-  color: rgba(26, 26, 26, 0.82);
+  color: #1A1A1A;
 }
 
 .login-brand-divider {
@@ -542,23 +542,37 @@ body {
   letter-spacing: 0.22em;
 }
 
-.login-panel-card {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  background: #FDFBF8;
-  border-radius: 16px;
-  padding: 16px 18px;
-  border: 1px solid rgba(26, 26, 26, 0.06);
-  box-shadow: 0 18px 40px -22px rgba(26, 26, 26, 0.18);
+.login-integrations {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
 }
 
-.login-panel-dot {
-  width: 10px;
-  height: 10px;
+.login-integrations-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(26, 26, 26, 0.45);
+  font-weight: 500;
+}
+
+.login-integrations-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.login-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
   border-radius: 999px;
-  background: #C4A96B;
-  box-shadow: 0 0 0 6px rgba(196, 169, 107, 0.18);
+  background: transparent;
+  border: 1px solid rgba(26, 26, 26, 0.14);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.75);
+  letter-spacing: 0.01em;
 }
 
 .login-form-area {
