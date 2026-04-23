@@ -34,6 +34,43 @@ interface BookingResponse {
   count: number;
 }
 
+interface CalendarBookingRow {
+  id: string;
+  unit_id: string;
+  guest_name: string;
+  guest_email: string;
+  check_in_date: string;
+  check_out_date: string;
+  status: 'pending' | 'approved' | 'paid' | string;
+  approval_path: ApprovalPath | null;
+  total_price_usd: number;
+  units?: { name: string } | null;
+}
+
+interface CalendarBlockRow {
+  unit_id: string;
+  blocked_date: string;
+  source: 'airbnb' | 'manual' | 'widget' | string;
+  units?: { name: string } | null;
+}
+
+interface CalendarResponse {
+  range: { from: string; to: string };
+  bookings: CalendarBookingRow[];
+  blocks: CalendarBlockRow[];
+}
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  extendedProps: { kind: 'booking' | 'block'; status?: string; source?: string };
+}
+
 type Tab = 'needs_review' | 'all';
 
 function statusChipClass(status: string): string {
@@ -65,13 +102,15 @@ function isAutoApproved(booking: BookingRow): boolean {
 export default function BookingList() {
   const { t } = useTranslation();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [calendarData, setCalendarData] = useState<CalendarResponse | null>(null);
   const [tab, setTab] = useState<Tab>('needs_review');
   const [status, setStatus] = useState<string>('');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actingBookingId, setActingBookingId] = useState<string | null>(null);
-  const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [view, setView] = useState<'list' | 'calendar'>('calendar');
   const [unitFilter, setUnitFilter] = useState<string>('');
 
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
@@ -82,6 +121,11 @@ export default function BookingList() {
       params: status ? { status } : {},
     });
     setBookings(data.data ?? []);
+  };
+
+  const fetchCalendar = async () => {
+    const { data } = await api.get<CalendarResponse>('/admin/calendar');
+    setCalendarData(data);
   };
 
   useEffect(() => {
@@ -102,17 +146,38 @@ export default function BookingList() {
   }, [status]);
 
   useEffect(() => {
+    if (view !== 'calendar') return;
+    const load = async () => {
+      try {
+        setIsCalendarLoading(true);
+        await fetchCalendar();
+        setError(null);
+      } catch (loadError) {
+        const message = loadError instanceof Error ? loadError.message : 'Failed to load calendar';
+        setError(message);
+      } finally {
+        setIsCalendarLoading(false);
+      }
+    };
+    void load();
+  }, [view]);
+
+  useEffect(() => {
     const channel = supabase
       .channel('realtime-bookings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, () => {
         void fetchBookings();
+        if (view === 'calendar') void fetchCalendar();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'availability' }, () => {
+        if (view === 'calendar') void fetchCalendar();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [status]);
+  }, [status, view]);
 
   const approve = async (bookingId: string) => {
     try {
@@ -218,24 +283,102 @@ export default function BookingList() {
   }, [filteredBookings, unitFilter, tab]);
 
   const calendarEvents = useMemo(() => {
-    return displayBookings.map((b) => {
-      const colors: Record<string, string> = {
-        pending: '#f59e0b',
-        approved: '#3b82f6',
-        paid: '#10b981',
-        rejected: '#ef4444',
-      };
-      return {
-        id: b.id,
+    if (!calendarData) return [] as CalendarEvent[];
+
+    const statusColors: Record<string, string> = {
+      pending: '#f59e0b',
+      approved: '#3b82f6',
+      paid: '#10b981',
+    };
+
+    const sourceColors: Record<string, { bg: string; text: string }> = {
+      airbnb: { bg: '#fecaca', text: '#991b1b' },
+      manual: { bg: '#e5e7eb', text: '#1f2937' },
+    };
+
+    const events: CalendarEvent[] = [];
+
+    for (const b of calendarData.bookings) {
+      if (unitFilter && b.units?.name !== unitFilter) continue;
+      events.push({
+        id: `booking-${b.id}`,
         title: `${b.units?.name ?? 'Unit'} / ${b.guest_name} (${b.id.slice(0, 8).toUpperCase()})`,
         start: b.check_in_date,
         end: b.check_out_date,
-        backgroundColor: colors[b.status] ?? '#64748b',
+        backgroundColor: statusColors[b.status] ?? '#64748b',
         borderColor: 'transparent',
         textColor: '#fff',
+        extendedProps: { kind: 'booking', status: b.status },
+      });
+    }
+
+    // Collapse consecutive per-day blocks into contiguous ranges so FullCalendar
+    // renders one bar per stay instead of a strip of single-day chips. Groups
+    // by unit_id + source, then walks sorted dates merging gaps of one day.
+    const grouped = new Map<string, CalendarBlockRow[]>();
+    for (const block of calendarData.blocks) {
+      if (unitFilter && block.units?.name !== unitFilter) continue;
+      const key = `${block.unit_id}::${block.source}`;
+      const list = grouped.get(key) ?? [];
+      list.push(block);
+      grouped.set(key, list);
+    }
+
+    const dayMs = 1000 * 60 * 60 * 24;
+
+    for (const [key, rows] of grouped) {
+      rows.sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
+      const [, source] = key.split('::');
+      const palette = sourceColors[source] ?? { bg: '#cbd5e1', text: '#0f172a' };
+      const unitName = rows[0]?.units?.name ?? 'Unit';
+
+      const pushRange = (startDate: string, endDate: string) => {
+        const endExclusive = new Date(new Date(endDate).getTime() + dayMs)
+          .toISOString()
+          .slice(0, 10);
+        events.push({
+          id: `block-${source}-${unitName}-${startDate}`,
+          title: `${unitName} / ${source === 'airbnb' ? 'Airbnb' : 'Manual block'}`,
+          start: startDate,
+          end: endExclusive,
+          backgroundColor: palette.bg,
+          borderColor: 'transparent',
+          textColor: palette.text,
+          extendedProps: { kind: 'block', source },
+        });
       };
-    });
-  }, [displayBookings]);
+
+      let rangeStart = rows[0]?.blocked_date ?? null;
+      let rangeEnd = rangeStart;
+
+      for (let i = 1; i < rows.length; i++) {
+        const prev = new Date(rows[i - 1].blocked_date).getTime();
+        const curr = new Date(rows[i].blocked_date).getTime();
+        if (curr - prev === dayMs) {
+          rangeEnd = rows[i].blocked_date;
+        } else if (rangeStart && rangeEnd) {
+          pushRange(rangeStart, rangeEnd);
+          rangeStart = rows[i].blocked_date;
+          rangeEnd = rangeStart;
+        }
+      }
+
+      if (rangeStart && rangeEnd) pushRange(rangeStart, rangeEnd);
+    }
+
+    return events;
+  }, [calendarData, unitFilter]);
+
+  const calendarCounts = useMemo(() => {
+    if (!calendarData) return { bookings: 0, airbnbBlocks: 0, manualBlocks: 0 };
+    const filterUnit = (row: { units?: { name: string } | null }) =>
+      unitFilter ? row.units?.name === unitFilter : true;
+    return {
+      bookings: calendarData.bookings.filter(filterUnit).length,
+      airbnbBlocks: calendarData.blocks.filter((b) => b.source === 'airbnb' && filterUnit(b)).length,
+      manualBlocks: calendarData.blocks.filter((b) => b.source === 'manual' && filterUnit(b)).length,
+    };
+  }, [calendarData, unitFilter]);
 
   return (
     <div className="grid gap-4">
@@ -348,8 +491,11 @@ export default function BookingList() {
         </div>
         <button
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
-          onClick={() => void fetchBookings()}
-          disabled={isLoading}
+          onClick={() => {
+            void fetchBookings();
+            if (view === 'calendar') void fetchCalendar();
+          }}
+          disabled={isLoading || isCalendarLoading}
         >
           {t('bookingList.refresh')}
         </button>
@@ -375,8 +521,53 @@ export default function BookingList() {
         </div>
       ) : null}
 
-      {!isLoading && view === 'calendar' ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+      {view === 'calendar' ? (
+        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{ backgroundColor: '#10b981' }}
+                aria-hidden
+              />
+              <span>{t('bookingList.legendPaid')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{ backgroundColor: '#3b82f6' }}
+                aria-hidden
+              />
+              <span>{t('bookingList.legendApproved')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{ backgroundColor: '#f59e0b' }}
+                aria-hidden
+              />
+              <span>{t('bookingList.legendPending')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{ backgroundColor: '#fecaca' }}
+                aria-hidden
+              />
+              <span>{t('bookingList.legendAirbnb', { count: calendarCounts.airbnbBlocks })}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{ backgroundColor: '#e5e7eb' }}
+                aria-hidden
+              />
+              <span>{t('bookingList.legendManual', { count: calendarCounts.manualBlocks })}</span>
+            </div>
+            {isCalendarLoading ? (
+              <span className="text-slate-400">{t('bookingList.loadingCalendar')}</span>
+            ) : null}
+          </div>
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
@@ -385,7 +576,7 @@ export default function BookingList() {
             headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' }}
             eventDisplay="block"
             eventBorderColor="transparent"
-            dayMaxEvents={3}
+            dayMaxEvents={4}
           />
         </div>
       ) : null}

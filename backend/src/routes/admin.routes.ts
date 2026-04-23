@@ -108,6 +108,81 @@ router.get('/booking-requests', async (req, res) => {
   return res.json({ data: data ?? [], count: count ?? 0 });
 });
 
+// GET /admin/calendar
+//
+// Unified calendar source for the admin booking view. Merges two independent
+// data sources so the admin sees the full occupancy picture in one render:
+//
+//   1. booking_requests   -> guest reservations (pending/approved/paid/rejected)
+//   2. availability       -> per-night blocks from Airbnb iCal sync, widget
+//                            holds, or manual admin entries
+//
+// Widget blocks are filtered out at the source level because they already have
+// a booking_requests row that the calendar renders separately and we do not
+// want to double-paint those nights. Airbnb and manual blocks render in their
+// own color track.
+//
+// Query params:
+//   from, to  optional ISO dates (YYYY-MM-DD). Defaults to a 12 month window
+//             anchored 30 days behind today. Large upper bounds are capped at
+//             18 months to protect the endpoint from pathological ranges.
+router.get('/calendar', async (req, res) => {
+  const today = new Date();
+  const defaultFrom = new Date(today);
+  defaultFrom.setDate(defaultFrom.getDate() - 30);
+  const defaultTo = new Date(today);
+  defaultTo.setMonth(defaultTo.getMonth() + 12);
+
+  const fromParam = (req.query.from as string | undefined)?.trim();
+  const toParam = (req.query.to as string | undefined)?.trim();
+
+  const isIsoDate = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+  const from = fromParam && isIsoDate(fromParam) ? fromParam : defaultFrom.toISOString().slice(0, 10);
+  const to = toParam && isIsoDate(toParam) ? toParam : defaultTo.toISOString().slice(0, 10);
+
+  // Hard upper bound on range width so a bad client cannot pull the whole table.
+  const maxSpanMs = 1000 * 60 * 60 * 24 * 550;
+  if (new Date(to).getTime() - new Date(from).getTime() > maxSpanMs) {
+    return res.status(400).json({ error: 'Date range too wide, max 550 days' });
+  }
+
+  const [bookingsResult, blocksResult] = await Promise.all([
+    supabaseAdmin
+      .from('booking_requests')
+      .select(
+        'id, unit_id, guest_name, guest_email, check_in_date, check_out_date, status, approval_path, total_price_usd, units(name)'
+      )
+      .neq('status', 'rejected')
+      .lte('check_in_date', to)
+      .gte('check_out_date', from)
+      .order('check_in_date', { ascending: true }),
+    supabaseAdmin
+      .from('availability')
+      .select('unit_id, blocked_date, source, units(name)')
+      .in('source', ['airbnb', 'manual'])
+      .gte('blocked_date', from)
+      .lte('blocked_date', to)
+      .order('blocked_date', { ascending: true })
+  ]);
+
+  if (bookingsResult.error) {
+    logger.error('calendar: failed to fetch bookings', { error: bookingsResult.error.message });
+    return res.status(500).json({ error: 'Failed to fetch calendar bookings' });
+  }
+
+  if (blocksResult.error) {
+    logger.error('calendar: failed to fetch availability', { error: blocksResult.error.message });
+    return res.status(500).json({ error: 'Failed to fetch calendar blocks' });
+  }
+
+  return res.json({
+    range: { from, to },
+    bookings: bookingsResult.data ?? [],
+    blocks: blocksResult.data ?? []
+  });
+});
+
 const approveSchema = z.object({ params: z.object({ id: z.string().uuid() }) });
 
 // POST /admin/booking-requests/:id/approve

@@ -10,8 +10,8 @@ const es = {
       'Monitorea el rendimiento de la plataforma, el estado de las unidades y la actividad reciente.',
     unitManagement: 'Gestión de Unidades',
     unitManagementDesc: 'Crea, actualiza y mantiene el inventario de listados.',
-    bookingPipeline: 'Pipeline de Reservas',
-    bookingPipelineDesc: 'Revisa reservas, detalles de huéspedes y próximos check-ins.',
+    bookingPipeline: 'Calendario',
+    bookingPipelineDesc: 'Ocupación completa: bloqueos de Airbnb, reservas del widget y holds manuales.',
     syncCenter: 'Centro de Sincronización',
     syncCenterDesc:
       'Mantiene la disponibilidad sincronizada con Airbnb y los calendarios conectados.',
@@ -112,9 +112,9 @@ const es = {
     regenerateAriaLabel: 'Regenerar URL iCal',
   },
   bookings: {
-    title: 'Solicitudes de reserva',
+    title: 'Calendario',
     subtitle:
-      'Revisa las reservas entrantes, aprueba las válidas y rechaza los conflictos.',
+      'Fuente única de verdad por unidad: bloqueos de Airbnb, reservas del widget y holds manuales en una sola vista.',
   },
   bookingList: {
     needsReview: 'Necesitan revisión',
@@ -148,6 +148,12 @@ const es = {
     pathBadgeManual: 'Necesita revisión',
     statusFilterDisabled: 'Filtro de estado desactivado en vista Necesitan revisión',
     rejectionMinLength: 'El motivo debe tener al menos 2 caracteres.',
+    loadingCalendar: 'Actualizando calendario...',
+    legendPaid: 'Pagada',
+    legendApproved: 'Aprobada',
+    legendPending: 'Pendiente',
+    legendAirbnb: 'Bloqueos Airbnb ({{count}})',
+    legendManual: 'Holds manuales ({{count}})',
   },
   bookingDetails: {
     guest: 'Huésped:',
