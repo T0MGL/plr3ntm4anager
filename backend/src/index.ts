@@ -21,6 +21,7 @@ import airbnbSyncRoutes from './routes/airbnbSync.routes';
 import { startIcalCron } from './jobs/ical-cron';
 import { startStuckPreauthAlertCron } from './jobs/stuck-preauth-alert';
 import { startAbandonedBookingCleanupCron } from './jobs/abandoned-booking-cleanup';
+import { startFxRateFetchCron } from './jobs/fx-rate-fetch';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -171,4 +172,5 @@ app.listen(env.PORT, () => {
   startIcalCron();
   startStuckPreauthAlertCron();
   startAbandonedBookingCleanupCron();
+  startFxRateFetchCron();
 });

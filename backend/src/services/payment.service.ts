@@ -5,6 +5,7 @@ import { env } from '../config/env';
 import { BookingStatus, PaymentStatus } from '../types';
 import { logger } from '../config/logger';
 import { sendEmail } from './email.service';
+import { convertUsdToPygWithSnapshot } from './fx-rate.service';
 import {
   bookingUnderReviewEmail,
   paymentConfirmedEmail,
@@ -58,11 +59,8 @@ function tokenForPreauthorizationConfirm(shopProcessId: string): string {
 // True when PAYMENT_MODE is stub (no real Bancard calls)
 const isStubMode = (): boolean => env.PAYMENT_MODE === 'stub';
 
-// Currency conversion
-
-function convertUsdToPyg(amountUsd: number): number {
-  return Math.round(amountUsd * env.USD_TO_PYG_RATE);
-}
+// Currency conversion is delegated to fx-rate.service so the live rate (with
+// admin-controlled markup) is used and snapshotted on every payment row.
 
 // Bancard API URL helper
 
@@ -172,7 +170,7 @@ export async function createSingleBuy(
   }
 
   const shopProcessId = generateShopProcessId();
-  const amountPyg = convertUsdToPyg(booking.total_price_usd);
+  const { amountPyg, effectiveRate } = await convertUsdToPygWithSnapshot(booking.total_price_usd);
   const amountStr = formatAmount(amountPyg);
   const currency = 'PYG';
   const usePreauth = options?.preauthorization ?? false;
@@ -183,6 +181,7 @@ export async function createSingleBuy(
       booking_id: bookingId,
       amount_usd: booking.total_price_usd,
       amount_pyg: amountPyg,
+      fx_rate_snapshot: effectiveRate,
       shop_process_id: String(shopProcessId),
       payment_status: PaymentStatus.Pending,
       payment_method: 'bancard',

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiLoader, FiSave, FiSettings, FiUsers } from 'react-icons/fi';
+import { FiDollarSign, FiLoader, FiSave, FiSettings, FiUsers } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { api } from '../utils/api';
 import { useAdminRole } from '../hooks/useAdminRole';
 import { useAuth } from '../context/AuthContext';
 import TeamMembersSection from '../components/Settings/TeamMembersSection';
+import FxRateSection from '../components/Settings/FxRateSection';
 
 interface SettingRow {
   key: string;
@@ -14,7 +15,7 @@ interface SettingRow {
 }
 
 type GeneralStatus = 'loading' | 'ready' | 'saving' | 'error';
-type TabKey = 'general' | 'team';
+type TabKey = 'general' | 'fx' | 'team';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -69,6 +70,7 @@ export default function Settings() {
   const isDirty = airbnbHostId.trim() !== savedAirbnbHostId;
   const tabs: Array<{ key: TabKey; label: string; icon: typeof FiSettings; visible: boolean }> = [
     { key: 'general', label: t('settings.tabGeneral'), icon: FiSettings, visible: true },
+    { key: 'fx', label: t('settings.tabFx'), icon: FiDollarSign, visible: isAdmin },
     { key: 'team', label: t('settings.tabTeam'), icon: FiUsers, visible: isAdmin },
   ];
 
@@ -185,6 +187,21 @@ export default function Settings() {
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {tab === 'fx' ? (
+        roleStatus === 'loading' ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+            <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : !isAdmin ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {t('settings.fxAdminOnlyMessage')}
+          </div>
+        ) : (
+          <FxRateSection />
+        )
       ) : null}
 
       {tab === 'team' ? (
