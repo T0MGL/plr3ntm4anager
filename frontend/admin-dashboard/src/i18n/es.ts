@@ -192,10 +192,11 @@ const es = {
     legendAirbnb: 'Bloqueos Airbnb ({{count}})',
     legendManual: 'Holds manuales ({{count}})',
     cancelBooking: 'Cancelar reserva',
-    exportCsv: 'Exportar CSV',
-    exporting: 'Exportando...',
-    exportStarted: 'Descarga del CSV iniciada',
-    exportFailed: 'No se pudo exportar el CSV',
+    badgeAirbnb: 'Airbnb',
+    badgeManual: 'Hold manual',
+    badgeWidget: 'Web',
+    airbnbGuestHint: 'Detalles del huésped solo disponibles en Airbnb.',
+    manualHoldHint: 'Hold manual creado desde el admin.',
   },
   bookingDetails: {
     guest: 'Huésped:',
@@ -311,10 +312,6 @@ const es = {
     transaction: 'Transacción',
     created: 'Creado',
     failureReason: 'Motivo del fallo',
-    exportCsv: 'Exportar CSV',
-    exporting: 'Exportando...',
-    exportStarted: 'Descarga del CSV iniciada',
-    exportFailed: 'No se pudo exportar el CSV',
   },
   unitStats: {
     title: 'Estadísticas de la unidad',
@@ -404,6 +401,14 @@ const es = {
   common: {
     loading: 'Cargando...',
     error: 'Error',
+  },
+  exportMenu: {
+    export: 'Exportar',
+    exporting: 'Exportando...',
+    excel: 'Excel (.xlsx)',
+    pdf: 'PDF',
+    started: 'Exportación iniciada',
+    failed: 'No se pudo exportar',
   },
   airbnbSync: {
     title: 'Sincronizar desde Airbnb',

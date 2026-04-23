@@ -187,10 +187,11 @@ const en = {
     legendAirbnb: 'Airbnb blocks ({{count}})',
     legendManual: 'Manual holds ({{count}})',
     cancelBooking: 'Cancel booking',
-    exportCsv: 'Export CSV',
-    exporting: 'Exporting...',
-    exportStarted: 'CSV download started',
-    exportFailed: 'Could not export CSV',
+    badgeAirbnb: 'Airbnb',
+    badgeManual: 'Manual hold',
+    badgeWidget: 'Web',
+    airbnbGuestHint: 'Guest details only available in Airbnb dashboard.',
+    manualHoldHint: 'Manual hold created from admin.',
   },
   bookingDetails: {
     guest: 'Guest:',
@@ -305,10 +306,6 @@ const en = {
     transaction: 'Transaction',
     created: 'Created',
     failureReason: 'Failure reason',
-    exportCsv: 'Export CSV',
-    exporting: 'Exporting...',
-    exportStarted: 'CSV download started',
-    exportFailed: 'Could not export CSV',
   },
   unitStats: {
     title: 'Unit stats',
@@ -398,6 +395,14 @@ const en = {
   common: {
     loading: 'Loading...',
     error: 'Error',
+  },
+  exportMenu: {
+    export: 'Export',
+    exporting: 'Exporting...',
+    excel: 'Excel (.xlsx)',
+    pdf: 'PDF',
+    started: 'Export started',
+    failed: 'Could not export',
   },
   airbnbSync: {
     title: 'Sync from Airbnb',

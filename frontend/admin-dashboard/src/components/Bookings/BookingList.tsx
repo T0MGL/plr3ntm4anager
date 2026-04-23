@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
-import { FiDownload } from 'react-icons/fi';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -11,7 +9,7 @@ import ApprovalButtons from './ApprovalButtons';
 import BookingDetails from './BookingDetails';
 import BookingNotes from './BookingNotes';
 import { supabase } from '../../context/AuthContext';
-import { downloadCsv } from '../../services/csv-export';
+import ExportMenu from '../common/ExportMenu';
 
 type ApprovalPath = 'auto' | 'manual';
 
@@ -146,27 +144,12 @@ export default function BookingList() {
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
   const [clickedBlock, setClickedBlock] = useState<{
     title: string;
     source: string;
     start: string;
     end: string;
   } | null>(null);
-
-  const exportCsv = async () => {
-    if (isExporting) return;
-    setIsExporting(true);
-    try {
-      await downloadCsv('bookings', { status: status || undefined });
-      toast.success(t('bookingList.exportStarted'));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : t('bookingList.exportFailed');
-      toast.error(msg);
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const fetchBookings = async () => {
     const { data } = await api.get<BookingResponse>('/admin/booking-requests', {
@@ -198,7 +181,6 @@ export default function BookingList() {
   }, [status]);
 
   useEffect(() => {
-    if (view !== 'calendar') return;
     const load = async () => {
       try {
         setIsCalendarLoading(true);
@@ -212,24 +194,24 @@ export default function BookingList() {
       }
     };
     void load();
-  }, [view]);
+  }, []);
 
   useEffect(() => {
     const channel = supabase
       .channel('realtime-bookings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, () => {
         void fetchBookings();
-        if (view === 'calendar') void fetchCalendar();
+        void fetchCalendar();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'availability' }, () => {
-        if (view === 'calendar') void fetchCalendar();
+        void fetchCalendar();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [status, view]);
+  }, [status]);
 
   const approve = async (bookingId: string) => {
     try {
@@ -382,6 +364,104 @@ export default function BookingList() {
     return rows;
   }, [filteredBookings, unitFilter, tab]);
 
+  type ExternalStay = {
+    kind: 'airbnb' | 'manual';
+    id: string;
+    unitId: string;
+    unitName: string;
+    checkIn: string;
+    checkOut: string;
+  };
+
+  // Collapse per-night availability rows into contiguous stays so each Airbnb or
+  // manual reservation renders as a single list card, mirroring the calendar
+  // grouping logic.
+  const externalStays = useMemo<ExternalStay[]>(() => {
+    if (!calendarData) return [];
+    const dayMs = 1000 * 60 * 60 * 24;
+    const grouped = new Map<string, CalendarBlockRow[]>();
+    for (const block of calendarData.blocks) {
+      const key = `${block.unit_id}::${block.source}`;
+      const list = grouped.get(key) ?? [];
+      list.push(block);
+      grouped.set(key, list);
+    }
+
+    const stays: ExternalStay[] = [];
+    for (const [key, rows] of grouped) {
+      rows.sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
+      const [unitId, source] = key.split('::');
+      if (source !== 'airbnb' && source !== 'manual') continue;
+      const unitName = rows[0]?.units?.name ?? 'Unit';
+
+      const push = (startDate: string, endDate: string) => {
+        const checkOut = new Date(new Date(endDate).getTime() + dayMs).toISOString().slice(0, 10);
+        stays.push({
+          kind: source,
+          id: `${source}-${unitId}-${startDate}`,
+          unitId,
+          unitName,
+          checkIn: startDate,
+          checkOut,
+        });
+      };
+
+      let rangeStart = rows[0]?.blocked_date ?? null;
+      let rangeEnd = rangeStart;
+      for (let i = 1; i < rows.length; i++) {
+        const prev = new Date(rows[i - 1].blocked_date).getTime();
+        const curr = new Date(rows[i].blocked_date).getTime();
+        if (curr - prev === dayMs) {
+          rangeEnd = rows[i].blocked_date;
+        } else if (rangeStart && rangeEnd) {
+          push(rangeStart, rangeEnd);
+          rangeStart = rows[i].blocked_date;
+          rangeEnd = rangeStart;
+        }
+      }
+      if (rangeStart && rangeEnd) push(rangeStart, rangeEnd);
+    }
+
+    return stays;
+  }, [calendarData]);
+
+  type ListCard =
+    | { kind: 'widget'; id: string; sortKey: string; booking: BookingRow }
+    | { kind: 'airbnb'; id: string; sortKey: string; stay: ExternalStay }
+    | { kind: 'manual'; id: string; sortKey: string; stay: ExternalStay };
+
+  // Unified list for the list view. Widget bookings keep their full card; Airbnb
+  // and manual holds render simpler cards with a source badge so the admin sees
+  // occupancy from every source in one place, not just from the widget.
+  const listCards = useMemo<ListCard[]>(() => {
+    const cards: ListCard[] = displayBookings.map((booking) => ({
+      kind: 'widget',
+      id: booking.id,
+      sortKey: booking.check_in_date,
+      booking,
+    }));
+
+    // Widget filters (status, tab=needs_review, search beyond unit name) do not
+    // apply to external sources, so hide them whenever those are active.
+    const widgetOnlyFilterActive =
+      tab === 'needs_review' || status !== '' || search.trim() !== '';
+
+    if (!widgetOnlyFilterActive) {
+      for (const stay of externalStays) {
+        if (unitFilter && stay.unitName !== unitFilter) continue;
+        cards.push({
+          kind: stay.kind,
+          id: stay.id,
+          sortKey: stay.checkIn,
+          stay,
+        });
+      }
+    }
+
+    cards.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+    return cards;
+  }, [displayBookings, externalStays, tab, status, search, unitFilter]);
+
   const calendarEvents = useMemo(() => {
     if (!calendarData) return [] as CalendarEvent[];
 
@@ -497,36 +577,43 @@ export default function BookingList() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 w-fit">
-        <button
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            tab === 'needs_review'
-              ? 'bg-slate-900 text-white'
-              : 'bg-transparent text-slate-600 hover:bg-slate-50'
-          }`}
-          onClick={() => setTab('needs_review')}
-        >
-          {t('bookingList.needsReview')}
-          {summary.needsReview > 0 ? (
-            <span
-              className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                tab === 'needs_review' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
-              }`}
-            >
-              {summary.needsReview}
-            </span>
-          ) : null}
-        </button>
-        <button
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            tab === 'all'
-              ? 'bg-slate-900 text-white'
-              : 'bg-transparent text-slate-600 hover:bg-slate-50'
-          }`}
-          onClick={() => setTab('all')}
-        >
-          {t('bookingList.all')}
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1">
+          <button
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'needs_review'
+                ? 'bg-slate-900 text-white'
+                : 'bg-transparent text-slate-600 hover:bg-slate-50'
+            }`}
+            onClick={() => setTab('needs_review')}
+          >
+            {t('bookingList.needsReview')}
+            {summary.needsReview > 0 ? (
+              <span
+                className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  tab === 'needs_review' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {summary.needsReview}
+              </span>
+            ) : null}
+          </button>
+          <button
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'all'
+                ? 'bg-slate-900 text-white'
+                : 'bg-transparent text-slate-600 hover:bg-slate-50'
+            }`}
+            onClick={() => setTab('all')}
+          >
+            {t('bookingList.all')}
+          </button>
+        </div>
+        <ExportMenu
+          kind="bookings"
+          filters={{ status: status || undefined }}
+          disabled={isLoading}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -614,16 +701,6 @@ export default function BookingList() {
         >
           {t('bookingList.refresh')}
         </button>
-
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => void exportCsv()}
-          disabled={isExporting}
-        >
-          <FiDownload className="h-4 w-4" aria-hidden="true" />
-          {isExporting ? t('bookingList.exporting') : t('bookingList.exportCsv')}
-        </button>
       </div>
 
       {error ? (
@@ -638,7 +715,7 @@ export default function BookingList() {
         </div>
       ) : null}
 
-      {!isLoading && displayBookings.length === 0 ? (
+      {!isLoading && view === 'list' && listCards.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
           {tab === 'needs_review'
             ? t('bookingList.emptyNeedsReview')
@@ -728,7 +805,69 @@ export default function BookingList() {
 
       {!isLoading && view === 'list' ? (
         <div className="grid gap-3">
-          {displayBookings.map((booking) => {
+          {listCards.map((card) => {
+            if (card.kind === 'airbnb' || card.kind === 'manual') {
+              const { stay } = card;
+              const palette = unitPalette(stay.unitId);
+              const isAirbnb = stay.kind === 'airbnb';
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() =>
+                    setClickedBlock({
+                      title: `${isAirbnb ? 'Airbnb' : 'Hold'} · ${stay.unitName}`,
+                      source: stay.kind,
+                      start: stay.checkIn,
+                      end: new Date(new Date(stay.checkOut).getTime() - 864e5)
+                        .toISOString()
+                        .slice(0, 10),
+                    })
+                  }
+                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition-shadow hover:shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-base font-semibold text-slate-900">{stay.unitName}</h3>
+                      <p className="mt-0.5 text-sm text-slate-600">
+                        {stay.checkIn} {t('bookingDetails.to')} {stay.checkOut}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {isAirbnb
+                          ? t('bookingList.airbnbGuestHint', {
+                              defaultValue:
+                                'Detalles del huésped solo disponibles en Airbnb.',
+                            })
+                          : t('bookingList.manualHoldHint', {
+                              defaultValue: 'Hold manual creado desde el admin.',
+                            })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold"
+                        style={{
+                          backgroundColor: palette.bg,
+                          borderColor: palette.border,
+                          color: palette.text,
+                        }}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: palette.text }}
+                          aria-hidden
+                        />
+                        {isAirbnb
+                          ? t('bookingList.badgeAirbnb', { defaultValue: 'Airbnb' })
+                          : t('bookingList.badgeManual', { defaultValue: 'Hold manual' })}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            }
+
+            const booking = card.booking;
             const created = booking.created_at
               ? formatDistanceToNow(parseISO(booking.created_at), { addSuffix: true })
               : null;
@@ -770,6 +909,9 @@ export default function BookingList() {
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                      {t('bookingList.badgeWidget', { defaultValue: 'Web' })}
+                    </span>
                     {pathBadge ? (
                       <span
                         className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${pathBadge.className}`}
