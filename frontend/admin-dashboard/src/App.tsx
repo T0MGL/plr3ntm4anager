@@ -1,6 +1,6 @@
 import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { FiCalendar, FiCompass, FiCreditCard, FiHome, FiRefreshCw } from 'react-icons/fi';
+import { FiCalendar, FiCompass, FiCreditCard, FiHome, FiRefreshCw, FiSettings } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
 import Login from './components/Auth/Login';
 import AppLayout from './components/layout/AppLayout';
@@ -10,6 +10,7 @@ import Units from './pages/Units';
 import Bookings from './pages/Bookings';
 import Sync from './pages/Sync';
 import Payments from './pages/Payments';
+import Settings from './pages/Settings';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 const routes = [
@@ -18,6 +19,7 @@ const routes = [
   { path: '/bookings', element: <Bookings /> },
   { path: '/sync', element: <Sync /> },
   { path: '/payments', element: <Payments /> },
+  { path: '/settings', element: <Settings /> },
 ] as const;
 
 const missingEnv: string[] = [];
@@ -64,6 +66,13 @@ function Shell() {
       icon: FiCreditCard,
       title: t('nav.paymentsReconciliation'),
       description: t('nav.paymentsReconciliationDesc'),
+    },
+    {
+      label: t('nav.settings'),
+      path: '/settings',
+      icon: FiSettings,
+      title: t('nav.settingsTitle'),
+      description: t('nav.settingsDesc'),
     },
   ];
 
