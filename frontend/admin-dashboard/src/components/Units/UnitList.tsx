@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import UnitCard from './UnitCard';
 import IcalFeedPanel from './IcalFeedPanel';
 import { api } from '../../utils/api';
@@ -55,6 +56,7 @@ interface UnitListProps {
 
 export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [unitPendingDelete, setUnitPendingDelete] = useState<UnitRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -145,6 +147,7 @@ export default function UnitList({ onEditUnit, refreshKey = 0 }: UnitListProps) 
                   }
                 }}
                 onDelete={() => requestDelete(unit)}
+                onViewStats={() => navigate(`/units/${unit.id}/stats`)}
               />
               {unit.ical_feed_token && (
                 <div className="border-t border-[#f0f0f0] px-5 py-2.5">

@@ -1233,8 +1233,531 @@ router.post(
   },
 );
 
+// ============================================================================
+// Per-unit revenue drilldown
+// Returns 12 months of direct + Airbnb estimated revenue for one unit, plus
+// occupancy, ADR, RevPAR, total bookings, and the latest 10 bookings.
+// Mirrors the timezone-safe string-date math used in /dashboard-stats.
+// ============================================================================
+
+const unitIdParamSchema = z.object({
+  params: z.object({ id: z.string().uuid() })
+});
+
+router.get('/units/:id/stats', validate(unitIdParamSchema), async (req, res) => {
+  const unitId = req.params.id;
+  const MAX_ROWS = 5000;
+
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+
+  const addDaysStr = (ymd: string, days: number): string => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const t = Date.UTC(y, m - 1, d) + days * 86_400_000;
+    return new Date(t).toISOString().split('T')[0];
+  };
+  const monthKeyFromStr = (ymd: string): string => {
+    const [y, m] = ymd.split('-').map(Number);
+    return `${y}-${m - 1}`;
+  };
+
+  const twelveMonthsAgo = new Date(now);
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+  twelveMonthsAgo.setDate(1);
+  twelveMonthsAgo.setHours(0, 0, 0, 0);
+  const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().split('T')[0];
+
+  const { data: unit, error: unitError } = await supabaseAdmin
+    .from('units')
+    .select('id, name, nightly_rate_usd, status')
+    .eq('id', unitId)
+    .single();
+
+  if (unitError || !unit) {
+    logger.warn('unit-stats: unit not found', { unitId, error: unitError?.message });
+    return res.status(404).json({ error: 'Unit not found' });
+  }
+
+  const [paymentsResult, airbnbResult, bookingsResult, recentResult] = await Promise.all([
+    supabaseAdmin
+      .from('payments')
+      .select('amount_usd, created_at, booking_requests!inner(unit_id)')
+      .eq('payment_status', PaymentStatus.Completed)
+      .eq('booking_requests.unit_id', unitId)
+      .gte('created_at', twelveMonthsAgo.toISOString())
+      .limit(MAX_ROWS),
+    supabaseAdmin
+      .from('availability')
+      .select('blocked_date')
+      .eq('source', 'airbnb')
+      .eq('unit_id', unitId)
+      .gte('blocked_date', twelveMonthsAgoStr)
+      .limit(MAX_ROWS),
+    supabaseAdmin
+      .from('booking_requests')
+      .select('check_in_date, check_out_date, total_price_usd, status')
+      .eq('unit_id', unitId)
+      .in('status', [
+        BookingStatus.Approved,
+        BookingStatus.Paid,
+        BookingStatus.CheckedIn,
+        BookingStatus.CheckedOut
+      ])
+      .gte('check_out_date', twelveMonthsAgoStr)
+      .limit(MAX_ROWS),
+    supabaseAdmin
+      .from('booking_requests')
+      .select('id, guest_name, check_in_date, check_out_date, total_price_usd, status, created_at')
+      .eq('unit_id', unitId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+  ]);
+
+  if (paymentsResult.error || airbnbResult.error || bookingsResult.error || recentResult.error) {
+    const errors = [
+      paymentsResult.error?.message,
+      airbnbResult.error?.message,
+      bookingsResult.error?.message,
+      recentResult.error?.message
+    ].filter(Boolean);
+    logger.error('unit-stats: aggregate query failed', { unitId, errors });
+    return res.status(500).json({ error: 'Failed to fetch unit stats' });
+  }
+
+  const nightlyRate = Number(unit.nightly_rate_usd ?? 0);
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const directByMonth: Record<string, number> = {};
+  const airbnbByMonth: Record<string, number> = {};
+  const occupancyByMonth: Record<string, number> = {};
+  const orderedMonthKeys: string[] = [];
+  const monthDayCount: Record<string, number> = {};
+
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 11 + i);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    directByMonth[key] = 0;
+    airbnbByMonth[key] = 0;
+    occupancyByMonth[key] = 0;
+    orderedMonthKeys.push(key);
+
+    // Days in this calendar month, capped to today for the current month so
+    // occupancy is computed against elapsed days, not future ones.
+    const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const cap = monthEnd > now ? now : monthEnd;
+    monthDayCount[key] = cap < monthStart ? 0 : Math.floor((cap.getTime() - monthStart.getTime()) / 86_400_000) + 1;
+  }
+
+  for (const p of paymentsResult.data ?? []) {
+    const d = new Date(p.created_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (key in directByMonth) directByMonth[key] += Number(p.amount_usd ?? 0);
+  }
+
+  // Airbnb estimated revenue uses current nightly rate, surfaced as "est." in
+  // the UI. Same caveat as dashboard-stats: retroactive rate changes drift.
+  for (const block of airbnbResult.data ?? []) {
+    const key = monthKeyFromStr(block.blocked_date);
+    if (key in airbnbByMonth) airbnbByMonth[key] += nightlyRate;
+  }
+
+  // Occupancy: count Airbnb-blocked days + direct booked nights per month.
+  // De-dup on a per-day basis so a rare same-day overlap does not double-count.
+  const occupiedSetByMonth: Record<string, Set<string>> = {};
+  for (const key of orderedMonthKeys) occupiedSetByMonth[key] = new Set();
+
+  for (const block of airbnbResult.data ?? []) {
+    const key = monthKeyFromStr(block.blocked_date);
+    if (key in occupiedSetByMonth) occupiedSetByMonth[key].add(block.blocked_date);
+  }
+
+  for (const booking of bookingsResult.data ?? []) {
+    const inStr: string = booking.check_in_date;
+    const outStr: string = booking.check_out_date;
+    let cursor = inStr < twelveMonthsAgoStr ? twelveMonthsAgoStr : inStr;
+    const end = outStr > todayStr ? addDaysStr(todayStr, 1) : outStr;
+    while (cursor < end) {
+      const key = monthKeyFromStr(cursor);
+      if (key in occupiedSetByMonth) occupiedSetByMonth[key].add(cursor);
+      cursor = addDaysStr(cursor, 1);
+    }
+  }
+
+  for (const key of orderedMonthKeys) {
+    occupancyByMonth[key] = occupiedSetByMonth[key].size;
+  }
+
+  const monthlyRevenue = orderedMonthKeys.map((key) => {
+    const monthIdx = Number(key.split('-')[1]);
+    const occupiedDays = occupancyByMonth[key];
+    const totalDays = monthDayCount[key];
+    return {
+      name: MONTH_NAMES[monthIdx],
+      direct: Math.round(directByMonth[key] ?? 0),
+      airbnbEstimate: Math.round(airbnbByMonth[key] ?? 0),
+      occupiedDays,
+      totalDays,
+      occupancyRate: totalDays > 0 ? Math.round((occupiedDays / totalDays) * 100) : 0
+    };
+  });
+
+  // Aggregate KPIs over the whole 12 month window.
+  let totalRevenue = 0;
+  let totalNights = 0;
+  let totalOccupiedDays = 0;
+  let totalAvailableDays = 0;
+
+  for (const row of monthlyRevenue) {
+    totalRevenue += row.direct + row.airbnbEstimate;
+    totalOccupiedDays += row.occupiedDays;
+    totalAvailableDays += row.totalDays;
+  }
+
+  // Total nights from confirmed direct bookings (the booking source the
+  // operator can attribute revenue to). Airbnb nights are estimated separately.
+  for (const booking of bookingsResult.data ?? []) {
+    const nights = nightsBetween(booking.check_in_date, booking.check_out_date);
+    totalNights += nights;
+  }
+
+  const adr = totalNights > 0 ? totalRevenue / (totalOccupiedDays > 0 ? totalOccupiedDays : totalNights) : 0;
+  const revPar = totalAvailableDays > 0 ? totalRevenue / totalAvailableDays : 0;
+  const occupancyRate = totalAvailableDays > 0 ? (totalOccupiedDays / totalAvailableDays) * 100 : 0;
+
+  return res.json({
+    unit: {
+      id: unit.id,
+      name: unit.name,
+      nightlyRate,
+      status: unit.status
+    },
+    monthlyRevenue,
+    totals: {
+      revenue: Math.round(totalRevenue),
+      directRevenue: Math.round(monthlyRevenue.reduce((a, r) => a + r.direct, 0)),
+      airbnbEstimate: Math.round(monthlyRevenue.reduce((a, r) => a + r.airbnbEstimate, 0)),
+      bookings: bookingsResult.data?.length ?? 0,
+      nights: totalNights,
+      occupiedDays: totalOccupiedDays,
+      availableDays: totalAvailableDays,
+      occupancyRate: Math.round(occupancyRate),
+      adr: Math.round(adr),
+      revPar: Math.round(revPar)
+    },
+    recentBookings: recentResult.data ?? []
+  });
+});
+
+// ============================================================================
+// CSV exports
+// Streamed line-by-line to avoid loading the whole result set in memory and
+// to start the download before the query finishes. RFC 4180 escaping: any
+// value containing comma, quote, CR, or LF is double-quoted with embedded
+// quotes doubled.
+// ============================================================================
+
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (/[",\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function csvLine(cols: unknown[]): string {
+  return cols.map(csvEscape).join(',') + '\r\n';
+}
+
+const isoDate = (v: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+const exportFiltersSchema = z.object({
+  query: z.object({
+    from: z.string().refine(isoDate, 'from must be YYYY-MM-DD').optional(),
+    to: z.string().refine(isoDate, 'to must be YYYY-MM-DD').optional(),
+    status: z.string().min(1).max(50).optional(),
+    unit_id: z.string().uuid().optional()
+  })
+});
+
+router.get('/payments/export.csv', validate(exportFiltersSchema), async (req, res) => {
+  const { from, to, status, unit_id } = req.query as {
+    from?: string;
+    to?: string;
+    status?: string;
+    unit_id?: string;
+  };
+
+  const filename = `payments_${todayDateString()}.csv`;
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.write(
+    csvLine([
+      'id',
+      'booking_id',
+      'guest_name',
+      'guest_email',
+      'unit_name',
+      'amount_usd',
+      'status',
+      'payment_method',
+      'bancard_transaction_id',
+      'created_at',
+      'captured_at',
+      'failure_reason'
+    ])
+  );
+
+  const PAGE_SIZE = 500;
+  let offset = 0;
+
+  for (;;) {
+    let query = supabaseAdmin
+      .from('payments')
+      .select(
+        'id, booking_id, amount_usd, payment_status, payment_method, bancard_transaction_id, created_at, updated_at, failure_reason, booking_requests!inner(guest_name, guest_email, unit_id, units(name))'
+      )
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (status) query = query.eq('payment_status', status);
+    if (from) query = query.gte('created_at', `${from}T00:00:00.000Z`);
+    if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`);
+    if (unit_id) query = query.eq('booking_requests.unit_id', unit_id);
+
+    const { data, error } = await query;
+    if (error) {
+      logger.error('payments.export: page query failed', { offset, error: error.message });
+      // We have already started the body with headers; we cannot switch to a
+      // 500 JSON without truncating mid-stream. Append a sentinel row so the
+      // downloader knows the export is incomplete, then end.
+      res.write(csvLine(['ERROR_TRUNCATED', error.message]));
+      return res.end();
+    }
+
+    const rows = data ?? [];
+    for (const r of rows) {
+      const br = (r as { booking_requests?: { guest_name?: string; guest_email?: string; units?: { name?: string } | null } | null }).booking_requests;
+      res.write(
+        csvLine([
+          r.id,
+          r.booking_id,
+          br?.guest_name ?? '',
+          br?.guest_email ?? '',
+          br?.units?.name ?? '',
+          r.amount_usd,
+          r.payment_status,
+          r.payment_method ?? '',
+          r.bancard_transaction_id ?? '',
+          r.created_at,
+          r.updated_at,
+          r.failure_reason ?? ''
+        ])
+      );
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return res.end();
+});
+
+router.get('/bookings/export.csv', validate(exportFiltersSchema), async (req, res) => {
+  const { from, to, status, unit_id } = req.query as {
+    from?: string;
+    to?: string;
+    status?: string;
+    unit_id?: string;
+  };
+
+  const filename = `bookings_${todayDateString()}.csv`;
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.write(
+    csvLine([
+      'id',
+      'guest_name',
+      'guest_email',
+      'guest_phone',
+      'unit_name',
+      'check_in',
+      'check_out',
+      'nights',
+      'status',
+      'approval_path',
+      'total_usd',
+      'created_at'
+    ])
+  );
+
+  const PAGE_SIZE = 500;
+  let offset = 0;
+
+  for (;;) {
+    let query = supabaseAdmin
+      .from('booking_requests')
+      .select(
+        'id, guest_name, guest_email, guest_phone, check_in_date, check_out_date, total_price_usd, status, approval_path, created_at, unit_id, units(name)'
+      )
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (status) query = query.eq('status', status);
+    if (from) query = query.gte('created_at', `${from}T00:00:00.000Z`);
+    if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`);
+    if (unit_id) query = query.eq('unit_id', unit_id);
+
+    const { data, error } = await query;
+    if (error) {
+      logger.error('bookings.export: page query failed', { offset, error: error.message });
+      res.write(csvLine(['ERROR_TRUNCATED', error.message]));
+      return res.end();
+    }
+
+    const rows = data ?? [];
+    for (const r of rows) {
+      const unitName = (r as { units?: { name?: string } | null }).units?.name ?? '';
+      const nights = nightsBetween(r.check_in_date, r.check_out_date);
+      res.write(
+        csvLine([
+          r.id,
+          r.guest_name,
+          r.guest_email,
+          r.guest_phone,
+          unitName,
+          r.check_in_date,
+          r.check_out_date,
+          nights,
+          r.status,
+          r.approval_path ?? '',
+          r.total_price_usd,
+          r.created_at
+        ])
+      );
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return res.end();
+});
+
+function todayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+// ============================================================================
+// Booking notes (internal)
+// Append-only audit trail. Author is resolved from res.locals.user (set by
+// requireAuth) and matched to admin_users by auth_id. Both admin and staff
+// can read and append.
+// ============================================================================
+
+const bookingIdParamSchema = z.object({
+  params: z.object({ id: z.string().uuid() })
+});
+
+const createNoteSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({
+    content: z.string().trim().min(1, 'Note cannot be empty').max(5000, 'Note is too long')
+  })
+});
+
+router.get('/bookings/:id/notes', validate(bookingIdParamSchema), async (req, res) => {
+  const bookingId = req.params.id;
+
+  const { data, error } = await supabaseAdmin
+    .from('booking_notes')
+    .select('id, booking_id, content, created_at, author:admin_users(id, name, email)')
+    .eq('booking_id', bookingId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    logger.error('GET /admin/bookings/:id/notes failed', { bookingId, error: error.message });
+    return res.status(500).json({ error: 'Failed to fetch notes' });
+  }
+
+  return res.json(data ?? []);
+});
+
+router.post('/bookings/:id/notes', validate(createNoteSchema), async (req, res) => {
+  const bookingId = req.params.id;
+  const authUserId = res.locals.user?.id as string | undefined;
+
+  if (!authUserId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Resolve admin_users.id from the auth user. Staff are allowed to write
+  // notes; only inactive accounts are rejected.
+  const { data: author, error: authorError } = await supabaseAdmin
+    .from('admin_users')
+    .select('id, status')
+    .eq('auth_id', authUserId)
+    .maybeSingle();
+
+  if (authorError) {
+    logger.error('POST /admin/bookings/:id/notes: author lookup failed', {
+      bookingId,
+      authUserId,
+      error: authorError.message
+    });
+    return res.status(500).json({ error: 'Failed to resolve author' });
+  }
+
+  if (!author) {
+    logger.warn('POST /admin/bookings/:id/notes: no admin_users row for caller', {
+      bookingId,
+      authUserId
+    });
+    return res.status(403).json({ error: 'Caller is not a registered admin user' });
+  }
+
+  if (author.status !== 'active') {
+    return res.status(403).json({ error: 'Account is inactive' });
+  }
+
+  // Verify the booking exists before insert so we return a clean 404 instead
+  // of a FK violation surfacing as a 500.
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id')
+    .eq('id', bookingId)
+    .maybeSingle();
+
+  if (bookingError) {
+    logger.error('POST /admin/bookings/:id/notes: booking lookup failed', {
+      bookingId,
+      error: bookingError.message
+    });
+    return res.status(500).json({ error: 'Failed to fetch booking' });
+  }
+
+  if (!booking) {
+    return res.status(404).json({ error: 'Booking not found' });
+  }
+
+  const { data: inserted, error: insertError } = await supabaseAdmin
+    .from('booking_notes')
+    .insert({ booking_id: bookingId, author_id: author.id, content: req.body.content })
+    .select('id, booking_id, content, created_at, author:admin_users(id, name, email)')
+    .single();
+
+  if (insertError || !inserted) {
+    logger.error('POST /admin/bookings/:id/notes: insert failed', {
+      bookingId,
+      authorId: author.id,
+      error: insertError?.message
+    });
+    return res.status(500).json({ error: 'Failed to create note' });
+  }
+
+  return res.status(201).json(inserted);
+});
+
 export default router;
-
-
-
-

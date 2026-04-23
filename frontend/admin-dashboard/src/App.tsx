@@ -7,6 +7,7 @@ import AppLayout from './components/layout/AppLayout';
 import type { LayoutNavItem } from './components/layout/types';
 import Dashboard from './pages/Dashboard';
 import Units from './pages/Units';
+import UnitStats from './pages/UnitStats';
 import Bookings from './pages/Bookings';
 import Sync from './pages/Sync';
 import Payments from './pages/Payments';
@@ -16,6 +17,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 const routes = [
   { path: '/', element: <Dashboard /> },
   { path: '/units', element: <Units /> },
+  { path: '/units/:id/stats', element: <UnitStats /> },
   { path: '/bookings', element: <Bookings /> },
   { path: '/sync', element: <Sync /> },
   { path: '/payments', element: <Payments /> },

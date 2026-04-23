@@ -1,4 +1,4 @@
-import { FiEdit2, FiTrash2, FiUsers } from 'react-icons/fi';
+import { FiBarChart2, FiEdit2, FiTrash2, FiUsers } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
 
 interface UnitCardProps {
@@ -10,6 +10,7 @@ interface UnitCardProps {
   status: string;
   onEdit?: () => void;
   onDelete: () => void;
+  onViewStats?: () => void;
 }
 
 const statusStyles: Record<string, string> = {
@@ -27,6 +28,7 @@ export default function UnitCard({
   status,
   onEdit,
   onDelete,
+  onViewStats,
 }: UnitCardProps) {
   const { t } = useTranslation();
   const normalizedStatus = status.toLowerCase();
@@ -74,27 +76,40 @@ export default function UnitCard({
           )}
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
-          {onEdit && (
+        <div className="flex flex-col gap-2 pt-1">
+          {onViewStats && (
             <button
               type="button"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#dddddd] bg-white px-4 py-2.5 text-sm font-semibold text-[#484848] transition-colors duration-200 hover:border-[#cfcfcf] hover:bg-[#f7f7f7]"
-              onClick={onEdit}
-              aria-label={t('unitCard.editLabel', { name })}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-slate-300 hover:bg-slate-100"
+              onClick={onViewStats}
+              aria-label={t('unitCard.viewStatsLabel', { name })}
             >
-              <FiEdit2 className="h-4 w-4" aria-hidden="true" />
-              {t('unitCard.edit')}
+              <FiBarChart2 className="h-4 w-4" aria-hidden="true" />
+              {t('unitCard.viewStats')}
             </button>
           )}
-          <button
-            type="button"
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#ffd6df] bg-[#fff5f8] px-4 py-2.5 text-sm font-semibold text-[#c1355b] transition-colors duration-200 hover:bg-[#ffe9ef]"
-            onClick={onDelete}
-            aria-label={t('unitCard.deleteLabel', { name })}
-          >
-            <FiTrash2 className="h-4 w-4" aria-hidden="true" />
-            {t('unitCard.delete')}
-          </button>
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <button
+                type="button"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#dddddd] bg-white px-4 py-2.5 text-sm font-semibold text-[#484848] transition-colors duration-200 hover:border-[#cfcfcf] hover:bg-[#f7f7f7]"
+                onClick={onEdit}
+                aria-label={t('unitCard.editLabel', { name })}
+              >
+                <FiEdit2 className="h-4 w-4" aria-hidden="true" />
+                {t('unitCard.edit')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#ffd6df] bg-[#fff5f8] px-4 py-2.5 text-sm font-semibold text-[#c1355b] transition-colors duration-200 hover:bg-[#ffe9ef]"
+              onClick={onDelete}
+              aria-label={t('unitCard.deleteLabel', { name })}
+            >
+              <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+              {t('unitCard.delete')}
+            </button>
+          </div>
         </div>
       </div>
     </article>

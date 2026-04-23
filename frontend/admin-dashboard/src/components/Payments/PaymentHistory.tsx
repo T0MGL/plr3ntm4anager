@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
+import { FiDownload } from 'react-icons/fi';
 import { api } from '../../utils/api';
 import { supabase } from '../../context/AuthContext';
+import { downloadCsv } from '../../services/csv-export';
 
 interface PaymentRow {
   id: string;
@@ -30,6 +33,21 @@ export default function PaymentHistory() {
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportCsv = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadCsv('payments', { status: status || undefined });
+      toast.success(t('paymentHistory.exportStarted'));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('paymentHistory.exportFailed');
+      toast.error(msg);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const fetchPayments = async (statusFilter?: string) => {
     const { data } = await api.get<PaymentRow[]>('/admin/payments', {
@@ -160,6 +178,16 @@ export default function PaymentHistory() {
           disabled={isLoading}
         >
           {t('paymentHistory.refresh')}
+        </button>
+
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => void exportCsv()}
+          disabled={isExporting || isLoading}
+        >
+          <FiDownload className="h-4 w-4" aria-hidden="true" />
+          {isExporting ? t('paymentHistory.exporting') : t('paymentHistory.exportCsv')}
         </button>
       </div>
 

@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
+import { FiDownload } from 'react-icons/fi';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { api } from '../../utils/api';
 import ApprovalButtons from './ApprovalButtons';
 import BookingDetails from './BookingDetails';
+import BookingNotes from './BookingNotes';
 import { supabase } from '../../context/AuthContext';
+import { downloadCsv } from '../../services/csv-export';
 
 type ApprovalPath = 'auto' | 'manual';
 
@@ -142,12 +146,27 @@ export default function BookingList() {
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [clickedBlock, setClickedBlock] = useState<{
     title: string;
     source: string;
     start: string;
     end: string;
   } | null>(null);
+
+  const exportCsv = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadCsv('bookings', { status: status || undefined });
+      toast.success(t('bookingList.exportStarted'));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('bookingList.exportFailed');
+      toast.error(msg);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const fetchBookings = async () => {
     const { data } = await api.get<BookingResponse>('/admin/booking-requests', {
@@ -595,6 +614,16 @@ export default function BookingList() {
         >
           {t('bookingList.refresh')}
         </button>
+
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => void exportCsv()}
+          disabled={isExporting}
+        >
+          <FiDownload className="h-4 w-4" aria-hidden="true" />
+          {isExporting ? t('bookingList.exporting') : t('bookingList.exportCsv')}
+        </button>
       </div>
 
       {error ? (
@@ -757,6 +786,10 @@ export default function BookingList() {
                 </div>
 
                 <BookingDetails booking={booking} />
+
+                <div className="mt-3">
+                  <BookingNotes bookingId={booking.id} />
+                </div>
 
                 {booking.rejection_reason ? (
                   <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
