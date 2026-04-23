@@ -1,20 +1,20 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import type { DateRange, Matcher } from "react-day-picker";
 import {
   addDays,
   addMonths,
-  isAfter,
-  isBefore,
   startOfDay,
   startOfMonth,
 } from "date-fns";
-
-function parseLocalDate(value: string): Date {
-  const [y, m, d] = value.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
 import { es, enUS } from "date-fns/locale";
+
+function toDateKey(day: Date): string {
+  const y = day.getFullYear();
+  const m = String(day.getMonth() + 1).padStart(2, "0");
+  const d = String(day.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { getUnitAvailability } from "../api/units";
@@ -68,7 +68,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
   const minMonth = useMemo(() => startOfMonth(today), [today]);
   const maxMonth = useMemo(() => startOfMonth(maxDate), [maxDate]);
 
-  const [blockedDates, setBlockedDates] = useState<Date[]>([]);
+  const [blockedKeys, setBlockedKeys] = useState<Set<string>>(() => new Set());
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [month, setMonth] = useState<Date>(range?.from ? startOfMonth(range.from) : minMonth);
 
@@ -80,10 +80,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
         setIsLoadingAvailability(true);
         const availability = await getUnitAvailability(unitId, today, addDays(maxDate, 1));
         if (!isMounted) return;
-        const nextBlockedDates = availability.blocked_dates
-          .map((v) => parseLocalDate(v))
-          .filter((v) => !Number.isNaN(v.getTime()));
-        setBlockedDates(nextBlockedDates);
+        setBlockedKeys(new Set(availability.blocked_dates));
       } catch (err) {
         console.error("Availability error:", err);
       } finally {
@@ -94,29 +91,42 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
     return () => { isMounted = false; };
   }, [maxDate, today, unitId]);
 
-  const disabledDays = useMemo<Matcher[]>(() => [{ before: today }, { after: maxDate }, ...blockedDates], [blockedDates, maxDate, today]);
+  const isBlocked = useCallback((day: Date) => blockedKeys.has(toDateKey(day)), [blockedKeys]);
 
-  // Modifier that marks Airbnb-blocked future dates so we can style them
-  // differently from past dates. Past dates share the same `disabled` flag
-  // but are not in `blockedDates`, so only future unavailable nights light up.
-  const modifiers = useMemo(
-    () => ({ airbnbBlocked: blockedDates }),
-    [blockedDates],
+  const disabledDays = useMemo<Matcher[]>(
+    () => [{ before: today }, { after: maxDate }, isBlocked],
+    [isBlocked, maxDate, today],
   );
 
-  // react-day-picker lets users span a range across disabled days. Validate the
-  // range before committing and reset to the new endpoint if it crosses any
-  // blocked date. This matches the Airbnb UX where picking across an
-  // unavailable gap starts a new range.
+  const modifiers = useMemo(
+    () => ({ airbnbBlocked: isBlocked }),
+    [isBlocked],
+  );
+
   const handleSelectRange = (newRange: DateRange | undefined) => {
     if (!newRange?.from || !newRange?.to) {
       onSelectRange(newRange);
       return;
     }
 
-    const crossesBlocked = blockedDates.some(
-      (d) => isAfter(d, newRange.from!) && isBefore(d, newRange.to!)
+    let crossesBlocked = false;
+    const cursor = new Date(
+      newRange.from.getFullYear(),
+      newRange.from.getMonth(),
+      newRange.from.getDate() + 1,
     );
+    const end = new Date(
+      newRange.to.getFullYear(),
+      newRange.to.getMonth(),
+      newRange.to.getDate(),
+    );
+    while (cursor < end) {
+      if (blockedKeys.has(toDateKey(cursor))) {
+        crossesBlocked = true;
+        break;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
 
     if (crossesBlocked) {
       toast.error(t("datePicker.crossBlocked"));
