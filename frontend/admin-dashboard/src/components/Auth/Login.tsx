@@ -26,7 +26,8 @@ export default function Login() {
     <div className="login-shell">
       <div className="login-panel">
         <div className="login-panel-inner">
-          <div className="login-badge">Park Lofts Rent</div>
+          <LoginBrandmark />
+
           <h1 className="login-title">
             Operaciones que mantienen cada loft impecable.
           </h1>
@@ -53,7 +54,7 @@ export default function Login() {
             <div className="login-panel-dot" />
             <div>
               <p className="text-sm font-semibold">Hosting Ops</p>
-              <p className="text-sm text-black/60">Smart alerts for cancellations and overlaps.</p>
+              <p className="text-sm text-charcoal/60">Alertas inteligentes de cancelaciones y traslapes.</p>
             </div>
           </div>
         </div>
@@ -63,54 +64,75 @@ export default function Login() {
         <div className="login-card">
           <div className="login-card-header">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-black/40">Secure access</p>
-              <h2 className="text-2xl font-semibold">Sign in to Admin</h2>
-              <p className="text-sm text-black/60 mt-2">
-                Use your admin credentials to continue.
+              <p className="login-eyebrow">Secure access</p>
+              <h2 className="login-card-title">Ingresar al Admin</h2>
+              <p className="login-card-sub">
+                Usa tus credenciales para continuar.
               </p>
             </div>
-            <div className="login-brand-dot" />
+            <div className="login-brand-mark">
+              <img
+                src="https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/logo/park-lofts-logogold.png"
+                alt=""
+                aria-hidden
+              />
+            </div>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label className="login-label" htmlFor="email">
-                Email address
+                Email
               </label>
               <input
                 id="email"
                 {...register('email')}
                 className="login-input"
-                placeholder="admin@stayhub.com"
+                placeholder="admin@parklofts.py"
                 autoComplete="email"
               />
               {errors.email && <p className="login-error">{errors.email.message}</p>}
             </div>
             <div>
               <label className="login-label" htmlFor="password">
-                Password
+                Contrasena
               </label>
               <input
                 id="password"
                 {...register('password')}
                 type="password"
                 className="login-input"
-                placeholder="��������"
+                placeholder="********"
                 autoComplete="current-password"
               />
               {errors.password && <p className="login-error">{errors.password.message}</p>}
             </div>
             <button className="login-submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in...' : 'Sign in'}
+              {isSubmitting ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
 
           <div className="login-footer">
             <span className="login-footer-dot" />
-            Security-first access for operations teams.
+            Acceso restringido al equipo de operaciones.
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LoginBrandmark() {
+  return (
+    <div className="login-brand-lockup" aria-label="Park Lofts Rent">
+      <img
+        src="https://pub-70473ebb629c4efb93b99bf2e83117da.r2.dev/logo/park-lofts-logogold.png"
+        alt=""
+        aria-hidden
+      />
+      <span className="login-brand-wordmark">Park Lofts</span>
+      <span className="login-brand-divider" aria-hidden />
+      <span className="login-brand-sub">Rent</span>
     </div>
   );
 }
