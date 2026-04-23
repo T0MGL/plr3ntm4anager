@@ -173,27 +173,32 @@
 }
 
 /* Airbnb-blocked future dates: visually distinct from past dates so guests
-   can clearly see which nights are unavailable. The parent cell inherits
-   the Tailwind `opacity-30` from classNames.disabled, which would fade the
-   rose background too, so we reset opacity and strikethrough on the cell. */
-.date-picker-container .rdp-airbnb-blocked,
-.date-picker-container .rdp-airbnb-blocked.rdp-disabled {
+   can clearly see which nights are unavailable.
+
+   react-day-picker v9 REPLACES the default rdp-day_button class when you
+   pass classNames.day_button, so selectors like `.rdp-airbnb-blocked
+   .rdp-day_button` never match. We target the raw <button> instead. The
+   parent cell inherits Tailwind `opacity-30 line-through text-gray-200`
+   from classNames.disabled, so we reset those on the cell as well. */
+.date-picker-container .rdp-airbnb-blocked {
     opacity: 1 !important;
     text-decoration: none !important;
     color: inherit !important;
+    cursor: not-allowed;
 }
 
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button,
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled {
+.date-picker-container .rdp-airbnb-blocked button,
+.date-picker-container .rdp-airbnb-blocked button:disabled {
     color: #9f1239 !important;
     text-decoration: none !important;
     opacity: 1 !important;
     background-color: #fef2f2 !important;
     position: relative;
     font-weight: 700;
+    cursor: not-allowed !important;
 }
 
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button::before {
+.date-picker-container .rdp-airbnb-blocked button::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -205,7 +210,7 @@
     pointer-events: none;
 }
 
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button:hover {
+.date-picker-container .rdp-airbnb-blocked button:hover {
     background-color: #fee2e2 !important;
 }
 
