@@ -73,6 +73,29 @@ interface CalendarEvent {
 
 type Tab = 'needs_review' | 'all';
 
+const UNIT_PALETTE: Array<{ bg: string; text: string; border: string }> = [
+  { bg: '#dbeafe', text: '#1e3a8a', border: '#60a5fa' },
+  { bg: '#d1fae5', text: '#065f46', border: '#34d399' },
+  { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' },
+  { bg: '#ede9fe', text: '#5b21b6', border: '#a78bfa' },
+  { bg: '#fce7f3', text: '#9d174d', border: '#f472b6' },
+  { bg: '#cffafe', text: '#155e75', border: '#22d3ee' },
+  { bg: '#ffedd5', text: '#9a3412', border: '#fb923c' },
+  { bg: '#fae8ff', text: '#86198f', border: '#e879f9' },
+];
+
+function unitColorIndex(unitId: string): number {
+  let hash = 0;
+  for (let i = 0; i < unitId.length; i++) {
+    hash = ((hash << 5) - hash + unitId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % UNIT_PALETTE.length;
+}
+
+function unitPalette(unitId: string) {
+  return UNIT_PALETTE[unitColorIndex(unitId)];
+}
+
 function statusChipClass(status: string): string {
   if (status === 'pending') return 'bg-amber-50 text-amber-700 border-amber-200';
   if (status === 'approved') return 'bg-sky-50 text-sky-700 border-sky-200';
@@ -270,8 +293,14 @@ export default function BookingList() {
     bookings.forEach((b) => {
       if (b.units?.name) names.add(b.units.name);
     });
+    calendarData?.bookings.forEach((b) => {
+      if (b.units?.name) names.add(b.units.name);
+    });
+    calendarData?.blocks.forEach((b) => {
+      if (b.units?.name) names.add(b.units.name);
+    });
     return Array.from(names).sort();
-  }, [bookings]);
+  }, [bookings, calendarData]);
 
   const displayBookings = useMemo(() => {
     let rows = filteredBookings;
@@ -291,22 +320,21 @@ export default function BookingList() {
       paid: '#10b981',
     };
 
-    const sourceColors: Record<string, { bg: string; text: string }> = {
-      airbnb: { bg: '#fecaca', text: '#991b1b' },
-      manual: { bg: '#e5e7eb', text: '#1f2937' },
-    };
-
     const events: CalendarEvent[] = [];
 
     for (const b of calendarData.bookings) {
       if (unitFilter && b.units?.name !== unitFilter) continue;
+      if (status && b.status !== status) continue;
+      if (tab === 'needs_review' && !(b.status === 'pending' && b.approval_path === 'manual')) continue;
+      const statusBg = statusColors[b.status] ?? '#64748b';
+      const unitBorder = unitPalette(b.unit_id).border;
       events.push({
         id: `booking-${b.id}`,
-        title: `${b.units?.name ?? 'Unit'} / ${b.guest_name} (${b.id.slice(0, 8).toUpperCase()})`,
+        title: `${b.guest_name} · ${b.units?.name ?? 'Unit'} (${b.id.slice(0, 8).toUpperCase()})`,
         start: b.check_in_date,
         end: b.check_out_date,
-        backgroundColor: statusColors[b.status] ?? '#64748b',
-        borderColor: 'transparent',
+        backgroundColor: statusBg,
+        borderColor: unitBorder,
         textColor: '#fff',
         extendedProps: { kind: 'booking', status: b.status },
       });
@@ -328,9 +356,10 @@ export default function BookingList() {
 
     for (const [key, rows] of grouped) {
       rows.sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
-      const [, source] = key.split('::');
-      const palette = sourceColors[source] ?? { bg: '#cbd5e1', text: '#0f172a' };
+      const [unitIdPart, source] = key.split('::');
+      const palette = unitPalette(unitIdPart);
       const unitName = rows[0]?.units?.name ?? 'Unit';
+      const sourceLabel = source === 'airbnb' ? 'Airbnb' : 'Hold';
 
       const pushRange = (startDate: string, endDate: string) => {
         const endExclusive = new Date(new Date(endDate).getTime() + dayMs)
@@ -338,11 +367,11 @@ export default function BookingList() {
           .slice(0, 10);
         events.push({
           id: `block-${source}-${unitName}-${startDate}`,
-          title: `${unitName} / ${source === 'airbnb' ? 'Airbnb' : 'Manual block'}`,
+          title: `${sourceLabel} · ${unitName}`,
           start: startDate,
           end: endExclusive,
           backgroundColor: palette.bg,
-          borderColor: 'transparent',
+          borderColor: source === 'manual' ? palette.text : palette.border,
           textColor: palette.text,
           extendedProps: { kind: 'block', source },
         });
@@ -367,7 +396,7 @@ export default function BookingList() {
     }
 
     return events;
-  }, [calendarData, unitFilter]);
+  }, [calendarData, unitFilter, status, tab]);
 
   const calendarCounts = useMemo(() => {
     if (!calendarData) return { bookings: 0, airbnbBlocks: 0, manualBlocks: 0 };
@@ -378,6 +407,21 @@ export default function BookingList() {
       airbnbBlocks: calendarData.blocks.filter((b) => b.source === 'airbnb' && filterUnit(b)).length,
       manualBlocks: calendarData.blocks.filter((b) => b.source === 'manual' && filterUnit(b)).length,
     };
+  }, [calendarData, unitFilter]);
+
+  const visibleUnits = useMemo(() => {
+    if (!calendarData) return [] as Array<{ id: string; name: string }>;
+    const map = new Map<string, string>();
+    const pass = (row: { unit_id: string; units?: { name: string } | null }) => {
+      if (!row.unit_id) return;
+      if (unitFilter && row.units?.name !== unitFilter) return;
+      if (!map.has(row.unit_id)) map.set(row.unit_id, row.units?.name ?? 'Unit');
+    };
+    calendarData.bookings.forEach(pass);
+    calendarData.blocks.forEach(pass);
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [calendarData, unitFilter]);
 
   return (
@@ -523,49 +567,50 @@ export default function BookingList() {
 
       {view === 'calendar' ? (
         <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-3 w-3 rounded-sm"
-                style={{ backgroundColor: '#10b981' }}
-                aria-hidden
-              />
-              <span>{t('bookingList.legendPaid')}</span>
+          <div className="flex flex-col gap-2 text-xs text-slate-600">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="font-medium text-slate-700">Bookings:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: '#10b981' }} aria-hidden />
+                <span>{t('bookingList.legendPaid')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: '#3b82f6' }} aria-hidden />
+                <span>{t('bookingList.legendApproved')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: '#f59e0b' }} aria-hidden />
+                <span>{t('bookingList.legendPending')}</span>
+              </div>
+              {isCalendarLoading ? (
+                <span className="ml-auto text-slate-400">{t('bookingList.loadingCalendar')}</span>
+              ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-3 w-3 rounded-sm"
-                style={{ backgroundColor: '#3b82f6' }}
-                aria-hidden
-              />
-              <span>{t('bookingList.legendApproved')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-3 w-3 rounded-sm"
-                style={{ backgroundColor: '#f59e0b' }}
-                aria-hidden
-              />
-              <span>{t('bookingList.legendPending')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-3 w-3 rounded-sm"
-                style={{ backgroundColor: '#fecaca' }}
-                aria-hidden
-              />
-              <span>{t('bookingList.legendAirbnb', { count: calendarCounts.airbnbBlocks })}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-3 w-3 rounded-sm"
-                style={{ backgroundColor: '#e5e7eb' }}
-                aria-hidden
-              />
-              <span>{t('bookingList.legendManual', { count: calendarCounts.manualBlocks })}</span>
-            </div>
-            {isCalendarLoading ? (
-              <span className="text-slate-400">{t('bookingList.loadingCalendar')}</span>
+            {visibleUnits.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-slate-700">Units:</span>
+                {visibleUnits.map((u) => {
+                  const p = unitPalette(u.id);
+                  return (
+                    <span
+                      key={u.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+                      style={{ backgroundColor: p.bg, borderColor: p.border, color: p.text }}
+                      title={u.name}
+                    >
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: p.text }}
+                        aria-hidden
+                      />
+                      <span className="max-w-[180px] truncate">{u.name}</span>
+                    </span>
+                  );
+                })}
+                <span className="text-slate-500">
+                  · Airbnb ({calendarCounts.airbnbBlocks}) thin border, Hold ({calendarCounts.manualBlocks}) dark border
+                </span>
+              </div>
             ) : null}
           </div>
           <FullCalendar
@@ -575,7 +620,6 @@ export default function BookingList() {
             height="auto"
             headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' }}
             eventDisplay="block"
-            eventBorderColor="transparent"
             dayMaxEvents={4}
           />
         </div>
