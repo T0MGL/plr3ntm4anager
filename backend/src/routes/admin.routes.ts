@@ -9,6 +9,12 @@ import { adminUserService } from '../services/admin-user.service';
 import { supabaseAdmin } from '../config/supabase';
 import { BookingStatus, PaymentStatus, UnitStatus } from '../types';
 import { capturePaymentForBooking, rollbackPayment } from '../services/payment.service';
+import {
+  fetchAndStoreFxRate,
+  getCurrentFxRate,
+  setManualOverride,
+  setMarkupPct
+} from '../services/fx-rate.service';
 import { recheckAvailabilityOrFail } from '../services/approval-routing.service';
 import { sendEmail } from '../services/email.service';
 import {
@@ -21,7 +27,7 @@ import { syncAllUnits, syncUnit } from '../services/ical-sync.service';
 import { unblockWidgetDates } from '../services/booking.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
-import { nightsBetween } from '../utils/date.utils';
+import { nightsBetween, todayInAsuncion, addDaysStr as addDaysStrUtil, asuncionYearMonth } from '../utils/date.utils';
 
 const router = Router();
 
@@ -803,25 +809,23 @@ router.get('/sync-logs', async (req, res) => {
   return res.json(data ?? []);
 });
 
-router.get('/dashboard-stats', async (_req, res) => {
-  // Timezone note: the app operates in Paraguay (UTC-3). All date math here is
-  // string-based (YYYY-MM-DD) to avoid the `new Date('YYYY-MM-DD')`-parses-as-UTC
-  // pitfall. Month/day buckets are derived by slicing the string, never from
-  // local Date accessors applied to a UTC-parsed string.
-  // Row cap is set explicitly because PostgREST's default max-rows may silently
-  // truncate large windows; 20k covers ~13 units x 365 days x 4 margin.
+router.get('/dashboard-stats', async (req, res) => {
+  // Timezone note: the app operates in Paraguay (UTC-3). "Today" is Asuncion
+  // today (see todayInAsuncion). All date math here is string-based
+  // (YYYY-MM-DD) to avoid the `new Date('YYYY-MM-DD')`-parses-as-UTC pitfall.
+  // Row cap is set explicitly because PostgREST's default max-rows may
+  // silently truncate large windows; 20k covers ~50 units x 365 days x margin.
   const MAX_ROWS = 20000;
 
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const rangeParam = (req.query.range as string | undefined)?.toLowerCase();
+  type Range = '7d' | '1m' | '6m' | '1y';
+  const range: Range =
+    rangeParam === '7d' || rangeParam === '1m' || rangeParam === '6m' || rangeParam === '1y'
+      ? rangeParam
+      : '1y';
 
-  // Helpers: operate on YYYY-MM-DD strings only.
-  const addDaysStr = (ymd: string, days: number): string => {
-    const [y, m, d] = ymd.split('-').map(Number);
-    // Date.UTC avoids any local-TZ drift; we only use it to compute another YYYY-MM-DD.
-    const t = Date.UTC(y, m - 1, d) + days * 86_400_000;
-    return new Date(t).toISOString().split('T')[0];
-  };
+  const todayStr = todayInAsuncion();
+  const addDaysStr = addDaysStrUtil;
   const monthKeyFromStr = (ymd: string): string => {
     // key is `YYYY-MIndex` where MIndex is 0..11
     const [y, m] = ymd.split('-').map(Number);
@@ -832,25 +836,52 @@ router.get('/dashboard-stats', async (_req, res) => {
     return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   };
 
-  // --- monthly revenue (last 12 months) ---
-  const twelveMonthsAgo = new Date(now);
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
-  twelveMonthsAgo.setDate(1);
-  twelveMonthsAgo.setHours(0, 0, 0, 0);
-  const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().split('T')[0];
+  // Determine window shape per range. Daily buckets for short ranges, monthly
+  // for long. The cards (this month / prev month revenue) always reflect
+  // calendar months regardless of the chart range.
+  const bucket: 'day' | 'month' = range === '7d' || range === '1m' ? 'day' : 'month';
+  const dailyPoints = range === '7d' ? 7 : 30;
+  const monthlyPoints = range === '6m' ? 6 : 12;
+
+  // Window start anchored to Asuncion. For daily buckets we look back
+  // dailyPoints days INCLUDING today. For monthly buckets we look back
+  // (monthlyPoints - 1) months and snap to the 1st of that month.
+  const [curYearStr, curMonthStr] = todayStr.split('-');
+  const curYear = Number(curYearStr);
+  const curMonth = Number(curMonthStr); // 1..12
+
+  let windowStartStr: string;
+  if (bucket === 'day') {
+    windowStartStr = addDaysStr(todayStr, -(dailyPoints - 1));
+  } else {
+    // Start of the month N months before, in Asuncion calendar terms.
+    const startMonthIdx = curMonth - monthlyPoints; // 1-based minus count → zero-based before
+    const startY = curYear + Math.floor((startMonthIdx) / 12);
+    const startM = ((startMonthIdx % 12) + 12) % 12; // 0..11
+    windowStartStr = `${startY}-${String(startM + 1).padStart(2, '0')}-01`;
+  }
+
+  // Payments are filtered by created_at (full timestamptz). We compute the
+  // Asuncion-midnight of windowStartStr in UTC so the .gte does not miss
+  // events that happened early on day one.
+  const windowStartUtc = (() => {
+    const [y, m, d] = windowStartStr.split('-').map(Number);
+    // Asuncion is UTC-3 year-round (no DST). Midnight in Asuncion equals 03:00 UTC.
+    return new Date(Date.UTC(y, m - 1, d, 3, 0, 0)).toISOString();
+  })();
 
   const [paymentsResult, airbnbMonthlyResult] = await Promise.all([
     supabaseAdmin
       .from('payments')
       .select('amount_usd, created_at')
       .eq('payment_status', PaymentStatus.Completed)
-      .gte('created_at', twelveMonthsAgo.toISOString())
+      .gte('created_at', windowStartUtc)
       .limit(MAX_ROWS),
     supabaseAdmin
       .from('availability')
       .select('blocked_date, unit_id, units(nightly_rate_usd)')
       .eq('source', 'airbnb')
-      .gte('blocked_date', twelveMonthsAgoStr)
+      .gte('blocked_date', windowStartStr)
       .limit(MAX_ROWS)
   ]);
 
@@ -870,59 +901,146 @@ router.get('/dashboard-stats', async (_req, res) => {
   }
 
   const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const monthlyMap: Record<string, number> = {};
-  const monthlyAirbnbMap: Record<string, number> = {};
-  const orderedMonthKeys: string[] = [];
 
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - 11 + i);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    monthlyMap[key] = 0;
-    monthlyAirbnbMap[key] = 0;
-    orderedMonthKeys.push(key);
-  }
+  // Precompute the ordered bucket keys for the active range.
+  const orderedKeys: string[] = [];
+  const keyNames: Record<string, string> = {};
+  const directByKey: Record<string, number> = {};
+  const airbnbByKey: Record<string, number> = {};
 
-  for (const p of paymentsResult.data ?? []) {
-    // payments.created_at is a full ISO timestamp; parsing as Date is correct here
-    // (we want wall-clock month the payment landed, not date-only).
-    const d = new Date(p.created_at);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    if (key in monthlyMap) {
-      monthlyMap[key] += Number(p.amount_usd ?? 0);
+  if (bucket === 'day') {
+    for (let i = 0; i < dailyPoints; i++) {
+      const ymd = addDaysStr(windowStartStr, i);
+      orderedKeys.push(ymd);
+      directByKey[ymd] = 0;
+      airbnbByKey[ymd] = 0;
+      // Label with day-of-month for short ranges; dow + day for 7d.
+      const [, m, d] = ymd.split('-').map(Number);
+      keyNames[ymd] = range === '7d' ? `${MONTH_NAMES[m - 1]} ${d}` : `${d}`;
+    }
+  } else {
+    for (let i = 0; i < monthlyPoints; i++) {
+      const idx = curMonth - 1 - (monthlyPoints - 1 - i); // 0..11 shifted
+      const y = curYear + Math.floor(idx / 12);
+      const m = ((idx % 12) + 12) % 12; // 0..11
+      const key = `${y}-${m}`;
+      orderedKeys.push(key);
+      directByKey[key] = 0;
+      airbnbByKey[key] = 0;
+      keyNames[key] = MONTH_NAMES[m];
     }
   }
 
+  // --- Month-level maps for the current / prev month cards (independent of range) ---
+  // The cards always reflect the calendar month in Asuncion, not the chart.
+  const currentMonthKey = `${curYear}-${curMonth - 1}`;
+  const prevMonthIdx = curMonth - 2; // zero-based previous
+  const prevMonthY = curYear + Math.floor(prevMonthIdx / 12);
+  const prevMonthM = ((prevMonthIdx % 12) + 12) % 12;
+  const prevMonthKey = `${prevMonthY}-${prevMonthM}`;
+  const monthlyDirectMap: Record<string, number> = { [currentMonthKey]: 0, [prevMonthKey]: 0 };
+  const monthlyAirbnbMap: Record<string, number> = { [currentMonthKey]: 0, [prevMonthKey]: 0 };
+
+  let thisMonthDirectBookingCount = 0;
+  let thisMonthAirbnbNights = 0;
+  let thisMonthAirbnbMinRate = Number.POSITIVE_INFINITY;
+  let thisMonthAirbnbMaxRate = 0;
+
+  // Payments: bucket both into the chart's active bucket and into the
+  // month-level card buckets. created_at is a timestamptz, we convert to
+  // Asuncion wall time before bucketing.
+  for (const p of paymentsResult.data ?? []) {
+    const asuncionDay = asuncionYearMonth(p.created_at) + '-01'; // just for month key
+    const asuncionYmd = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Asuncion',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date(p.created_at));
+
+    const amount = Number(p.amount_usd ?? 0);
+
+    // Chart bucket.
+    const chartKey = bucket === 'day' ? asuncionYmd : (() => {
+      const [y, m] = asuncionDay.split('-').map(Number);
+      return `${y}-${m - 1}`;
+    })();
+    if (chartKey in directByKey) directByKey[chartKey] += amount;
+
+    // Month cards.
+    const [y, m] = asuncionDay.split('-').map(Number);
+    const monthKey = `${y}-${m - 1}`;
+    if (monthKey in monthlyDirectMap) monthlyDirectMap[monthKey] += amount;
+    if (monthKey === currentMonthKey) thisMonthDirectBookingCount++;
+  }
+
+  // Airbnb blocks: rate times nights, bucketed. blocked_date is a date, not a
+  // timestamp, so it is already in a TZ-free form.
+  for (const block of airbnbMonthlyResult.data ?? []) {
+    const rate = Number((block.units as { nightly_rate_usd?: number } | null)?.nightly_rate_usd ?? 0);
+    const ymd: string = block.blocked_date;
+
+    // Chart bucket.
+    const chartKey = bucket === 'day' ? ymd : monthKeyFromStr(ymd);
+    if (chartKey in airbnbByKey) airbnbByKey[chartKey] += rate;
+
+    // Month cards.
+    const monthKey = monthKeyFromStr(ymd);
+    if (monthKey in monthlyAirbnbMap) monthlyAirbnbMap[monthKey] += rate;
+    if (monthKey === currentMonthKey) {
+      thisMonthAirbnbNights++;
+      if (rate > 0) {
+        if (rate < thisMonthAirbnbMinRate) thisMonthAirbnbMinRate = rate;
+        if (rate > thisMonthAirbnbMaxRate) thisMonthAirbnbMaxRate = rate;
+      }
+    }
+  }
+
+  if (!Number.isFinite(thisMonthAirbnbMinRate)) thisMonthAirbnbMinRate = 0;
+
+  // Serialize the active chart series. `revenue` is kept alongside `direct`
+  // so the existing recharts config (dataKey="revenue") keeps working.
+  const series = orderedKeys.map((key) => ({
+    name: keyNames[key],
+    revenue: Math.round(directByKey[key] ?? 0),
+    airbnbEstimate: Math.round(airbnbByKey[key] ?? 0),
+    bucket
+  }));
+
+  // Back-compat: `monthlyRevenue` remains the 12-month series regardless of
+  // the active range. Older clients (PDF export, etc.) still read it.
+  const backCompatKeys: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const idx = curMonth - 1 - (11 - i);
+    const y = curYear + Math.floor(idx / 12);
+    const m = ((idx % 12) + 12) % 12;
+    backCompatKeys.push(`${y}-${m}`);
+  }
+  const backCompatDirect: Record<string, number> = Object.fromEntries(backCompatKeys.map((k) => [k, 0]));
+  const backCompatAirbnb: Record<string, number> = Object.fromEntries(backCompatKeys.map((k) => [k, 0]));
+  for (const p of paymentsResult.data ?? []) {
+    const [y, m] = asuncionYearMonth(p.created_at).split('-').map(Number);
+    const key = `${y}-${m - 1}`;
+    if (key in backCompatDirect) backCompatDirect[key] += Number(p.amount_usd ?? 0);
+  }
   for (const block of airbnbMonthlyResult.data ?? []) {
     const key = monthKeyFromStr(block.blocked_date);
-    if (key in monthlyAirbnbMap) {
-      // NOTE: Supabase returns a single object for many-to-one joins (availability → units).
-      // Rate used is the CURRENT nightly_rate_usd, not historical. Retroactive estimates
-      // will drift if rates have been changed. Surfaced as "est." in the UI.
+    if (key in backCompatAirbnb) {
       const rate = Number((block.units as { nightly_rate_usd?: number } | null)?.nightly_rate_usd ?? 0);
-      monthlyAirbnbMap[key] += rate;
+      backCompatAirbnb[key] += rate;
     }
   }
-
-  const monthlyRevenue = orderedMonthKeys.map((key) => {
+  const monthlyRevenue = backCompatKeys.map((key) => {
     const monthIdx = Number(key.split('-')[1]);
     return {
       name: MONTH_NAMES[monthIdx],
-      revenue: Math.round(monthlyMap[key] ?? 0),
-      airbnbEstimate: Math.round(monthlyAirbnbMap[key] ?? 0)
+      revenue: Math.round(backCompatDirect[key] ?? 0),
+      airbnbEstimate: Math.round(backCompatAirbnb[key] ?? 0)
     };
   });
 
-  // Current and previous month scalar values, consistent with the chart buckets.
-  // Computing server-side avoids a redundant /admin/payments fetch on the client
-  // and removes the 500-row truncation risk for high-volume months.
-  const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
-  const prevMonthDate = new Date(now);
-  prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-  const prevMonthKey = `${prevMonthDate.getFullYear()}-${prevMonthDate.getMonth()}`;
-
-  const thisMonthRevenue = Math.round(monthlyMap[currentMonthKey] ?? 0);
-  const prevMonthRevenue = Math.round(monthlyMap[prevMonthKey] ?? 0);
+  const thisMonthRevenue = Math.round(monthlyDirectMap[currentMonthKey] ?? 0);
+  const prevMonthRevenue = Math.round(monthlyDirectMap[prevMonthKey] ?? 0);
   const thisMonthAirbnbEstimate = Math.round(monthlyAirbnbMap[currentMonthKey] ?? 0);
   const prevMonthAirbnbEstimate = Math.round(monthlyAirbnbMap[prevMonthKey] ?? 0);
 
@@ -1064,6 +1182,9 @@ router.get('/dashboard-stats', async (_req, res) => {
   }
 
   return res.json({
+    range,
+    bucket,
+    series,
     monthlyRevenue,
     weeklyOccupancy,
     avgOccupancy,
@@ -1071,7 +1192,11 @@ router.get('/dashboard-stats', async (_req, res) => {
     thisMonthRevenue,
     prevMonthRevenue,
     thisMonthAirbnbEstimate,
-    prevMonthAirbnbEstimate
+    prevMonthAirbnbEstimate,
+    thisMonthDirectBookingCount,
+    thisMonthAirbnbNights,
+    thisMonthAirbnbMinRate: Math.round(thisMonthAirbnbMinRate),
+    thisMonthAirbnbMaxRate: Math.round(thisMonthAirbnbMaxRate)
   });
 });
 
@@ -1248,24 +1373,26 @@ router.get('/units/:id/stats', validate(unitIdParamSchema), async (req, res) => 
   const unitId = req.params.id;
   const MAX_ROWS = 5000;
 
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = todayInAsuncion();
+  const [curYearStr, curMonthStr] = todayStr.split('-');
+  const curYear = Number(curYearStr);
+  const curMonth = Number(curMonthStr); // 1..12
 
-  const addDaysStr = (ymd: string, days: number): string => {
-    const [y, m, d] = ymd.split('-').map(Number);
-    const t = Date.UTC(y, m - 1, d) + days * 86_400_000;
-    return new Date(t).toISOString().split('T')[0];
-  };
+  const addDaysStr = addDaysStrUtil;
   const monthKeyFromStr = (ymd: string): string => {
     const [y, m] = ymd.split('-').map(Number);
     return `${y}-${m - 1}`;
   };
 
-  const twelveMonthsAgo = new Date(now);
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
-  twelveMonthsAgo.setDate(1);
-  twelveMonthsAgo.setHours(0, 0, 0, 0);
-  const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().split('T')[0];
+  // Start of the month 12 months back in Asuncion calendar terms.
+  const startMonthIdx = curMonth - 12; // zero-based
+  const startY = curYear + Math.floor(startMonthIdx / 12);
+  const startM = ((startMonthIdx % 12) + 12) % 12;
+  const twelveMonthsAgoStr = `${startY}-${String(startM + 1).padStart(2, '0')}-01`;
+  const twelveMonthsAgoUtc = (() => {
+    // Asuncion midnight = 03:00 UTC.
+    return new Date(Date.UTC(startY, startM, 1, 3, 0, 0)).toISOString();
+  })();
 
   const { data: unit, error: unitError } = await supabaseAdmin
     .from('units')
@@ -1284,7 +1411,7 @@ router.get('/units/:id/stats', validate(unitIdParamSchema), async (req, res) => 
       .select('amount_usd, created_at, booking_requests!inner(unit_id)')
       .eq('payment_status', PaymentStatus.Completed)
       .eq('booking_requests.unit_id', unitId)
-      .gte('created_at', twelveMonthsAgo.toISOString())
+      .gte('created_at', twelveMonthsAgoUtc)
       .limit(MAX_ROWS),
     supabaseAdmin
       .from('availability')
@@ -1333,26 +1460,32 @@ router.get('/units/:id/stats', validate(unitIdParamSchema), async (req, res) => 
   const orderedMonthKeys: string[] = [];
   const monthDayCount: Record<string, number> = {};
 
+  // Build 12 month buckets anchored to Asuncion calendar months.
+  const [, todayMStr, todayDStr] = todayStr.split('-');
+  const todayM = Number(todayMStr); // 1..12
+  const todayD = Number(todayDStr);
+
   for (let i = 0; i < 12; i++) {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - 11 + i);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const idx = curMonth - 1 - (11 - i); // zero-based month index
+    const y = curYear + Math.floor(idx / 12);
+    const m = ((idx % 12) + 12) % 12; // 0..11
+    const key = `${y}-${m}`;
     directByMonth[key] = 0;
     airbnbByMonth[key] = 0;
     occupancyByMonth[key] = 0;
     orderedMonthKeys.push(key);
 
-    // Days in this calendar month, capped to today for the current month so
-    // occupancy is computed against elapsed days, not future ones.
-    const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
-    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    const cap = monthEnd > now ? now : monthEnd;
-    monthDayCount[key] = cap < monthStart ? 0 : Math.floor((cap.getTime() - monthStart.getTime()) / 86_400_000) + 1;
+    // Days in this calendar month, capped to today for the current month.
+    // Last day of month m: day 0 of month m+1.
+    const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const isCurrentMonth = y === curYear && m === todayM - 1;
+    monthDayCount[key] = isCurrentMonth ? todayD : daysInMonth;
   }
 
+  // Bucket payments by Asuncion calendar month, not server UTC month.
   for (const p of paymentsResult.data ?? []) {
-    const d = new Date(p.created_at);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const [y, m] = asuncionYearMonth(p.created_at).split('-').map(Number);
+    const key = `${y}-${m - 1}`;
     if (key in directByMonth) directByMonth[key] += Number(p.amount_usd ?? 0);
   }
 
@@ -1647,7 +1780,7 @@ router.get('/bookings/export.csv', validate(exportFiltersSchema), async (req, re
 });
 
 function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  return todayInAsuncion();
 }
 
 // ============================================================================
@@ -1758,6 +1891,93 @@ router.post('/bookings/:id/notes', validate(createNoteSchema), async (req, res) 
   }
 
   return res.status(201).json(inserted);
+});
+
+// ---------------------------------------------------------------------------
+// FX rate management
+//
+// USD -> PYG conversion is hot path on every Bancard charge. These endpoints
+// expose the live rate, an admin-only manual override (used when the upstream
+// fetch is wrong or there is unusual market volatility), and a markup setting
+// that buffers FX risk between booking and payout.
+//
+// Read endpoint is open to any authenticated admin user (role enforced via
+// JWT + admin_users at requireAdmin). Write endpoints require admin too.
+// ---------------------------------------------------------------------------
+
+router.get('/fx/status', requireAdmin, async (_req, res) => {
+  try {
+    const status = await getCurrentFxRate();
+    return res.json(status);
+  } catch (err) {
+    logger.error('GET /admin/fx/status failed', {
+      error: err instanceof Error ? err.message : 'unknown'
+    });
+    return res.status(500).json({ error: 'Failed to read FX status' });
+  }
+});
+
+const fxOverrideSchema = z.object({
+  body: z.object({
+    market_rate: z.number().positive().min(1000).max(20000)
+  })
+});
+
+router.post(
+  '/fx/override',
+  requireAdmin,
+  adminWriteLimiter,
+  validate(fxOverrideSchema),
+  async (req, res) => {
+    try {
+      const { market_rate } = req.body as { market_rate: number };
+      const status = await setManualOverride(market_rate);
+      logger.info('fx: manual override set', { market_rate });
+      return res.json(status);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to set override';
+      logger.error('POST /admin/fx/override failed', { error: msg });
+      return res.status(400).json({ error: msg });
+    }
+  }
+);
+
+const fxMarkupSchema = z.object({
+  body: z.object({
+    markup_pct: z.number().min(0).max(30)
+  })
+});
+
+router.post(
+  '/fx/markup',
+  requireAdmin,
+  adminWriteLimiter,
+  validate(fxMarkupSchema),
+  async (req, res) => {
+    try {
+      const { markup_pct } = req.body as { markup_pct: number };
+      const status = await setMarkupPct(markup_pct);
+      logger.info('fx: markup updated', { markup_pct });
+      return res.json(status);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update markup';
+      logger.error('POST /admin/fx/markup failed', { error: msg });
+      return res.status(400).json({ error: msg });
+    }
+  }
+);
+
+router.post('/fx/refresh', requireAdmin, adminWriteLimiter, async (_req, res) => {
+  try {
+    const result = await fetchAndStoreFxRate();
+    const status = await getCurrentFxRate();
+    logger.info('fx: manual refresh ok', result);
+    return res.json(status);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Manual refresh failed';
+    logger.error('POST /admin/fx/refresh failed', { error: msg });
+    return res.status(502).json({ error: msg });
+  }
 });
 
 export default router;

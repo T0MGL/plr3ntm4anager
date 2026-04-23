@@ -73,6 +73,8 @@ const en = {
     last12Months: 'Last 12 months',
     last6Months: 'Last 6 months',
     last30Days: 'Last 30 days',
+    last7Days: 'Last 7 days',
+    rangeControlLabel: 'Revenue range',
     weeklyOccupancy: 'Weekly Occupancy',
     occupancyCalculating: 'Calculating...',
     occupancyAverage: 'Average {{value}}%',

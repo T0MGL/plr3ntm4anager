@@ -77,6 +77,8 @@ const es = {
     last12Months: 'Últimos 12 meses',
     last6Months: 'Últimos 6 meses',
     last30Days: 'Últimos 30 días',
+    last7Days: 'Últimos 7 días',
+    rangeControlLabel: 'Rango de ingresos',
     weeklyOccupancy: 'Ocupación semanal',
     occupancyCalculating: 'Calculando...',
     occupancyAverage: 'Promedio {{value}}%',
