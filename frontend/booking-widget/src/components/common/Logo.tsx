@@ -31,7 +31,8 @@ export function Logo({
   linkTo = "/",
 }: LogoProps) {
   const isDark = variant === "dark";
-  const wordmarkColor = isDark ? "text-charcoal/70" : "text-cream";
+  const wordmarkColor = isDark ? "" : "text-cream";
+  const wordmarkStyle = isDark ? { color: "#AA8C69" } : undefined;
   const dividerColor = isDark ? "bg-charcoal/25" : "bg-cream/40";
 
   const dimensions = {
@@ -52,7 +53,8 @@ export function Logo({
         aria-hidden
       />
       <span
-        className={`font-sans font-semibold leading-none tracking-[0.01em] ${dimensions.wordmark} ${wordmarkColor}`}
+        className={`font-sans font-semibold leading-none tracking-[0.01em] ${dimensions.wordmark} ${wordmarkColor}`.trim()}
+        style={wordmarkStyle}
       >
         Park Lofts
       </span>
