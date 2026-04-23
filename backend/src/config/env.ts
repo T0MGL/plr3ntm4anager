@@ -43,7 +43,8 @@ const envSchema = z.object({
   // staging -> Bancard staging env (https://vpos.infonet.com.py:8888)
   // live    -> Bancard production env (https://vpos.infonet.com.py)
   PAYMENT_MODE: z.enum(['stub', 'staging', 'live']).default('stub'),
-  SENTRY_DSN: z.string().url().optional()
+  SENTRY_DSN: z.string().url().optional(),
+  APIFY_API_KEY: z.string().min(1).optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
