@@ -23,7 +23,15 @@ const envSchema = z.object({
   // without redeploying code. Example:
   // CORS_EXTRA_ORIGINS=https://admin.parkloftsparaguay.com,https://staging-admin.parkloftsparaguay.com
   CORS_EXTRA_ORIGINS: z.string().optional(),
-  SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
+  // Cron tick cadence. A tick does NOT sync every unit. It evaluates which
+  // units are due, based on UNIT_SYNC_CADENCE_MINUTES and each unit's stable
+  // sync_offset_minutes, and syncs only those. Keep this small (5 min is the
+  // granularity of the staggering window).
+  SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
+  // Per-unit sync cadence. Airbnb's iCal CDN typically caches for ~2h, so
+  // polling faster than this is waste. The cron spreads units across a
+  // [0, UNIT_SYNC_CADENCE_MINUTES) window via unit.sync_offset_minutes.
+  UNIT_SYNC_CADENCE_MINUTES: z.coerce.number().int().min(15).max(360).default(120),
   // Dual-path approval threshold. A booking whose most recent successful Airbnb
   // sync is younger than this (measured at decision time) is eligible for the
   // auto path, which captures the card immediately. Older syncs route to the
