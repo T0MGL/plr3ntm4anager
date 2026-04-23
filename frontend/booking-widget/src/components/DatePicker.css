@@ -173,30 +173,40 @@
 }
 
 /* Airbnb-blocked future dates: visually distinct from past dates so guests
-   can clearly see which nights are unavailable. Stronger contrast, no
-   strikethrough (that reads as "expired"), red slash instead. */
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled {
-    color: #9f1239;
-    text-decoration: none;
-    opacity: 1;
-    background-color: #fef2f2;
-    position: relative;
+   can clearly see which nights are unavailable. The parent cell inherits
+   the Tailwind `opacity-30` from classNames.disabled, which would fade the
+   rose background too, so we reset opacity and strikethrough on the cell. */
+.date-picker-container .rdp-airbnb-blocked,
+.date-picker-container .rdp-airbnb-blocked.rdp-disabled {
+    opacity: 1 !important;
+    text-decoration: none !important;
+    color: inherit !important;
 }
 
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled::before {
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button,
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled {
+    color: #9f1239 !important;
+    text-decoration: none !important;
+    opacity: 1 !important;
+    background-color: #fef2f2 !important;
+    position: relative;
+    font-weight: 700;
+}
+
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button::before {
     content: '';
     position: absolute;
     top: 50%;
-    left: 18%;
-    right: 18%;
+    left: 20%;
+    right: 20%;
     height: 1.5px;
     background-color: #9f1239;
-    transform: rotate(-20deg);
+    transform: rotate(-18deg);
     pointer-events: none;
 }
 
-.date-picker-container .rdp-airbnb-blocked .rdp-day_button:disabled:hover {
-    background-color: #fee2e2;
+.date-picker-container .rdp-airbnb-blocked .rdp-day_button:hover {
+    background-color: #fee2e2 !important;
 }
 
 /* Hidden days */
