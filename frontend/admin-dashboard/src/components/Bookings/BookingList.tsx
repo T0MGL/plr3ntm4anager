@@ -129,7 +129,7 @@ export default function BookingList() {
   const { t } = useTranslation();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [calendarData, setCalendarData] = useState<CalendarResponse | null>(null);
-  const [tab, setTab] = useState<Tab>('needs_review');
+  const [tab, setTab] = useState<Tab>('all');
   const [status, setStatus] = useState<string>('');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -142,6 +142,12 @@ export default function BookingList() {
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+  const [clickedBlock, setClickedBlock] = useState<{
+    title: string;
+    source: string;
+    start: string;
+    end: string;
+  } | null>(null);
 
   const fetchBookings = async () => {
     const { data } = await api.get<BookingResponse>('/admin/booking-requests', {
@@ -668,7 +674,7 @@ export default function BookingList() {
             eventDisplay="block"
             dayMaxEvents={4}
             eventClick={(info) => {
-              const { kind } = info.event.extendedProps as { kind: string };
+              const { kind, source } = info.event.extendedProps as { kind: string; source?: string };
               if (kind === 'booking') {
                 const bookingId = info.event.id.replace('booking-', '');
                 setView('list');
@@ -677,6 +683,14 @@ export default function BookingList() {
                   const el = document.getElementById(`booking-${bookingId}`);
                   el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 150);
+              } else if (kind === 'block') {
+                const rawEnd = info.event.end ? new Date(info.event.end.getTime() - 864e5).toISOString().slice(0, 10) : '';
+                setClickedBlock({
+                  title: info.event.title,
+                  source: source ?? 'unknown',
+                  start: info.event.startStr.slice(0, 10),
+                  end: rawEnd,
+                });
               }
             }}
           />
@@ -800,6 +814,50 @@ export default function BookingList() {
               </div>
             );
           })}
+        </div>
+      ) : null}
+
+      {clickedBlock ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          onClick={() => setClickedBlock(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-base font-semibold text-slate-900">
+                {clickedBlock.source === 'airbnb' ? 'Airbnb Block' : 'Manual Hold'}
+              </h4>
+              <button
+                className="text-slate-400 hover:text-slate-600"
+                onClick={() => setClickedBlock(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <dl className="grid gap-2 text-sm text-slate-700">
+              <div>
+                <dt className="font-medium text-slate-900">Unit</dt>
+                <dd className="mt-0.5">{clickedBlock.title.split(' · ')[1] ?? clickedBlock.title}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-slate-900">Dates</dt>
+                <dd className="mt-0.5">{clickedBlock.start} to {clickedBlock.end}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-slate-900">Source</dt>
+                <dd className="mt-0.5 capitalize">{clickedBlock.source}</dd>
+              </div>
+            </dl>
+            {clickedBlock.source === 'airbnb' ? (
+              <p className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                This block was synced from Airbnb via iCal. Guest details are only available in your Airbnb host dashboard.
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
