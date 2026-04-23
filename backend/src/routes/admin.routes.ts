@@ -804,36 +804,88 @@ router.get('/sync-logs', async (req, res) => {
 });
 
 router.get('/dashboard-stats', async (_req, res) => {
+  // Timezone note: the app operates in Paraguay (UTC-3). All date math here is
+  // string-based (YYYY-MM-DD) to avoid the `new Date('YYYY-MM-DD')`-parses-as-UTC
+  // pitfall. Month/day buckets are derived by slicing the string, never from
+  // local Date accessors applied to a UTC-parsed string.
+  // Row cap is set explicitly because PostgREST's default max-rows may silently
+  // truncate large windows; 20k covers ~13 units x 365 days x 4 margin.
+  const MAX_ROWS = 20000;
+
   const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+
+  // Helpers: operate on YYYY-MM-DD strings only.
+  const addDaysStr = (ymd: string, days: number): string => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    // Date.UTC avoids any local-TZ drift; we only use it to compute another YYYY-MM-DD.
+    const t = Date.UTC(y, m - 1, d) + days * 86_400_000;
+    return new Date(t).toISOString().split('T')[0];
+  };
+  const monthKeyFromStr = (ymd: string): string => {
+    // key is `YYYY-MIndex` where MIndex is 0..11
+    const [y, m] = ymd.split('-').map(Number);
+    return `${y}-${m - 1}`;
+  };
+  const dowFromStr = (ymd: string): number => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  };
 
   // --- monthly revenue (last 12 months) ---
   const twelveMonthsAgo = new Date(now);
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
   twelveMonthsAgo.setDate(1);
   twelveMonthsAgo.setHours(0, 0, 0, 0);
+  const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().split('T')[0];
 
-  const { data: payments, error: paymentsError } = await supabaseAdmin
-    .from('payments')
-    .select('amount_usd, created_at')
-    .eq('payment_status', PaymentStatus.Completed)
-    .gte('created_at', twelveMonthsAgo.toISOString());
+  const [paymentsResult, airbnbMonthlyResult] = await Promise.all([
+    supabaseAdmin
+      .from('payments')
+      .select('amount_usd, created_at')
+      .eq('payment_status', PaymentStatus.Completed)
+      .gte('created_at', twelveMonthsAgo.toISOString())
+      .limit(MAX_ROWS),
+    supabaseAdmin
+      .from('availability')
+      .select('blocked_date, unit_id, units(nightly_rate_usd)')
+      .eq('source', 'airbnb')
+      .gte('blocked_date', twelveMonthsAgoStr)
+      .limit(MAX_ROWS)
+  ]);
 
-  if (paymentsError) {
-    logger.error('dashboard-stats: failed to fetch payments', { error: paymentsError.message });
+  if (paymentsResult.error) {
+    logger.error('dashboard-stats: failed to fetch payments', { error: paymentsResult.error.message });
     return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+  if (airbnbMonthlyResult.error) {
+    logger.error('dashboard-stats: failed to fetch airbnb monthly blocks', { error: airbnbMonthlyResult.error.message });
+    return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+  if ((paymentsResult.data?.length ?? 0) >= MAX_ROWS) {
+    logger.warn('dashboard-stats: payments row cap hit, figures may be truncated', { cap: MAX_ROWS });
+  }
+  if ((airbnbMonthlyResult.data?.length ?? 0) >= MAX_ROWS) {
+    logger.warn('dashboard-stats: airbnb blocks row cap hit, estimate may be truncated', { cap: MAX_ROWS });
   }
 
   const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const monthlyMap: Record<string, number> = {};
+  const monthlyAirbnbMap: Record<string, number> = {};
+  const orderedMonthKeys: string[] = [];
 
   for (let i = 0; i < 12; i++) {
     const d = new Date(now);
     d.setMonth(d.getMonth() - 11 + i);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     monthlyMap[key] = 0;
+    monthlyAirbnbMap[key] = 0;
+    orderedMonthKeys.push(key);
   }
 
-  for (const p of payments ?? []) {
+  for (const p of paymentsResult.data ?? []) {
+    // payments.created_at is a full ISO timestamp; parsing as Date is correct here
+    // (we want wall-clock month the payment landed, not date-only).
     const d = new Date(p.created_at);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     if (key in monthlyMap) {
@@ -841,68 +893,186 @@ router.get('/dashboard-stats', async (_req, res) => {
     }
   }
 
-  const monthlyRevenue = Object.entries(monthlyMap).map(([key, revenue]) => {
+  for (const block of airbnbMonthlyResult.data ?? []) {
+    const key = monthKeyFromStr(block.blocked_date);
+    if (key in monthlyAirbnbMap) {
+      // NOTE: Supabase returns a single object for many-to-one joins (availability → units).
+      // Rate used is the CURRENT nightly_rate_usd, not historical. Retroactive estimates
+      // will drift if rates have been changed. Surfaced as "est." in the UI.
+      const rate = Number((block.units as { nightly_rate_usd?: number } | null)?.nightly_rate_usd ?? 0);
+      monthlyAirbnbMap[key] += rate;
+    }
+  }
+
+  const monthlyRevenue = orderedMonthKeys.map((key) => {
     const monthIdx = Number(key.split('-')[1]);
-    return { name: MONTH_NAMES[monthIdx], revenue: Math.round(revenue) };
+    return {
+      name: MONTH_NAMES[monthIdx],
+      revenue: Math.round(monthlyMap[key] ?? 0),
+      airbnbEstimate: Math.round(monthlyAirbnbMap[key] ?? 0)
+    };
   });
 
-  // --- weekly occupancy (last 28 days) ---
-  const fourWeeksAgo = new Date(now);
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0];
-  const todayStr = now.toISOString().split('T')[0];
+  // Current and previous month scalar values, consistent with the chart buckets.
+  // Computing server-side avoids a redundant /admin/payments fetch on the client
+  // and removes the 500-row truncation risk for high-volume months.
+  const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+  const prevMonthDate = new Date(now);
+  prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+  const prevMonthKey = `${prevMonthDate.getFullYear()}-${prevMonthDate.getMonth()}`;
 
-  const [bookingsResult, unitsResult] = await Promise.all([
+  const thisMonthRevenue = Math.round(monthlyMap[currentMonthKey] ?? 0);
+  const prevMonthRevenue = Math.round(monthlyMap[prevMonthKey] ?? 0);
+  const thisMonthAirbnbEstimate = Math.round(monthlyAirbnbMap[currentMonthKey] ?? 0);
+  const prevMonthAirbnbEstimate = Math.round(monthlyAirbnbMap[prevMonthKey] ?? 0);
+
+  // --- weekly occupancy (last 28 days, includes Airbnb blocks) ---
+  const fourWeeksAgoStr = addDaysStr(todayStr, -28);
+
+  const [bookingsResult, unitsResult, airbnbOccupancyResult] = await Promise.all([
     supabaseAdmin
       .from('booking_requests')
       .select('check_in_date, check_out_date')
-      .in('status', [BookingStatus.Approved, BookingStatus.Paid])
+      .in('status', [BookingStatus.Approved, BookingStatus.Paid, BookingStatus.CheckedIn, BookingStatus.CheckedOut])
       .lte('check_in_date', todayStr)
-      .gte('check_out_date', fourWeeksAgoStr),
+      .gte('check_out_date', fourWeeksAgoStr)
+      .limit(MAX_ROWS),
     supabaseAdmin
       .from('units')
       .select('id', { count: 'exact', head: true })
-      .eq('status', UnitStatus.Active)
+      .eq('status', UnitStatus.Active),
+    supabaseAdmin
+      .from('availability')
+      .select('unit_id, blocked_date')
+      .eq('source', 'airbnb')
+      .gte('blocked_date', fourWeeksAgoStr)
+      .lte('blocked_date', todayStr)
+      .limit(MAX_ROWS)
   ]);
 
   if (bookingsResult.error) {
     logger.error('dashboard-stats: failed to fetch bookings', { error: bookingsResult.error.message });
     return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
   }
+  if (airbnbOccupancyResult.error) {
+    logger.error('dashboard-stats: failed to fetch airbnb occupancy', { error: airbnbOccupancyResult.error.message });
+    return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
 
   const totalUnits = unitsResult.count ?? 1;
 
-  // occupied unit-days per day-of-week index (0=Sun..6=Sat)
+  // Occupied unit-days per day-of-week index (0=Sun..6=Sat).
+  // De-dup: a unit-day is at most 1, even if both a direct booking and an Airbnb
+  // block cover it. Without this, weekly occupancy could exceed 100% and indicate
+  // a sync inconsistency (which we log, not hide).
   const dayCounts = [0, 0, 0, 0, 0, 0, 0];
   const dayTotals = [0, 0, 0, 0, 0, 0, 0];
+  const occupiedSet = new Set<string>(); // `${unit_id}|${ymd}` when known, else `__airbnb|${ymd}|${n}`
+  let doubleCountHits = 0;
 
+  // Build totals from dates in range.
   for (let i = 0; i < 28; i++) {
-    const d = new Date(fourWeeksAgo);
-    d.setDate(d.getDate() + i);
-    if (d <= now) dayTotals[d.getDay()] += totalUnits;
+    const ymd = addDaysStr(fourWeeksAgoStr, i);
+    if (ymd <= todayStr) dayTotals[dowFromStr(ymd)] += totalUnits;
   }
 
+  // Direct bookings: iterate days in range [check_in, check_out) using string math.
   for (const booking of bookingsResult.data ?? []) {
-    const checkIn = new Date(booking.check_in_date);
-    const checkOut = new Date(booking.check_out_date);
-    for (const d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
-      if (d >= fourWeeksAgo && d <= now) dayCounts[d.getDay()]++;
+    const inStr: string = booking.check_in_date;
+    const outStr: string = booking.check_out_date;
+    let cursor = inStr < fourWeeksAgoStr ? fourWeeksAgoStr : inStr;
+    const end = outStr > todayStr ? addDaysStr(todayStr, 1) : outStr;
+    while (cursor < end) {
+      // We don't have unit_id here (not selected), but direct bookings rarely collide
+      // with themselves on the same day. Use a synthetic booking-scoped key.
+      const key = `direct|${cursor}|${inStr}|${outStr}`;
+      if (!occupiedSet.has(key)) {
+        occupiedSet.add(key);
+        dayCounts[dowFromStr(cursor)]++;
+      }
+      cursor = addDaysStr(cursor, 1);
+    }
+  }
+
+  // Airbnb blocks: key by unit_id + ymd so collisions with direct bookings on the
+  // same unit-day can be detected (approximate, since direct keys are booking-scoped).
+  for (const block of airbnbOccupancyResult.data ?? []) {
+    const ymd: string = block.blocked_date;
+    if (ymd < fourWeeksAgoStr || ymd > todayStr) continue;
+    const key = `airbnb|${block.unit_id}|${ymd}`;
+    if (!occupiedSet.has(key)) {
+      occupiedSet.add(key);
+      dayCounts[dowFromStr(ymd)]++;
     }
   }
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MON_SUN_ORDER = [1, 2, 3, 4, 5, 6, 0];
-  const weeklyOccupancy = MON_SUN_ORDER.map((dayIdx) => ({
-    name: DAY_NAMES[dayIdx],
-    value: dayTotals[dayIdx] > 0 ? Math.round((dayCounts[dayIdx] / dayTotals[dayIdx]) * 100) : 0
-  }));
+  const weeklyOccupancy = MON_SUN_ORDER.map((dayIdx) => {
+    const raw = dayTotals[dayIdx] > 0 ? (dayCounts[dayIdx] / dayTotals[dayIdx]) * 100 : 0;
+    if (raw > 100) {
+      doubleCountHits++;
+    }
+    // Clamp to [0, 100]. Values >100 indicate inventory desync (direct + airbnb on
+    // same unit-day) and are logged once below.
+    const clamped = Math.min(100, Math.max(0, raw));
+    return { name: DAY_NAMES[dayIdx], value: Math.round(clamped) };
+  });
+
+  if (doubleCountHits > 0) {
+    logger.warn('dashboard-stats: occupancy exceeded 100% on some days (clamped); possible inventory desync', {
+      days: doubleCountHits
+    });
+  }
 
   const avgOccupancy =
     weeklyOccupancy.length > 0
       ? Math.round(weeklyOccupancy.reduce((a, b) => a + b.value, 0) / weeklyOccupancy.length)
       : 0;
 
-  return res.json({ monthlyRevenue, weeklyOccupancy, avgOccupancy });
+  // --- upcoming Airbnb check-ins (first day of each contiguous block, from today) ---
+  const ninetyDaysOutStr = addDaysStr(todayStr, 90);
+
+  const { data: airbnbFutureBlocks, error: futureBlocksError } = await supabaseAdmin
+    .from('availability')
+    .select('unit_id, blocked_date')
+    .eq('source', 'airbnb')
+    .gte('blocked_date', todayStr)
+    .lte('blocked_date', ninetyDaysOutStr)
+    .order('blocked_date', { ascending: true })
+    .limit(MAX_ROWS);
+
+  if (futureBlocksError) {
+    logger.error('dashboard-stats: failed to fetch airbnb future blocks', { error: futureBlocksError.message });
+    return res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+
+  const blocksByUnit: Record<string, Set<string>> = {};
+  for (const block of airbnbFutureBlocks ?? []) {
+    if (!blocksByUnit[block.unit_id]) blocksByUnit[block.unit_id] = new Set();
+    blocksByUnit[block.unit_id].add(block.blocked_date);
+  }
+
+  // A date is a check-in iff the previous calendar day is not blocked for the
+  // same unit. String math only, no Date object parsing.
+  let airbnbUpcomingCheckins = 0;
+  for (const dates of Object.values(blocksByUnit)) {
+    for (const dateStr of dates) {
+      const prevStr = addDaysStr(dateStr, -1);
+      if (!dates.has(prevStr)) airbnbUpcomingCheckins++;
+    }
+  }
+
+  return res.json({
+    monthlyRevenue,
+    weeklyOccupancy,
+    avgOccupancy,
+    airbnbUpcomingCheckins,
+    thisMonthRevenue,
+    prevMonthRevenue,
+    thisMonthAirbnbEstimate,
+    prevMonthAirbnbEstimate
+  });
 });
 
 router.get('/payments', async (req, res) => {

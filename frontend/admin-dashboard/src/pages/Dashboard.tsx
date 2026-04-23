@@ -7,6 +7,7 @@ import {
   FiAlertOctagon,
   FiArrowUpRight,
   FiClock,
+  FiInfo,
   FiTrendingUp,
 } from 'react-icons/fi';
 import {
@@ -25,7 +26,7 @@ import CreationFlow from '../components/creation/creation/CreationFlow';
 import { CreationProvider } from '../context/CreationContext';
 import { api } from '../utils/api';
 
-interface MonthlyRevenue { name: string; revenue: number }
+interface MonthlyRevenue { name: string; revenue: number; airbnbEstimate: number }
 interface WeeklyOccupancy { name: string; value: number }
 
 function StatSkeleton() {
@@ -51,10 +52,13 @@ export default function Dashboard() {
   const [upcomingCheckins, setUpcomingCheckins] = useState(0);
   const [thisMonthRevenue, setThisMonthRevenue] = useState(0);
   const [prevMonthRevenue, setPrevMonthRevenue] = useState(0);
+  const [thisMonthAirbnbEstimate, setThisMonthAirbnbEstimate] = useState(0);
+  const [prevMonthAirbnbEstimate, setPrevMonthAirbnbEstimate] = useState(0);
   const [pendingReview, setPendingReview] = useState(0);
   const [revenueData, setRevenueData] = useState<MonthlyRevenue[]>([]);
   const [occupancyData, setOccupancyData] = useState<WeeklyOccupancy[]>([]);
   const [avgOccupancy, setAvgOccupancy] = useState(0);
+  const [airbnbUpcomingCheckins, setAirbnbUpcomingCheckins] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const fetchDashboardData = async () => {
@@ -63,16 +67,13 @@ export default function Dashboard() {
       setFetchError(null);
 
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-      const [unitsRes, bookingsRes, paymentsRes, statsRes] = await Promise.all([
+      // Revenue figures (this/prev month, direct + Airbnb estimate) come from
+      // /admin/dashboard-stats so they stay consistent with the chart buckets
+      // and are not capped by the /admin/payments row limit.
+      const [unitsRes, bookingsRes, statsRes] = await Promise.all([
         api.get('/admin/units'),
         api.get('/admin/booking-requests', { params: { limit: 300 } }),
-        api.get('/admin/payments', { params: { status: 'completed', limit: 500 } }),
         api.get('/admin/dashboard-stats'),
       ]);
 
@@ -92,33 +93,29 @@ export default function Dashboard() {
       );
       setPendingReview(needsReview.length);
 
-      const payments: any[] = Array.isArray(paymentsRes.data) ? paymentsRes.data : [];
+      const stats = statsRes.data ?? {};
 
-      const thisMonth = payments.reduce((acc, p) => {
-        const d = new Date(p.created_at);
-        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-          return acc + Number(p.amount_usd ?? 0);
-        }
-        return acc;
-      }, 0);
-
-      const prevMonthTotal = payments.reduce((acc, p) => {
-        const d = new Date(p.created_at);
-        if (d.getMonth() === prevMonth && d.getFullYear() === prevYear) {
-          return acc + Number(p.amount_usd ?? 0);
-        }
-        return acc;
-      }, 0);
-
-      setThisMonthRevenue(thisMonth);
-      setPrevMonthRevenue(prevMonthTotal);
-
-      if (Array.isArray(statsRes.data?.monthlyRevenue)) {
-        setRevenueData(statsRes.data.monthlyRevenue);
+      if (Array.isArray(stats.monthlyRevenue)) {
+        setRevenueData(stats.monthlyRevenue);
       }
-      if (Array.isArray(statsRes.data?.weeklyOccupancy)) {
-        setOccupancyData(statsRes.data.weeklyOccupancy);
-        setAvgOccupancy(statsRes.data.avgOccupancy ?? 0);
+      if (Array.isArray(stats.weeklyOccupancy)) {
+        setOccupancyData(stats.weeklyOccupancy);
+        setAvgOccupancy(stats.avgOccupancy ?? 0);
+      }
+      if (typeof stats.airbnbUpcomingCheckins === 'number') {
+        setAirbnbUpcomingCheckins(stats.airbnbUpcomingCheckins);
+      }
+      if (typeof stats.thisMonthRevenue === 'number') {
+        setThisMonthRevenue(stats.thisMonthRevenue);
+      }
+      if (typeof stats.prevMonthRevenue === 'number') {
+        setPrevMonthRevenue(stats.prevMonthRevenue);
+      }
+      if (typeof stats.thisMonthAirbnbEstimate === 'number') {
+        setThisMonthAirbnbEstimate(stats.thisMonthAirbnbEstimate);
+      }
+      if (typeof stats.prevMonthAirbnbEstimate === 'number') {
+        setPrevMonthAirbnbEstimate(stats.prevMonthAirbnbEstimate);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load dashboard data';
@@ -138,9 +135,12 @@ export default function Dashboard() {
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
   };
 
+  const combinedThisMonth = thisMonthRevenue + thisMonthAirbnbEstimate;
+  const combinedPrevMonth = prevMonthRevenue + prevMonthAirbnbEstimate;
+
   const revenueDelta =
-    prevMonthRevenue > 0
-      ? Math.round(((thisMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100)
+    combinedPrevMonth > 0
+      ? Math.round(((combinedThisMonth - combinedPrevMonth) / combinedPrevMonth) * 100)
       : null;
 
   const handleExportPDF = () => {
@@ -159,7 +159,7 @@ export default function Dashboard() {
             onClick={() => void fetchDashboardData()}
             className="text-sm font-medium text-rose-600 hover:underline"
           >
-            Retry
+            {t('dashboard.retry')}
           </button>
         </div>
       ) : null}
@@ -203,7 +203,7 @@ export default function Dashboard() {
             <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
               {activeUnits}
             </p>
-            <p className="mt-1 text-xs text-slate-400">All properties</p>
+            <p className="mt-1 text-xs text-slate-400">{t('dashboard.allProperties')}</p>
           </article>
 
           <article className="card p-5">
@@ -214,9 +214,16 @@ export default function Dashboard() {
               </span>
             </div>
             <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
-              {upcomingCheckins}
+              {upcomingCheckins + airbnbUpcomingCheckins}
             </p>
-            <p className="mt-1 text-xs text-slate-400">Approved, from today</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {airbnbUpcomingCheckins > 0
+                ? t('dashboard.upcomingCheckinsBreakdown', {
+                    direct: upcomingCheckins,
+                    airbnb: airbnbUpcomingCheckins,
+                  })
+                : t('dashboard.upcomingCheckinsDefault')}
+            </p>
           </article>
 
           <article className="card p-5">
@@ -227,7 +234,7 @@ export default function Dashboard() {
               </span>
             </div>
             <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
-              {formatRevenue(thisMonthRevenue)}
+              {formatRevenue(combinedThisMonth)}
             </p>
             {revenueDelta !== null ? (
               <p
@@ -236,10 +243,17 @@ export default function Dashboard() {
                 }`}
               >
                 {revenueDelta >= 0 ? '+' : ''}
-                {revenueDelta}% vs last month
+                {revenueDelta}% {t('dashboard.revenueDeltaVsLastMonth')}
+                {thisMonthAirbnbEstimate > 0 ? ` ${t('dashboard.revenueDeltaEstimateSuffix')}` : ''}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-slate-400">No data last month</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {thisMonthAirbnbEstimate > 0
+                  ? t('dashboard.revenueAirbnbEstFallback', {
+                      amount: formatRevenue(thisMonthAirbnbEstimate),
+                    })
+                  : t('dashboard.revenueNoDataLastMonth')}
+              </p>
             )}
           </article>
 
@@ -257,7 +271,7 @@ export default function Dashboard() {
                   hasPendingReview ? 'text-amber-700' : 'text-slate-500'
                 }`}
               >
-                Pending review
+                {t('dashboard.pendingReview')}
               </p>
               <span
                 className={`rounded-lg p-2 ${
@@ -279,7 +293,9 @@ export default function Dashboard() {
                 hasPendingReview ? 'text-amber-600' : 'text-slate-400'
               }`}
             >
-              {hasPendingReview ? 'Action required' : 'All clear'}
+              {hasPendingReview
+                ? t('dashboard.pendingReviewActionRequired')
+                : t('dashboard.pendingReviewAllClear')}
               <FiArrowUpRight className="h-3 w-3" aria-hidden="true" />
             </p>
           </article>
@@ -289,12 +305,26 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-900">{t('dashboard.revenueAnalysis')}</h3>
-            <select className="text-sm border-none bg-transparent font-medium text-slate-500 focus:ring-0 cursor-pointer no-print">
-              <option>{t('dashboard.last12Months')}</option>
-              <option>{t('dashboard.last6Months')}</option>
-              <option>{t('dashboard.last30Days')}</option>
-            </select>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-lg font-semibold text-slate-900">{t('dashboard.revenueAnalysis')}</h3>
+              <span
+                title={t('dashboard.revenueAnalysisTooltip')}
+                className="text-slate-400 hover:text-slate-600 cursor-help"
+                aria-label={t('dashboard.revenueAnalysisTooltip')}
+              >
+                <FiInfo className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-slate-900" />
+                {t('dashboard.revenueChartDirectLegend')}
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-400 opacity-60" />
+                {t('dashboard.revenueChartAirbnbLegend')}
+              </span>
+            </div>
           </div>
           <div className="h-[300px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
@@ -303,6 +333,10 @@ export default function Dashboard() {
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#0f172a" stopOpacity={0.1} />
                     <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorAirbnb" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -326,9 +360,11 @@ export default function Dashboard() {
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     fontSize: '14px',
                   }}
-                  formatter={(value: any) => [
+                  formatter={(value: any, name: any) => [
                     `$${(Number(value) || 0).toLocaleString()}`,
-                    'Revenue',
+                    name === 'airbnbEstimate'
+                      ? t('dashboard.revenueChartAirbnbTooltip')
+                      : t('dashboard.revenueChartDirectTooltip'),
                   ]}
                 />
                 <Area
@@ -338,6 +374,15 @@ export default function Dashboard() {
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorRev)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="airbnbEstimate"
+                  stroke="#f43f5e"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 2"
+                  fillOpacity={1}
+                  fill="url(#colorAirbnb)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -350,7 +395,9 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <span className="flex h-3 w-3 rounded-full bg-slate-900" />
               <span className="text-sm font-medium text-slate-500">
-                {isLoading ? 'Calculating...' : `Average ${avgOccupancy}%`}
+                {isLoading
+                  ? t('dashboard.occupancyCalculating')
+                  : t('dashboard.occupancyAverage', { value: avgOccupancy })}
               </span>
             </div>
           </div>
