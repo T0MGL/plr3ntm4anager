@@ -6,10 +6,14 @@ import {
   addMonths,
   isAfter,
   isBefore,
-  parseISO,
   startOfDay,
   startOfMonth,
 } from "date-fns";
+
+function parseLocalDate(value: string): Date {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
 import { es, enUS } from "date-fns/locale";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -77,7 +81,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
         const availability = await getUnitAvailability(unitId, today, addDays(maxDate, 1));
         if (!isMounted) return;
         const nextBlockedDates = availability.blocked_dates
-          .map((v) => startOfDay(parseISO(v)))
+          .map((v) => parseLocalDate(v))
           .filter((v) => !Number.isNaN(v.getTime()));
         setBlockedDates(nextBlockedDates);
       } catch (err) {
