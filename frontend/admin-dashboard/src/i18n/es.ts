@@ -287,6 +287,9 @@ const es = {
     completedLabel: 'Completado: {{time}}',
     blockedDatesLabel: 'Fechas bloqueadas: {{count}}',
     inProgressCompletion: 'En progreso',
+    expand: 'Mostrar registros',
+    collapse: 'Ocultar registros',
+    collapsedHint: 'Los registros se cargan bajo demanda para evitar consultas innecesarias.',
   },
   payments: {
     title: 'Pagos y Conciliación',

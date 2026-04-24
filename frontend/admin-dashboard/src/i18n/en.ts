@@ -282,6 +282,9 @@ const en = {
     completedLabel: 'Completed: {{time}}',
     blockedDatesLabel: 'Blocked dates: {{count}}',
     inProgressCompletion: 'In progress',
+    expand: 'Show logs',
+    collapse: 'Hide logs',
+    collapsedHint: 'Logs load on demand to avoid unnecessary queries.',
   },
   payments: {
     title: 'Payments & Reconciliation',
