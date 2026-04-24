@@ -4,8 +4,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { FiLoader, FiMail, FiShield, FiUser } from 'react-icons/fi';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../../context/AuthContext';
-import type { AdminRole } from '../../services/admin-users';
+import { AdminUserApiError, adminUsersApi, type AdminRole } from '../../services/admin-users';
 import RolePill from './RolePill';
 
 interface AccountSectionProps {
@@ -42,13 +41,15 @@ export default function AccountSection({ user, role, roleStatus }: AccountSectio
     if (!user?.email) return;
     setSending(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/`,
-      });
-      if (error) throw error;
-      toast.success(t('account.resetSent', { email: user.email }));
+      const result = await adminUsersApi.sendSelfPasswordReset();
+      toast.success(t('account.resetSent', { email: result.email }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('account.resetFailed');
+      const message =
+        err instanceof AdminUserApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : t('account.resetFailed');
       toast.error(message);
     } finally {
       setSending(false);

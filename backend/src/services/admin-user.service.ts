@@ -283,8 +283,36 @@ class AdminUserService {
       throw err;
     }
 
-    const userRow = row as AdminUserRow;
+    return this.sendPasswordResetToRow(row as AdminUserRow);
+  }
 
+  // Self-service variant: resolves the admin_users row by auth_id (Supabase
+  // session id) rather than the admin UI-supplied row id. Used by staff and
+  // admins alike when they request a password reset for themselves from the
+  // Account section. Same Resend-powered email path as the admin action; the
+  // only difference is the lookup column and that no requireAdmin gate applies.
+  async sendSelfPasswordResetEmail(authId: string): Promise<{ email: string }> {
+    const { data: row, error: fetchErr } = await supabaseAdmin
+      .from('admin_users')
+      .select(COLUMNS)
+      .eq('auth_id', authId)
+      .maybeSingle();
+
+    if (fetchErr) {
+      logger.error('sendSelfPasswordResetEmail: lookup failed', { error: fetchErr.message, authId });
+      throw new Error('Failed to resolve account');
+    }
+
+    if (!row) {
+      const err = new Error('No admin_users row linked to this session');
+      (err as NodeJS.ErrnoException).code = 'NOT_FOUND';
+      throw err;
+    }
+
+    return this.sendPasswordResetToRow(row as AdminUserRow);
+  }
+
+  private async sendPasswordResetToRow(userRow: AdminUserRow): Promise<{ email: string }> {
     if (!userRow.auth_id) {
       const err = new Error('User has no auth account. Send a reinvite first.');
       (err as NodeJS.ErrnoException).code = 'PRECONDITION_FAILED';
@@ -306,11 +334,17 @@ class AdminUserService {
     });
 
     if (linkErr || !linkData?.properties?.action_link) {
-      logger.error('Failed to generate password recovery link', { error: linkErr?.message, userId });
+      logger.error('Failed to generate password recovery link', {
+        error: linkErr?.message,
+        userId: userRow.id,
+      });
       throw new Error('Failed to generate recovery link');
     }
 
-    const reset = adminPasswordResetEmail({ name: userRow.name, resetUrl: linkData.properties.action_link });
+    const reset = adminPasswordResetEmail({
+      name: userRow.name,
+      resetUrl: linkData.properties.action_link,
+    });
     sendEmail(userRow.email, reset.subject, reset.html).catch((err) => {
       logger.error('Failed to send password reset email', { err, email: userRow.email });
     });

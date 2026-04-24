@@ -1466,6 +1466,34 @@ router.post(
   },
 );
 
+// Self-service reset for the currently signed-in user. Only requireAuth here:
+// any active admin_users row should be able to reset their own password
+// without an admin having to click through the team table. Sends through
+// Resend (sendEmail), not Supabase's built-in mailer.
+router.post(
+  '/users/me/send-password-reset',
+  adminWriteLimiter,
+  async (_req, res) => {
+    const sessionUser = res.locals.user as { id?: string } | undefined;
+    if (!sessionUser?.id) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const result = await adminUserService.sendSelfPasswordResetEmail(sessionUser.id);
+      return res.json({ ok: true, email: result.email });
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const msg = err instanceof Error ? err.message : 'Failed to send reset email';
+      if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+      if (code === 'PRECONDITION_FAILED') return res.status(400).json({ error: msg });
+      logger.error('POST /admin/users/me/send-password-reset failed', {
+        error: msg,
+        authId: sessionUser.id,
+      });
+      return res.status(500).json({ error: msg });
+    }
+  },
+);
+
 // ============================================================================
 // Per-unit revenue drilldown
 // Returns 12 months of direct + Airbnb estimated revenue for one unit, plus

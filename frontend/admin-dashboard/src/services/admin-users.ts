@@ -118,4 +118,15 @@ export const adminUsersApi = {
       unwrap(err);
     }
   },
+
+  async sendSelfPasswordReset(): Promise<{ email: string }> {
+    try {
+      const { data } = await api.post<{ ok: boolean; email: string }>(
+        '/admin/users/me/send-password-reset',
+      );
+      return { email: data.email };
+    } catch (err) {
+      unwrap(err);
+    }
+  },
 };
