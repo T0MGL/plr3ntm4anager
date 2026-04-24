@@ -22,11 +22,13 @@ import { logger } from '../config/logger';
 // low enough that 5 min staleness is acceptable.
 
 const PRIMARY_SOURCE_URL = 'https://open.er-api.com/v6/latest/USD';
+const SECONDARY_SOURCE_URL = 'https://www.floatrates.com/daily/usd.json';
 const STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000;
 const MANUAL_OVERRIDE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 const FETCH_RETRY_COUNT = 3;
+const SANITY_BAND: readonly [number, number] = [1000, 20000];
 
 interface FxRateRow {
   id: string;
@@ -176,23 +178,65 @@ interface OpenErApiResponse {
   time_last_update_unix?: number;
 }
 
-async function fetchPrimary(): Promise<number> {
+interface FloatRatesEntry {
+  rate?: number;
+}
+
+type FloatRatesResponse = Record<string, FloatRatesEntry>;
+
+function assertSane(rate: number, sourceName: string): void {
+  if (!Number.isFinite(rate) || rate < SANITY_BAND[0] || rate > SANITY_BAND[1]) {
+    // PYG/USD has historically traded between 5000 and 8000. A value outside
+    // [1000, 20000] almost certainly means a bad upstream payload and we
+    // refuse to persist it.
+    throw new Error(`PYG rate ${rate} from ${sourceName} outside sanity band [${SANITY_BAND[0]}, ${SANITY_BAND[1]}]`);
+  }
+}
+
+async function fetchOpenErApi(): Promise<number> {
   const response = await axios.get<OpenErApiResponse>(PRIMARY_SOURCE_URL, {
     timeout: FETCH_TIMEOUT_MS
   });
-
   if (response.data.result !== 'success' || !response.data.rates?.PYG) {
     throw new Error(`Unexpected open.er-api response: ${JSON.stringify(response.data).slice(0, 200)}`);
   }
-
   const rate = response.data.rates.PYG;
-  if (!Number.isFinite(rate) || rate < 1000 || rate > 20000) {
-    // Sanity check. PYG/USD has historically traded between 5000 and 8000.
-    // A value outside this band almost certainly means a bad upstream payload
-    // and we refuse to persist it.
-    throw new Error(`PYG rate ${rate} outside sanity band [1000, 20000]`);
-  }
+  assertSane(rate, 'open.er-api.com');
   return rate;
+}
+
+async function fetchFloatRates(): Promise<number> {
+  const response = await axios.get<FloatRatesResponse>(SECONDARY_SOURCE_URL, {
+    timeout: FETCH_TIMEOUT_MS
+  });
+  const rate = response.data?.pyg?.rate;
+  if (typeof rate !== 'number') {
+    throw new Error(`Unexpected floatrates response: ${JSON.stringify(response.data).slice(0, 200)}`);
+  }
+  assertSane(rate, 'floatrates.com');
+  return rate;
+}
+
+const SOURCES: ReadonlyArray<{ name: string; fetch: () => Promise<number> }> = [
+  { name: 'open.er-api.com', fetch: fetchOpenErApi },
+  { name: 'floatrates.com', fetch: fetchFloatRates }
+];
+
+async function fetchFromAnySource(): Promise<{ rate: number; source: string }> {
+  let lastError: Error | null = null;
+  for (const src of SOURCES) {
+    try {
+      const rate = await src.fetch();
+      return { rate, source: src.name };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      logger.warn('fx: source failed, trying next', {
+        source: src.name,
+        error: lastError.message
+      });
+    }
+  }
+  throw lastError ?? new Error('all fx sources failed');
 }
 
 export async function fetchAndStoreFxRate(): Promise<{ market_rate: number; source: string }> {
@@ -200,19 +244,19 @@ export async function fetchAndStoreFxRate(): Promise<{ market_rate: number; sour
 
   for (let attempt = 1; attempt <= FETCH_RETRY_COUNT; attempt++) {
     try {
-      const rate = await fetchPrimary();
+      const { rate, source } = await fetchFromAnySource();
       const { error } = await supabaseAdmin.from('fx_rates').insert({
         base: 'USD',
         quote: 'PYG',
         market_rate: rate,
-        source: 'open.er-api.com'
+        source
       });
       if (error) {
         throw new Error(`fx insert failed: ${error.message}`);
       }
       invalidateCache();
-      logger.info('fx: rate fetched and stored', { market_rate: rate, attempt });
-      return { market_rate: rate, source: 'open.er-api.com' };
+      logger.info('fx: rate fetched and stored', { market_rate: rate, source, attempt });
+      return { market_rate: rate, source };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       logger.warn('fx: fetch attempt failed', {
