@@ -73,11 +73,16 @@ router.get('/:token', icalRateLimit, async (req, res) => {
       return res.status(404).send('Feed not found');
     }
 
+    // Negative filter: any booking that is not rejected/cancelled is still
+    // holding the nights. Paid, checked_in and checked_out all represent a
+    // real guest in the unit and MUST block Airbnb's calendar. Whitelisting
+    // pending/approved silently dropped paid reservations from the feed,
+    // which let Airbnb double-book the same nights.
     const { data: bookings, error } = await supabaseAdmin
       .from('booking_requests')
       .select('id, check_in_date, check_out_date, status')
       .eq('unit_id', unit.id)
-      .in('status', [BookingStatus.Pending, BookingStatus.Approved]);
+      .not('status', 'in', `(${BookingStatus.Rejected},${BookingStatus.Cancelled})`);
 
     if (error) {
       logger.error('iCal feed: failed to fetch bookings', {
@@ -110,7 +115,7 @@ router.get('/:token', icalRateLimit, async (req, res) => {
         `DTSTART;VALUE=DATE:${dtStart}`,
         `DTEND;VALUE=DATE:${dtEnd}`,
         'SUMMARY:Reserved',
-        `STATUS:${booking.status === BookingStatus.Approved ? 'CONFIRMED' : 'TENTATIVE'}`,
+        `STATUS:${booking.status === BookingStatus.Pending ? 'TENTATIVE' : 'CONFIRMED'}`,
         'TRANSP:OPAQUE',
         'END:VEVENT'
       );
