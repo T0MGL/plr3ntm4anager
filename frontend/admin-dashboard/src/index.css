@@ -1077,6 +1077,32 @@ textarea:focus-visible,
   cursor: grabbing;
 }
 
+/* FullCalendar event variants for the admin booking calendar.
+ *
+ * The three Airbnb categories (reserved, not_available, blocked) need to be
+ * distinguishable at a glance. Reserved keeps the unit-palette solid fill so
+ * real guests remain visually prominent. Not-available uses a diagonal
+ * hatching overlay to read as "hold, not a guest" without stealing visual
+ * weight. Blocked uses a flat slate tone. Manual holds stay on a dashed
+ * border. All variants keep the colors we set on the event directly so the
+ * unit palette continues to work as a side channel for unit identity.
+ */
+.pl-event-hatched .fc-event-main {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(100, 116, 139, 0.25) 0,
+    rgba(100, 116, 139, 0.25) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.pl-event-manual.fc-daygrid-event,
+.pl-event-manual {
+  border-style: dashed !important;
+}
+
+
 
 
 

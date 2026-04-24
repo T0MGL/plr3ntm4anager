@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import FullCalendar from '@fullcalendar/react';
@@ -9,8 +9,14 @@ import { formatDateRange } from '../../utils/dates';
 import ApprovalButtons from './ApprovalButtons';
 import BookingDetails from './BookingDetails';
 import BookingNotes from './BookingNotes';
+import AirbnbAliasEditor from './AirbnbAliasEditor';
 import { supabase } from '../../context/AuthContext';
 import ExportMenu from '../common/ExportMenu';
+
+export interface BookingListHandle {
+  focusBooking: (bookingId: string) => void;
+  focusAvailability: (availabilityId: string) => void;
+}
 
 type ApprovalPath = 'auto' | 'manual';
 
@@ -50,15 +56,17 @@ interface CalendarBookingRow {
   units?: { name: string } | null;
 }
 
-type ExternalKind = 'reserved' | 'not_available' | 'blocked' | 'unknown';
+export type ExternalKind = 'reserved' | 'not_available' | 'blocked' | 'unknown';
 
 interface CalendarBlockRow {
+  id?: string;
   unit_id: string;
   blocked_date: string;
   source: 'airbnb' | 'manual' | 'widget' | string;
   external_kind?: ExternalKind | null;
   external_ref?: string | null;
   guest_last4?: string | null;
+  guest_alias?: string | null;
   units?: { name: string } | null;
 }
 
@@ -76,7 +84,15 @@ interface CalendarEvent {
   backgroundColor: string;
   borderColor: string;
   textColor: string;
-  extendedProps: { kind: 'booking' | 'block'; status?: string; source?: string };
+  classNames?: string[];
+  extendedProps: {
+    kind: 'booking' | 'block';
+    status?: string;
+    source?: string;
+    externalKind?: ExternalKind | null;
+    availabilityId?: string | null;
+    externalRef?: string | null;
+  };
 }
 
 type Tab = 'needs_review' | 'all';
@@ -133,7 +149,7 @@ function isAutoApproved(booking: BookingRow): boolean {
   return booking.approval_path === 'auto' && (booking.status === 'paid' || booking.status === 'approved');
 }
 
-export default function BookingList() {
+const BookingList = forwardRef<BookingListHandle>(function BookingList(_props, ref) {
   const { t, i18n } = useTranslation();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [calendarData, setCalendarData] = useState<CalendarResponse | null>(null);
@@ -160,12 +176,51 @@ export default function BookingList() {
     start: string;
     end: string;
   } | null>(null);
+  // Drawer state for Airbnb reservations (replaces the read-only modal).
+  // Stores the availability id tapped from the calendar or the ops widgets.
+  const [drawerAvailabilityId, setDrawerAvailabilityId] = useState<string | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusBooking: (bookingId: string) => {
+        setView('list');
+        setHighlightedBookingId(bookingId);
+        setExpandedId(bookingId);
+        setTimeout(() => {
+          const el = document.getElementById(`booking-${bookingId}`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+      },
+      focusAvailability: (availabilityId: string) => {
+        setDrawerAvailabilityId(availabilityId);
+      }
+    }),
+    []
+  );
 
   const fetchBookings = async () => {
     const { data } = await api.get<BookingResponse>('/admin/booking-requests', {
       params: status ? { status } : {},
     });
     setBookings(data.data ?? []);
+  };
+
+  // Apply an alias update received from the editor to the local calendarData
+  // cache so we do not need to re-fetch the full calendar for every keystroke.
+  const applyAliasLocally = (externalRef: string | null, nextAlias: string | null) => {
+    if (!externalRef) return;
+    setCalendarData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        blocks: prev.blocks.map((block) =>
+          block.external_ref === externalRef && block.source === 'airbnb'
+            ? { ...block, guest_alias: nextAlias }
+            : block
+        )
+      };
+    });
   };
 
   const fetchCalendar = async () => {
@@ -382,12 +437,16 @@ export default function BookingList() {
     /** true when this row represents a real guest reservation (not a windowing hold). */
     isReservation: boolean;
     id: string;
+    /** availability.id of the first night in the range. Used to open the
+     *  alias editor without needing to refetch a specific row. */
+    availabilityId: string | null;
     unitId: string;
     unitName: string;
     checkIn: string;
     checkOut: string;
     externalRef: string | null;
     guestLast4: string | null;
+    guestAlias: string | null;
   };
 
   // Collapse per-night availability rows into contiguous stays so each Airbnb or
@@ -416,38 +475,43 @@ export default function BookingList() {
       const externalKind = (rows[0]?.external_kind ?? null) as ExternalKind | null;
       const externalRef = rows[0]?.external_ref ?? null;
       const guestLast4 = rows[0]?.guest_last4 ?? null;
+      const guestAlias = rows[0]?.guest_alias ?? null;
       const isReservation = source === 'airbnb' && externalKind === 'reserved';
 
-      const push = (startDate: string, endDate: string) => {
+      const push = (startDate: string, endDate: string, firstRow: CalendarBlockRow) => {
         const checkOut = new Date(new Date(endDate).getTime() + dayMs).toISOString().slice(0, 10);
         stays.push({
           source,
           externalKind: source === 'manual' ? null : externalKind,
           isReservation,
           id: `${source}-${externalKind ?? 'none'}-${externalRef ?? 'x'}-${unitId}-${startDate}`,
+          availabilityId: firstRow?.id ?? null,
           unitId,
           unitName,
           checkIn: startDate,
           checkOut,
           externalRef,
           guestLast4,
+          guestAlias,
         });
       };
 
       let rangeStart = rows[0]?.blocked_date ?? null;
       let rangeEnd = rangeStart;
+      let rangeFirstRow: CalendarBlockRow | null = rows[0] ?? null;
       for (let i = 1; i < rows.length; i++) {
         const prev = new Date(rows[i - 1].blocked_date).getTime();
         const curr = new Date(rows[i].blocked_date).getTime();
         if (curr - prev === dayMs) {
           rangeEnd = rows[i].blocked_date;
-        } else if (rangeStart && rangeEnd) {
-          push(rangeStart, rangeEnd);
+        } else if (rangeStart && rangeEnd && rangeFirstRow) {
+          push(rangeStart, rangeEnd, rangeFirstRow);
           rangeStart = rows[i].blocked_date;
           rangeEnd = rangeStart;
+          rangeFirstRow = rows[i];
         }
       }
-      if (rangeStart && rangeEnd) push(rangeStart, rangeEnd);
+      if (rangeStart && rangeEnd && rangeFirstRow) push(rangeStart, rangeEnd, rangeFirstRow);
     }
 
     return stays;
@@ -522,12 +586,16 @@ export default function BookingList() {
     }
 
     // Collapse consecutive per-day blocks into contiguous ranges so FullCalendar
-    // renders one bar per stay instead of a strip of single-day chips. Groups
-    // by unit_id + source, then walks sorted dates merging gaps of one day.
+    // renders one bar per stay instead of a strip of single-day chips. Grouping
+    // key includes external_kind and external_ref so two distinct Airbnb
+    // reservations (or a reservation plus a hold window on the same unit) do
+    // not merge into one bar.
     const grouped = new Map<string, CalendarBlockRow[]>();
     for (const block of calendarData.blocks) {
       if (unitFilter && block.units?.name !== unitFilter) continue;
-      const key = `${block.unit_id}::${block.source}`;
+      const kind = block.external_kind ?? 'null';
+      const ref = block.external_ref ?? 'null';
+      const key = `${block.unit_id}::${block.source}::${kind}::${ref}`;
       const list = grouped.get(key) ?? [];
       list.push(block);
       grouped.set(key, list);
@@ -540,40 +608,106 @@ export default function BookingList() {
       const [unitIdPart, source] = key.split('::');
       const palette = unitPalette(unitIdPart);
       const unitName = rows[0]?.units?.name ?? 'Unit';
-      const sourceLabel = source === 'airbnb' ? 'Airbnb' : 'Hold';
+      const externalKind = (rows[0]?.external_kind ?? null) as ExternalKind | null;
+      const externalRef = rows[0]?.external_ref ?? null;
+      const guestLast4 = rows[0]?.guest_last4 ?? null;
+      const guestAlias = rows[0]?.guest_alias ?? null;
 
-      const pushRange = (startDate: string, endDate: string) => {
+      // Three distinct visual treatments for Airbnb rows so the operator
+      // reads reservation vs hold vs blocked at a glance. Manual rows keep
+      // the existing dashed-border treatment.
+      //   reserved        solid palette.bg, palette.border              (real guest)
+      //   not_available   hatched overlay via pl-hatched class           (hold)
+      //   blocked         solid slate.200 with darker slate border       (blocked)
+      //   manual          solid palette.bg with dashed palette.text border
+      let bg = palette.bg;
+      let border = source === 'manual' ? palette.text : palette.border;
+      let text = palette.text;
+      const classNames: string[] = [];
+      if (source === 'airbnb') {
+        if (externalKind === 'not_available') {
+          classNames.push('pl-event-hatched');
+          bg = '#f1f5f9'; // slate-100 base, hatching drawn by the class
+          border = '#94a3b8'; // slate-400
+          text = '#334155'; // slate-700
+        } else if (externalKind === 'blocked') {
+          bg = '#e2e8f0'; // slate-200
+          border = '#64748b'; // slate-500
+          text = '#1f2937'; // slate-800
+        }
+      }
+      if (source === 'manual') {
+        classNames.push('pl-event-manual');
+      }
+
+      // Title composition: for Airbnb reservations, lead with the operator-
+      // facing label (alias > last4 > "Airbnb") and include unit name.
+      // Holds stay generic so the operator does not mistake them for guests.
+      const reservationLabel = (() => {
+        if (source !== 'airbnb') return null;
+        if (externalKind !== 'reserved') return null;
+        if (guestAlias) return guestAlias;
+        if (guestLast4) return `**** ${guestLast4}`;
+        return 'Airbnb';
+      })();
+
+      const pushRange = (startDate: string, endDate: string, firstRow: CalendarBlockRow) => {
         const endExclusive = new Date(new Date(endDate).getTime() + dayMs)
           .toISOString()
           .slice(0, 10);
+
+        const sourceLabel =
+          source === 'airbnb'
+            ? externalKind === 'reserved'
+              ? 'Airbnb'
+              : externalKind === 'not_available'
+                ? 'Hold'
+                : externalKind === 'blocked'
+                  ? 'Blocked'
+                  : 'Airbnb'
+            : 'Hold';
+
+        const title = reservationLabel
+          ? `${reservationLabel} · ${unitName}`
+          : `${sourceLabel} · ${unitName}`;
+
         events.push({
-          id: `block-${source}-${unitName}-${startDate}`,
-          title: `${sourceLabel} · ${unitName}`,
+          id: `block-${source}-${externalKind ?? 'none'}-${externalRef ?? 'x'}-${unitName}-${startDate}`,
+          title,
           start: startDate,
           end: endExclusive,
-          backgroundColor: palette.bg,
-          borderColor: source === 'manual' ? palette.text : palette.border,
-          textColor: palette.text,
-          extendedProps: { kind: 'block', source },
+          backgroundColor: bg,
+          borderColor: border,
+          textColor: text,
+          classNames,
+          extendedProps: {
+            kind: 'block',
+            source,
+            externalKind,
+            availabilityId: firstRow.id ?? null,
+            externalRef,
+          },
         });
       };
 
       let rangeStart = rows[0]?.blocked_date ?? null;
       let rangeEnd = rangeStart;
+      let rangeFirstRow: CalendarBlockRow | null = rows[0] ?? null;
 
       for (let i = 1; i < rows.length; i++) {
         const prev = new Date(rows[i - 1].blocked_date).getTime();
         const curr = new Date(rows[i].blocked_date).getTime();
         if (curr - prev === dayMs) {
           rangeEnd = rows[i].blocked_date;
-        } else if (rangeStart && rangeEnd) {
-          pushRange(rangeStart, rangeEnd);
+        } else if (rangeStart && rangeEnd && rangeFirstRow) {
+          pushRange(rangeStart, rangeEnd, rangeFirstRow);
           rangeStart = rows[i].blocked_date;
           rangeEnd = rangeStart;
+          rangeFirstRow = rows[i];
         }
       }
 
-      if (rangeStart && rangeEnd) pushRange(rangeStart, rangeEnd);
+      if (rangeStart && rangeEnd && rangeFirstRow) pushRange(rangeStart, rangeEnd, rangeFirstRow);
     }
 
     return events;
@@ -774,9 +908,53 @@ export default function BookingList() {
                 <span className="ml-auto text-slate-400">{t('bookingList.loadingCalendar')}</span>
               ) : null}
             </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-700">
+                {t('bookingList.blocksLegendTitle', { defaultValue: 'Bloqueos:' })}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-3 w-5 rounded-sm border"
+                  style={{ backgroundColor: '#dbeafe', borderColor: '#60a5fa' }}
+                  aria-hidden
+                />
+                {t('bookingList.legendAirbnbReserved', { defaultValue: 'Airbnb reserva' })}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-3 w-5 rounded-sm border"
+                  style={{
+                    backgroundColor: '#f1f5f9',
+                    borderColor: '#94a3b8',
+                    backgroundImage:
+                      'repeating-linear-gradient(45deg, rgba(100,116,139,0.25) 0, rgba(100,116,139,0.25) 2px, transparent 2px, transparent 4px)'
+                  }}
+                  aria-hidden
+                />
+                {t('bookingList.legendAirbnbHold', { defaultValue: 'Airbnb hold' })}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-3 w-5 rounded-sm border"
+                  style={{ backgroundColor: '#e2e8f0', borderColor: '#64748b' }}
+                  aria-hidden
+                />
+                {t('bookingList.legendBlocked', { defaultValue: 'Bloqueado' })}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-3 w-5 rounded-sm border border-dashed"
+                  style={{ backgroundColor: '#dbeafe', borderColor: '#1e3a8a' }}
+                  aria-hidden
+                />
+                {t('bookingList.legendManualHold', { defaultValue: 'Hold manual' })}
+              </span>
+            </div>
             {visibleUnits.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-slate-700">Units:</span>
+                <span className="font-medium text-slate-700">
+                  {t('bookingList.unitsLegendTitle', { defaultValue: 'Unidades:' })}
+                </span>
                 {visibleUnits.map((u) => {
                   const p = unitPalette(u.id);
                   return (
@@ -796,7 +974,8 @@ export default function BookingList() {
                   );
                 })}
                 <span className="text-slate-500">
-                  · Airbnb ({calendarCounts.airbnbBlocks}) thin border, Hold ({calendarCounts.manualBlocks}) dark border
+                  · {t('bookingList.legendCountsAirbnb', { defaultValue: 'Airbnb' })} ({calendarCounts.airbnbBlocks}) ·{' '}
+                  {t('bookingList.legendCountsHolds', { defaultValue: 'Holds' })} ({calendarCounts.manualBlocks})
                 </span>
               </div>
             ) : null}
@@ -810,7 +989,12 @@ export default function BookingList() {
             eventDisplay="block"
             dayMaxEvents={4}
             eventClick={(info) => {
-              const { kind, source } = info.event.extendedProps as { kind: string; source?: string };
+              const { kind, source, externalKind, availabilityId } = info.event.extendedProps as {
+                kind: string;
+                source?: string;
+                externalKind?: ExternalKind | null;
+                availabilityId?: string | null;
+              };
               if (kind === 'booking') {
                 const bookingId = info.event.id.replace('booking-', '');
                 setView('list');
@@ -821,13 +1005,22 @@ export default function BookingList() {
                   el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 150);
               } else if (kind === 'block') {
-                const rawEnd = info.event.end ? new Date(info.event.end.getTime() - 864e5).toISOString().slice(0, 10) : '';
-                setClickedBlock({
-                  title: info.event.title,
-                  source: source ?? 'unknown',
-                  start: info.event.startStr.slice(0, 10),
-                  end: rawEnd,
-                });
+                // Airbnb reserved rows open the drawer so the admin can edit
+                // alias. Holds (not_available / blocked) and manual blocks
+                // keep the existing read-only modal: there is nothing to edit.
+                if (source === 'airbnb' && externalKind === 'reserved' && availabilityId) {
+                  setDrawerAvailabilityId(availabilityId);
+                } else {
+                  const rawEnd = info.event.end
+                    ? new Date(info.event.end.getTime() - 864e5).toISOString().slice(0, 10)
+                    : '';
+                  setClickedBlock({
+                    title: info.event.title,
+                    source: source ?? 'unknown',
+                    start: info.event.startStr.slice(0, 10),
+                    end: rawEnd,
+                  });
+                }
               }
             }}
           />
@@ -845,7 +1038,11 @@ export default function BookingList() {
               const { stay } = card;
               const palette = unitPalette(stay.unitId);
               const isExpanded = expandedId === card.id;
-              const guestLabel = stay.guestLast4
+              // Prefer the human alias (admin-authored) over the Airbnb
+              // last4 so check-ins surface the real name.
+              const guestLabel = stay.guestAlias
+                ? stay.guestAlias
+                : stay.guestLast4
                 ? t('bookingList.guestPhoneLast4', {
                     defaultValue: 'Huésped · **** {{last4}}',
                     last4: stay.guestLast4,
@@ -896,6 +1093,20 @@ export default function BookingList() {
                   </button>
                   {isExpanded ? (
                     <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-3 text-sm text-slate-700">
+                      {stay.availabilityId ? (
+                        <div className="mb-3">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {t('aliasEditor.label', { defaultValue: 'Alias del huésped' })}
+                          </dt>
+                          <dd className="mt-1">
+                            <AirbnbAliasEditor
+                              availabilityId={stay.availabilityId}
+                              initialAlias={stay.guestAlias}
+                              onSaved={(next) => applyAliasLocally(stay.externalRef, next)}
+                            />
+                          </dd>
+                        </div>
+                      ) : null}
                       <dl className="grid gap-2 sm:grid-cols-2">
                         <div>
                           <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -1277,6 +1488,102 @@ export default function BookingList() {
         </div>
       ) : null}
 
+      {drawerAvailabilityId ? (() => {
+        // Resolve the reservation data from local state so we do not need
+        // another fetch. calendarData.blocks is already loaded.
+        const block = calendarData?.blocks.find((b) => b.id === drawerAvailabilityId);
+        const unitName = block?.units?.name ?? 'Unit';
+        const alias = block?.guest_alias ?? null;
+        const last4 = block?.guest_last4 ?? null;
+        const externalRef = block?.external_ref ?? null;
+        const airbnbUrl = externalRef
+          ? `https://www.airbnb.com/hosting/reservations/details/${externalRef}`
+          : null;
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 sm:items-stretch sm:justify-end"
+            onClick={() => setDrawerAvailabilityId(null)}
+          >
+            <div
+              className="flex max-h-[90vh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {t('drawer.airbnbReservation', { defaultValue: 'Reserva Airbnb' })}
+                  </p>
+                  <h3 className="mt-0.5 text-base font-semibold text-slate-900">{unitName}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDrawerAvailabilityId(null)}
+                  className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={t('drawer.close', { defaultValue: 'Cerrar' })}
+                >
+                  <span aria-hidden className="text-xl leading-none">×</span>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <dl className="grid gap-3">
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      {t('aliasEditor.label', { defaultValue: 'Alias del huésped' })}
+                    </dt>
+                    <dd className="mt-1.5">
+                      {drawerAvailabilityId ? (
+                        <AirbnbAliasEditor
+                          availabilityId={drawerAvailabilityId}
+                          initialAlias={alias}
+                          onSaved={(next) => applyAliasLocally(externalRef, next)}
+                        />
+                      ) : null}
+                    </dd>
+                  </div>
+                  {last4 ? (
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        {t('bookingList.phoneLast4', { defaultValue: 'Últimos 4 del teléfono' })}
+                      </dt>
+                      <dd className="mt-0.5 font-mono tracking-wide text-sm text-slate-800">
+                        **** {last4}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {externalRef ? (
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        {t('bookingList.reservationCode', { defaultValue: 'Código Airbnb' })}
+                      </dt>
+                      <dd className="mt-0.5 font-mono tracking-wide text-sm text-slate-800">
+                        {externalRef}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+                <p className="mt-4 text-xs text-slate-500">
+                  {t('bookingList.airbnbGuestHint', {
+                    defaultValue: 'Detalles del huésped solo disponibles en Airbnb.',
+                  })}
+                </p>
+                {airbnbUrl ? (
+                  <a
+                    href={airbnbUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-rose-300 hover:text-rose-600"
+                  >
+                    {t('bookingList.openInAirbnb', { defaultValue: 'Ver en Airbnb' })}
+                    <span aria-hidden>↗</span>
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
+
       {rejectModalBookingId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-lg">
@@ -1314,4 +1621,6 @@ export default function BookingList() {
       ) : null}
     </div>
   );
-}
+});
+
+export default BookingList;
