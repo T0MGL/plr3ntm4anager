@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { formatDateRange } from '../../utils/dates';
 
 interface BookingDetailsProps {
   booking: {
@@ -20,7 +21,7 @@ interface BookingDetailsProps {
 }
 
 export default function BookingDetails({ booking }: BookingDetailsProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const approvalPath = booking.approval_path ?? null;
   const reason = booking.approval_decision_reason ?? null;
@@ -62,7 +63,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
       <div className="rounded-lg bg-slate-50 p-3 text-slate-700">
         <p>
           <span className="font-medium text-slate-900">{t('bookingDetails.stay')}</span>{' '}
-          {booking.check_in_date} {t('bookingDetails.to')} {booking.check_out_date}
+          {formatDateRange(booking.check_in_date, booking.check_out_date, i18n.language)}
         </p>
         <p className="mt-1">
           <span className="font-medium text-slate-900">{t('bookingDetails.total')}</span> $

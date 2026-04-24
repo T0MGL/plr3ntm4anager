@@ -5,6 +5,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { api } from '../../utils/api';
+import { formatDateRange } from '../../utils/dates';
 import ApprovalButtons from './ApprovalButtons';
 import BookingDetails from './BookingDetails';
 import BookingNotes from './BookingNotes';
@@ -49,10 +50,15 @@ interface CalendarBookingRow {
   units?: { name: string } | null;
 }
 
+type ExternalKind = 'reserved' | 'not_available' | 'blocked' | 'unknown';
+
 interface CalendarBlockRow {
   unit_id: string;
   blocked_date: string;
   source: 'airbnb' | 'manual' | 'widget' | string;
+  external_kind?: ExternalKind | null;
+  external_ref?: string | null;
+  guest_last4?: string | null;
   units?: { name: string } | null;
 }
 
@@ -128,7 +134,7 @@ function isAutoApproved(booking: BookingRow): boolean {
 }
 
 export default function BookingList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [calendarData, setCalendarData] = useState<CalendarResponse | null>(null);
   const [tab, setTab] = useState<Tab>('all');
@@ -144,6 +150,10 @@ export default function BookingList() {
   const [rejectModalBookingId, setRejectModalBookingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+  // Single-expand accordion. Click a collapsed card to expand; clicking the
+  // expanded card or any other card toggles. Keeps the list scannable at
+  // 20-50 bookings instead of unbounded vertical growth.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [clickedBlock, setClickedBlock] = useState<{
     title: string;
     source: string;
@@ -365,23 +375,33 @@ export default function BookingList() {
   }, [filteredBookings, unitFilter, tab]);
 
   type ExternalStay = {
-    kind: 'airbnb' | 'manual';
+    /** Top-level row kind for rendering: airbnb (any subtype) vs manual hold. */
+    source: 'airbnb' | 'manual';
+    /** Airbnb sub-classification. null for manual holds. */
+    externalKind: ExternalKind | null;
+    /** true when this row represents a real guest reservation (not a windowing hold). */
+    isReservation: boolean;
     id: string;
     unitId: string;
     unitName: string;
     checkIn: string;
     checkOut: string;
+    externalRef: string | null;
+    guestLast4: string | null;
   };
 
   // Collapse per-night availability rows into contiguous stays so each Airbnb or
-  // manual reservation renders as a single list card, mirroring the calendar
-  // grouping logic.
+  // manual reservation renders as a single list card. Grouping now respects
+  // external_kind and external_ref so two different reservations on the same
+  // unit do not merge into one 9-month stay.
   const externalStays = useMemo<ExternalStay[]>(() => {
     if (!calendarData) return [];
     const dayMs = 1000 * 60 * 60 * 24;
     const grouped = new Map<string, CalendarBlockRow[]>();
     for (const block of calendarData.blocks) {
-      const key = `${block.unit_id}::${block.source}`;
+      const kind = block.external_kind ?? 'null';
+      const ref = block.external_ref ?? 'null';
+      const key = `${block.unit_id}::${block.source}::${kind}::${ref}`;
       const list = grouped.get(key) ?? [];
       list.push(block);
       grouped.set(key, list);
@@ -393,16 +413,24 @@ export default function BookingList() {
       const [unitId, source] = key.split('::');
       if (source !== 'airbnb' && source !== 'manual') continue;
       const unitName = rows[0]?.units?.name ?? 'Unit';
+      const externalKind = (rows[0]?.external_kind ?? null) as ExternalKind | null;
+      const externalRef = rows[0]?.external_ref ?? null;
+      const guestLast4 = rows[0]?.guest_last4 ?? null;
+      const isReservation = source === 'airbnb' && externalKind === 'reserved';
 
       const push = (startDate: string, endDate: string) => {
         const checkOut = new Date(new Date(endDate).getTime() + dayMs).toISOString().slice(0, 10);
         stays.push({
-          kind: source,
-          id: `${source}-${unitId}-${startDate}`,
+          source,
+          externalKind: source === 'manual' ? null : externalKind,
+          isReservation,
+          id: `${source}-${externalKind ?? 'none'}-${externalRef ?? 'x'}-${unitId}-${startDate}`,
           unitId,
           unitName,
           checkIn: startDate,
           checkOut,
+          externalRef,
+          guestLast4,
         });
       };
 
@@ -427,12 +455,14 @@ export default function BookingList() {
 
   type ListCard =
     | { kind: 'widget'; id: string; sortKey: string; booking: BookingRow }
-    | { kind: 'airbnb'; id: string; sortKey: string; stay: ExternalStay }
-    | { kind: 'manual'; id: string; sortKey: string; stay: ExternalStay };
+    | { kind: 'reservation'; id: string; sortKey: string; stay: ExternalStay }
+    | { kind: 'hold'; id: string; sortKey: string; stay: ExternalStay };
 
-  // Unified list for the list view. Widget bookings keep their full card; Airbnb
-  // and manual holds render simpler cards with a source badge so the admin sees
-  // occupancy from every source in one place, not just from the widget.
+  // Unified list for the list view. Widget bookings keep their full card;
+  // Airbnb reserved stays render as "reservation" cards with a Reserved badge
+  // and a deep-link to Airbnb. Airbnb windowing holds ("Airbnb (Not
+  // available)"), manual Airbnb blocks, and local manual holds render as
+  // "hold" cards so the admin does not read them as real guests.
   const listCards = useMemo<ListCard[]>(() => {
     const cards: ListCard[] = displayBookings.map((booking) => ({
       kind: 'widget',
@@ -450,7 +480,7 @@ export default function BookingList() {
       for (const stay of externalStays) {
         if (unitFilter && stay.unitName !== unitFilter) continue;
         cards.push({
-          kind: stay.kind,
+          kind: stay.isReservation ? 'reservation' : 'hold',
           id: stay.id,
           sortKey: stay.checkIn,
           stay,
@@ -785,6 +815,7 @@ export default function BookingList() {
                 const bookingId = info.event.id.replace('booking-', '');
                 setView('list');
                 setHighlightedBookingId(bookingId);
+                setExpandedId(bookingId);
                 setTimeout(() => {
                   const el = document.getElementById(`booking-${bookingId}`);
                   el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -804,70 +835,230 @@ export default function BookingList() {
       ) : null}
 
       {!isLoading && view === 'list' ? (
-        <div className="grid gap-3">
+        <div className="grid gap-2">
           {listCards.map((card) => {
-            if (card.kind === 'airbnb' || card.kind === 'manual') {
+            // ------------------------------------------------------------
+            // Airbnb reservation card (collapsible). Real guest, deep-links
+            // to the Airbnb host dashboard.
+            // ------------------------------------------------------------
+            if (card.kind === 'reservation') {
               const { stay } = card;
               const palette = unitPalette(stay.unitId);
-              const isAirbnb = stay.kind === 'airbnb';
+              const isExpanded = expandedId === card.id;
+              const guestLabel = stay.guestLast4
+                ? t('bookingList.guestPhoneLast4', {
+                    defaultValue: 'Huésped · **** {{last4}}',
+                    last4: stay.guestLast4,
+                  })
+                : t('bookingList.guestAirbnbAnon', {
+                    defaultValue: 'Huésped Airbnb',
+                  });
+              const reservationUrl = stay.externalRef
+                ? `https://www.airbnb.com/hosting/reservations/details/${stay.externalRef}`
+                : null;
+
               return (
-                <button
+                <div
                   key={card.id}
-                  type="button"
-                  onClick={() =>
-                    setClickedBlock({
-                      title: `${isAirbnb ? 'Airbnb' : 'Hold'} · ${stay.unitName}`,
-                      source: stay.kind,
-                      start: stay.checkIn,
-                      end: new Date(new Date(stay.checkOut).getTime() - 864e5)
-                        .toISOString()
-                        .slice(0, 10),
-                    })
-                  }
-                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition-shadow hover:shadow-sm"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-semibold text-slate-900">{stay.unitName}</h3>
-                      <p className="mt-0.5 text-sm text-slate-600">
-                        {stay.checkIn} {t('bookingDetails.to')} {stay.checkOut}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {isAirbnb
-                          ? t('bookingList.airbnbGuestHint', {
-                              defaultValue:
-                                'Detalles del huésped solo disponibles en Airbnb.',
-                            })
-                          : t('bookingList.manualHoldHint', {
-                              defaultValue: 'Hold manual creado desde el admin.',
-                            })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : card.id)}
+                    className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                    aria-expanded={isExpanded}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <span
-                        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold"
                         style={{
                           backgroundColor: palette.bg,
                           borderColor: palette.border,
                           color: palette.text,
                         }}
                       >
-                        <span
-                          className="inline-block h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: palette.text }}
-                          aria-hidden
-                        />
-                        {isAirbnb
-                          ? t('bookingList.badgeAirbnb', { defaultValue: 'Airbnb' })
-                          : t('bookingList.badgeManual', { defaultValue: 'Hold manual' })}
+                        {t('bookingList.badgeAirbnbReserved', {
+                          defaultValue: 'Airbnb · Reserva',
+                        })}
                       </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {guestLabel} · {stay.unitName}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                          {formatDateRange(stay.checkIn, stay.checkOut, i18n.language)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
+                    <span className="text-slate-400" aria-hidden>
+                      {isExpanded ? '▴' : '▾'}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-3 text-sm text-slate-700">
+                      <dl className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {t('bookingList.unit', { defaultValue: 'Unidad' })}
+                          </dt>
+                          <dd className="mt-0.5">{stay.unitName}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {t('bookingDetails.stay', { defaultValue: 'Estadía' })}
+                          </dt>
+                          <dd className="mt-0.5">
+                            {formatDateRange(stay.checkIn, stay.checkOut, i18n.language)}
+                          </dd>
+                        </div>
+                        {stay.guestLast4 ? (
+                          <div>
+                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {t('bookingList.phoneLast4', {
+                                defaultValue: 'Últimos 4 del teléfono',
+                              })}
+                            </dt>
+                            <dd className="mt-0.5 font-mono tracking-wide">
+                              **** {stay.guestLast4}
+                            </dd>
+                          </div>
+                        ) : null}
+                        {stay.externalRef ? (
+                          <div>
+                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {t('bookingList.reservationCode', {
+                                defaultValue: 'Código Airbnb',
+                              })}
+                            </dt>
+                            <dd className="mt-0.5 font-mono tracking-wide">
+                              {stay.externalRef}
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                      <p className="mt-3 text-xs text-slate-500">
+                        {t('bookingList.airbnbGuestHint')}
+                      </p>
+                      {reservationUrl ? (
+                        <a
+                          href={reservationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-rose-300 hover:text-rose-600"
+                        >
+                          {t('bookingList.openInAirbnb', {
+                            defaultValue: 'Ver en Airbnb',
+                          })}
+                          <span aria-hidden>↗</span>
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               );
             }
 
+            // ------------------------------------------------------------
+            // Hold card: Airbnb windowing / Airbnb manual block / local
+            // manual hold. No guest, no actions. Rendered as a muted
+            // collapsible so 9-month windowing rows do not scream
+            // "reservation".
+            // ------------------------------------------------------------
+            if (card.kind === 'hold') {
+              const { stay } = card;
+              const palette = unitPalette(stay.unitId);
+              const isExpanded = expandedId === card.id;
+              const isAirbnbHold = stay.source === 'airbnb';
+              const badgeKey =
+                stay.externalKind === 'not_available'
+                  ? 'bookingList.badgeAirbnbNotAvailable'
+                  : stay.externalKind === 'blocked'
+                  ? 'bookingList.badgeAirbnbBlocked'
+                  : isAirbnbHold
+                  ? 'bookingList.badgeAirbnb'
+                  : 'bookingList.badgeManual';
+              const defaultBadge =
+                stay.externalKind === 'not_available'
+                  ? 'Airbnb · Hold'
+                  : stay.externalKind === 'blocked'
+                  ? 'Airbnb · Bloqueado'
+                  : isAirbnbHold
+                  ? 'Airbnb'
+                  : 'Hold manual';
+              const hintKey = isAirbnbHold
+                ? 'bookingList.airbnbHoldHint'
+                : 'bookingList.manualHoldHint';
+              const hintDefault = isAirbnbHold
+                ? 'Bloqueo administrativo sincronizado desde Airbnb. No es un huésped.'
+                : 'Hold manual creado desde el admin.';
+
+              return (
+                <div
+                  key={card.id}
+                  className="overflow-hidden rounded-xl border border-dashed border-slate-200 bg-slate-50/40"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : card.id)}
+                    className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-100/60"
+                    aria-expanded={isExpanded}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"
+                        style={{
+                          backgroundColor: palette.bg,
+                          borderColor: palette.text,
+                          color: palette.text,
+                        }}
+                      >
+                        {t(badgeKey, { defaultValue: defaultBadge })}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-700">
+                          {stay.unitName}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                          {formatDateRange(stay.checkIn, stay.checkOut, i18n.language)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-slate-400" aria-hidden>
+                      {isExpanded ? '▴' : '▾'}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <div className="border-t border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                      <dl className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {t('bookingList.unit', { defaultValue: 'Unidad' })}
+                          </dt>
+                          <dd className="mt-0.5">{stay.unitName}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {t('bookingDetails.stay', { defaultValue: 'Estadía' })}
+                          </dt>
+                          <dd className="mt-0.5">
+                            {formatDateRange(stay.checkIn, stay.checkOut, i18n.language)}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="mt-3 text-xs text-slate-500">
+                        {t(hintKey, { defaultValue: hintDefault })}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
+
+            // ------------------------------------------------------------
+            // Widget booking card (collapsible accordion).
+            // ------------------------------------------------------------
             const booking = card.booking;
+            const isExpanded = expandedId === booking.id;
             const created = booking.created_at
               ? formatDistanceToNow(parseISO(booking.created_at), { addSuffix: true })
               : null;
@@ -884,34 +1075,43 @@ export default function BookingList() {
             const canCheckOut = booking.status === 'checked_in';
             const isHighlighted = highlightedBookingId === booking.id;
 
+            const firstName = booking.guest_name?.split(/\s+/)[0] ?? '';
+            const lastInitial = booking.guest_name?.split(/\s+/).slice(1).join(' ')?.charAt(0) ?? '';
+            const compactGuest = [firstName, lastInitial ? `${lastInitial}.` : ''].filter(Boolean).join(' ');
+
             return (
               <div
                 key={booking.id}
                 id={`booking-${booking.id}`}
-                className={`rounded-xl border bg-white p-4 transition-shadow ${
+                className={`overflow-hidden rounded-xl border bg-white transition-shadow ${
                   isHighlighted
                     ? 'border-sky-400 shadow-md shadow-sky-100 ring-1 ring-sky-300'
                     : 'border-slate-200'
                 }`}
               >
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-900">
-                      {booking.units?.name ?? t('bookingList.unit')}
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      {t('bookingList.ref', { ref: booking.id.slice(0, 8).toUpperCase() })}
-                    </p>
-                    {created ? (
-                      <p className="text-xs text-slate-500">
-                        {t('bookingList.requested', { time: created })}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : booking.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-expanded={isExpanded}
+                  >
+                    <span className="inline-flex shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
                       {t('bookingList.badgeWidget', { defaultValue: 'Web' })}
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {compactGuest || booking.guest_name} · {booking.units?.name ?? t('bookingList.unit')}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {formatDateRange(booking.check_in_date, booking.check_out_date, i18n.language)}
+                        {booking.total_price_usd
+                          ? ` · $${booking.total_price_usd.toLocaleString()}`
+                          : ''}
+                      </p>
+                    </div>
+                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
                     {pathBadge ? (
                       <span
                         className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${pathBadge.className}`}
@@ -924,65 +1124,106 @@ export default function BookingList() {
                     >
                       {booking.status}
                     </span>
+                    {booking.status === 'pending' && !hideApproveButton ? (
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void approve(booking.id);
+                          }}
+                          disabled={isActing}
+                          className="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isActing ? '...' : t('approval.approve')}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRejectModal(booking.id);
+                          }}
+                          disabled={isActing}
+                          className="rounded-md border border-rose-300 px-2.5 py-1 text-xs font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {t('approval.reject')}
+                        </button>
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : booking.id)}
+                      className="text-slate-400 hover:text-slate-600"
+                      aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                    >
+                      {isExpanded ? '▴' : '▾'}
+                    </button>
                   </div>
                 </div>
 
-                <BookingDetails booking={booking} />
+                {isExpanded ? (
+                  <div className="border-t border-slate-100 bg-slate-50/30 px-4 py-3">
+                    <p className="mb-2 text-xs text-slate-500">
+                      {t('bookingList.ref', { ref: booking.id.slice(0, 8).toUpperCase() })}
+                      {created ? ` · ${t('bookingList.requested', { time: created })}` : ''}
+                    </p>
 
-                <div className="mt-3">
-                  <BookingNotes bookingId={booking.id} />
-                </div>
+                    <BookingDetails booking={booking} />
 
-                {booking.rejection_reason ? (
-                  <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                    {t('bookingList.rejectionReason')}{booking.rejection_reason}
-                  </div>
-                ) : null}
+                    <div className="mt-3">
+                      <BookingNotes bookingId={booking.id} />
+                    </div>
 
-                {booking.status === 'pending' && !hideApproveButton ? (
-                  <div className="mt-3">
-                    <ApprovalButtons
-                      onApprove={() => void approve(booking.id)}
-                      onReject={() => openRejectModal(booking.id)}
-                      isLoading={isActing}
-                    />
-                  </div>
-                ) : null}
-
-                {hideApproveButton ? (
-                  <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                    {t('bookingList.autoApproved')}
-                  </div>
-                ) : null}
-
-                {(canCheckIn || canCheckOut || cancellable) ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {canCheckIn ? (
-                      <button
-                        onClick={() => void checkIn(booking.id)}
-                        disabled={isActing}
-                        className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isActing ? '...' : 'Check-in'}
-                      </button>
+                    {booking.rejection_reason ? (
+                      <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        {t('bookingList.rejectionReason')}{booking.rejection_reason}
+                      </div>
                     ) : null}
-                    {canCheckOut ? (
-                      <button
-                        onClick={() => void checkOut(booking.id)}
-                        disabled={isActing}
-                        className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isActing ? '...' : 'Check-out'}
-                      </button>
+
+                    {booking.status === 'pending' && !hideApproveButton ? (
+                      <div className="mt-3">
+                        <ApprovalButtons
+                          onApprove={() => void approve(booking.id)}
+                          onReject={() => openRejectModal(booking.id)}
+                          isLoading={isActing}
+                        />
+                      </div>
                     ) : null}
-                    {cancellable ? (
-                      <button
-                        onClick={() => void cancelBooking(booking.id)}
-                        disabled={isActing}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isActing ? '...' : t('bookingList.cancelBooking', { defaultValue: 'Cancelar reserva' })}
-                      </button>
+
+                    {hideApproveButton ? (
+                      <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                        {t('bookingList.autoApproved')}
+                      </div>
+                    ) : null}
+
+                    {(canCheckIn || canCheckOut || cancellable) ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {canCheckIn ? (
+                          <button
+                            onClick={() => void checkIn(booking.id)}
+                            disabled={isActing}
+                            className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isActing ? '...' : 'Check-in'}
+                          </button>
+                        ) : null}
+                        {canCheckOut ? (
+                          <button
+                            onClick={() => void checkOut(booking.id)}
+                            disabled={isActing}
+                            className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isActing ? '...' : 'Check-out'}
+                          </button>
+                        ) : null}
+                        {cancellable ? (
+                          <button
+                            onClick={() => void cancelBooking(booking.id)}
+                            disabled={isActing}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isActing ? '...' : t('bookingList.cancelBooking', { defaultValue: 'Cancelar reserva' })}
+                          </button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 ) : null}

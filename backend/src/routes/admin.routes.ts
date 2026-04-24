@@ -166,7 +166,7 @@ router.get('/calendar', async (req, res) => {
       .order('check_in_date', { ascending: true }),
     supabaseAdmin
       .from('availability')
-      .select('unit_id, blocked_date, source, units(name)')
+      .select('unit_id, blocked_date, source, external_kind, external_ref, guest_last4, units(name)')
       .in('source', ['airbnb', 'manual'])
       .gte('blocked_date', from)
       .lte('blocked_date', to)

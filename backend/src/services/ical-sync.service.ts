@@ -8,10 +8,30 @@ import { logger } from '../config/logger';
 import { SyncStatus } from '../types';
 import { env } from '../config/env';
 
+type ExternalKind = 'reserved' | 'not_available' | 'blocked' | 'unknown';
+
 interface BlockedDateRange {
   start: Date;
   end: Date;
   summary: string;
+  kind: ExternalKind;
+  externalRef: string | null;
+  guestLast4: string | null;
+}
+
+interface ClassifiedRange {
+  kind: ExternalKind;
+  externalRef: string | null;
+  guestLast4: string | null;
+  /** Inclusive ISO date (yyyy-MM-dd) of the first blocked night. */
+  startDate: string;
+  /** Inclusive ISO date (yyyy-MM-dd) of the last blocked night. */
+  endDate: string;
+}
+
+interface ParsedIcal {
+  blockedDates: string[];
+  ranges: ClassifiedRange[];
 }
 
 interface UnitSyncRow {
@@ -90,33 +110,109 @@ function bufToUtf8(buf: Buffer): string {
   return buf.toString('utf8');
 }
 
-function parseBlockedDates(icsText: string): string[] {
+/**
+ * Classify a VEVENT SUMMARY into one of the four buckets we persist.
+ * Airbnb's exact strings are matched case-insensitively, with a prefix
+ * fallback so minor copy changes ("Airbnb (not available) - reason")
+ * still route correctly.
+ */
+function classifySummary(summaryRaw: string): ExternalKind {
+  const s = summaryRaw.trim().toLowerCase();
+  if (!s) return 'unknown';
+  if (s === 'reserved' || s.startsWith('reserved')) return 'reserved';
+  if (s.startsWith('airbnb (not available)') || s.includes('not available')) return 'not_available';
+  if (s === 'blocked' || s.startsWith('blocked')) return 'blocked';
+  return 'unknown';
+}
+
+/**
+ * Pull the reservation code and phone last4 out of a VEVENT DESCRIPTION.
+ * Airbnb formats the description as:
+ *   Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMXTN9AJJM\nPhone Number (Last 4 Digits): 4188
+ *
+ * We extract the 10-char reservation code (the tail of the URL after
+ * /details/) and the exactly-4-digit phone slice. Both are optional so a
+ * reservation without a phone still gets classified correctly.
+ */
+function extractReservationMetadata(
+  descriptionRaw: string | undefined
+): { externalRef: string | null; guestLast4: string | null } {
+  if (!descriptionRaw) return { externalRef: null, guestLast4: null };
+  const desc = descriptionRaw.toString();
+
+  let externalRef: string | null = null;
+  const urlMatch = desc.match(/reservations\/details\/([A-Z0-9]{6,20})/i);
+  if (urlMatch) {
+    externalRef = urlMatch[1].toUpperCase();
+  }
+
+  let guestLast4: string | null = null;
+  const phoneMatch = desc.match(/Last\s*4\s*Digits\)\s*:\s*(\d{4})/i);
+  if (phoneMatch) {
+    guestLast4 = phoneMatch[1];
+  }
+
+  return { externalRef, guestLast4 };
+}
+
+function parseIcal(icsText: string): ParsedIcal {
   const parsed = ical.parseICS(icsText);
   const ranges: BlockedDateRange[] = [];
 
   for (const event of Object.values(parsed)) {
     if (event.type === 'VEVENT' && event.start && event.end) {
+      const summary = (event.summary ?? '').toString();
+      const { externalRef, guestLast4 } = extractReservationMetadata(
+        (event as unknown as { description?: string }).description
+      );
       ranges.push({
         start: event.start as Date,
         end: event.end as Date,
-        summary: (event.summary ?? '').toString()
+        summary,
+        kind: classifySummary(summary),
+        externalRef,
+        guestLast4
       });
     }
   }
 
   const blocked: string[] = [];
+  const classified: ClassifiedRange[] = [];
+
   for (const range of ranges) {
     // iCal DTEND is exclusive for VEVENT. We enumerate [start, end-1].
-    const days = eachDayOfInterval({
-      start: range.start,
-      end: new Date(range.end.getTime() - 24 * 60 * 60 * 1000)
-    });
+    const lastInclusive = new Date(range.end.getTime() - 24 * 60 * 60 * 1000);
+    const days = eachDayOfInterval({ start: range.start, end: lastInclusive });
+    if (days.length === 0) continue;
+
+    const startIso = format(days[0], 'yyyy-MM-dd');
+    const endIso = format(days[days.length - 1], 'yyyy-MM-dd');
+
     for (const date of days) {
       blocked.push(format(date, 'yyyy-MM-dd'));
     }
+
+    classified.push({
+      kind: range.kind,
+      externalRef: range.externalRef,
+      guestLast4: range.guestLast4,
+      startDate: startIso,
+      endDate: endIso
+    });
   }
 
-  return Array.from(new Set(blocked)).sort();
+  return {
+    blockedDates: Array.from(new Set(blocked)).sort(),
+    ranges: classified
+  };
+}
+
+/**
+ * @deprecated kept for the existing test harness. New code should call
+ * parseIcal for both the flat date list and the classified ranges.
+ */
+function parseBlockedDates(icsText: string): string[] {
+  return parseIcal(icsText).blockedDates;
 }
 
 async function callSyncAvailability(unitId: string, blockedDates: string[]): Promise<SyncAvailabilityDiff> {
@@ -135,6 +231,56 @@ async function callSyncAvailability(unitId: string, blockedDates: string[]): Pro
     inserted: Number(diff.inserted ?? 0),
     deleted: Number(diff.deleted ?? 0)
   };
+}
+
+/**
+ * Stamp the airbnb classification onto the availability rows the RPC just
+ * synced. Runs AFTER sync_availability so every row in the target range
+ * already exists with source='airbnb'. The RPC signature stays untouched;
+ * this is the classification sidecar.
+ *
+ * Strategy: for each contiguous range, UPDATE matching airbnb rows in a
+ * single statement. Released rows (already deleted by the RPC) are not
+ * affected. Widget / manual rows are filtered out by source='airbnb'.
+ */
+async function applyRangeClassification(
+  unitId: string,
+  ranges: ClassifiedRange[]
+): Promise<{ updated: number; failed: number }> {
+  if (ranges.length === 0) return { updated: 0, failed: 0 };
+
+  let updated = 0;
+  let failed = 0;
+
+  for (const range of ranges) {
+    const { error, count } = await supabaseAdmin
+      .from('availability')
+      .update(
+        {
+          external_kind: range.kind,
+          external_ref: range.externalRef,
+          guest_last4: range.guestLast4
+        },
+        { count: 'exact' }
+      )
+      .eq('unit_id', unitId)
+      .eq('source', 'airbnb')
+      .gte('blocked_date', range.startDate)
+      .lte('blocked_date', range.endDate);
+
+    if (error) {
+      failed += 1;
+      logger.warn('applyRangeClassification: update failed', {
+        unitId,
+        range,
+        error: error.message
+      });
+      continue;
+    }
+    updated += count ?? 0;
+  }
+
+  return { updated, failed };
 }
 
 async function updateUnitCacheHints(
@@ -254,8 +400,28 @@ export async function syncUnit(unitId: string, fallbackIcalUrl?: string): Promis
     }
 
     const icsText = bufToUtf8(bodyBuf);
-    const blockedDates = parseBlockedDates(icsText);
+    const { blockedDates, ranges } = parseIcal(icsText);
     const diff = await callSyncAvailability(unitId, blockedDates);
+
+    // Classification sidecar: stamp external_kind / external_ref / guest_last4
+    // onto the rows the RPC just upserted. A failure here is not fatal for
+    // availability correctness, just downgrades UI precision, so we log and
+    // keep going.
+    try {
+      const classification = await applyRangeClassification(unitId, ranges);
+      if (classification.failed > 0) {
+        logger.warn('syncUnit: partial classification failure', {
+          unitId,
+          failed: classification.failed,
+          updated: classification.updated
+        });
+      }
+    } catch (classifyErr) {
+      logger.warn('syncUnit: classification step threw', {
+        unitId,
+        error: classifyErr instanceof Error ? classifyErr.message : 'unknown'
+      });
+    }
 
     await updateUnitCacheHints(unitId, {
       ical_body_hash: newHash,
