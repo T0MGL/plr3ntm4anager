@@ -94,6 +94,14 @@ const t: Record<string, Record<Locale, string>> = {
     es: 'Motivo',
     en: 'Reason',
   },
+  'rejected.refundPreauth': {
+    es: 'Liberamos la retención en tu tarjeta. No se realizó ningún cobro. Según tu banco, la retención puede tardar entre 1 y 7 días hábiles en desaparecer del extracto.',
+    en: 'We released the hold on your card. No charge was made. Depending on your bank, the hold may take 1 to 7 business days to disappear from your statement.',
+  },
+  'rejected.refundCaptured': {
+    es: 'Revertimos el cobro. El reintegro aparece en tu tarjeta en un plazo estimado de 5 a 10 días hábiles, según el tiempo de procesamiento de tu banco.',
+    en: 'We have reversed the charge. The refund will appear on your card within an estimated 5 to 10 business days, depending on your bank\'s processing time.',
+  },
   'rejected.closing': {
     es: 'Si tenés alguna consulta, no dudes en escribirnos.',
     en: 'If you have any questions, please do not hesitate to reach out.',
@@ -112,9 +120,19 @@ const t: Record<string, Record<Locale, string>> = {
     es: 'Tu solicitud llegó casi al mismo tiempo que otra reserva para las mismas fechas y, lamentablemente, no pudimos confirmarla.',
     en: 'Your request arrived at nearly the same time as another booking for the same dates, and unfortunately we were unable to confirm yours.',
   },
-  'conflict.refund': {
-    es: 'Revertimos el cobro en este momento. El reintegro aparece en tu tarjeta en un plazo estimado de 5 a 10 días hábiles, según el tiempo de procesamiento de tu banco.',
+  // Used when the booking was on the auto path and the charge had already
+  // been captured before the conflict was detected. Rollback here is a real
+  // refund back to the card (5 to 10 business days typical).
+  'conflict.refundCaptured': {
+    es: 'Revertimos el cobro. El reintegro aparece en tu tarjeta en un plazo estimado de 5 a 10 días hábiles, según el tiempo de procesamiento de tu banco.',
     en: 'We have reversed the charge. The refund will appear on your card within an estimated 5 to 10 business days, depending on your bank\'s processing time.',
+  },
+  // Used when the booking was on the manual path and only a preauthorization
+  // was placed. Rollback here releases the hold; no money ever moved, so the
+  // "refund" language would be wrong and alarming.
+  'conflict.refundPreauth': {
+    es: 'Liberamos la retención en tu tarjeta. No se realizó ningún cobro. Según tu banco, la retención puede tardar entre 1 y 7 días hábiles en desaparecer del extracto.',
+    en: 'We released the hold on your card. No charge was made. Depending on your bank, the hold may take 1 to 7 business days to disappear from your statement.',
   },
   'conflict.nextSteps': {
     es: 'Si querés, podemos ayudarte a encontrar otras fechas o unidades disponibles. Respondé a este correo y te asistimos de inmediato.',
@@ -339,16 +357,31 @@ export function bookingRejectedEmail(params: {
   reason: string;
   bookingId: string;
   locale?: string | null;
+  // When the rejected booking had a payment on file, pass its status so the
+  // email tells the guest exactly what to expect on their statement.
+  //   'completed'     -> captured charge reversed, refund in 5 to 10 days.
+  //   'preauthorized' -> hold released, no charge was ever made.
+  //   undefined       -> no payment or unknown, skip the refund block.
+  paymentType?: 'preauthorized' | 'completed' | null;
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
   const reference = params.bookingId.slice(0, 8).toUpperCase();
   const refLabel = locale === 'es' ? 'Referencia' : 'Reference';
   const subject = get('rejected.subject', locale);
+
+  const refundKey =
+    params.paymentType === 'completed'
+      ? 'rejected.refundCaptured'
+      : params.paymentType === 'preauthorized'
+        ? 'rejected.refundPreauth'
+        : null;
+
   const html = wrap(locale, [
     heading(get('rejected.heading', locale)),
     greeting(params.guestName, locale),
     paragraph(get('rejected.body', locale)),
     paragraph(`<strong>${get('rejected.reason', locale)}:</strong> ${params.reason}`),
+    refundKey ? infoBlock(get(refundKey, locale)) : '',
     `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
       <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>
       <div style="margin-top:4px;font-family:monospace;font-size:18px;font-weight:600;letter-spacing:0.08em;color:${COLORS.charcoal};">${reference}</div>
@@ -386,16 +419,31 @@ export function bookingConflictRejectionEmail(params: {
   guestName: string;
   bookingId: string;
   locale?: string | null;
+  // Drives which refund paragraph the guest sees:
+  //   'completed'     -> captured charge reversed, refund in 5 to 10 days.
+  //   'preauthorized' -> hold released, no charge was ever made.
+  //   null/undefined  -> no active payment to describe, skip the block.
+  // In normal approval-recheck flow this is always set (auto=completed or
+  // manual=preauthorized). It may be null only if the payment row was
+  // already Failed/Refunded before recheck, in which case talking about a
+  // refund would be misleading.
+  paymentType?: 'preauthorized' | 'completed' | null;
 }): { subject: string; html: string } {
   const locale = resolveLocale(params.locale);
   const reference = params.bookingId.slice(0, 8).toUpperCase();
   const refLabel = locale === 'es' ? 'Referencia' : 'Reference';
   const subject = get('conflict.subject', locale);
+  const refundKey =
+    params.paymentType === 'preauthorized'
+      ? 'conflict.refundPreauth'
+      : params.paymentType === 'completed'
+        ? 'conflict.refundCaptured'
+        : null;
   const html = wrap(locale, [
     heading(get('conflict.heading', locale)),
     greeting(params.guestName, locale),
     paragraph(get('conflict.body', locale)),
-    infoBlock(get('conflict.refund', locale)),
+    refundKey ? infoBlock(get(refundKey, locale)) : '',
     paragraph(get('conflict.nextSteps', locale)),
     `<div style="margin:16px 0 20px;padding:16px 20px;background-color:${COLORS.cream};border-left:3px solid ${COLORS.gold};">
       <span style="font-size:12px;color:${COLORS.gray};text-transform:uppercase;letter-spacing:0.1em;">${refLabel}</span>

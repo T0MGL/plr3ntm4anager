@@ -252,6 +252,27 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
       reason: recheck.reason
     });
 
+    // Read the pre-rollback payment status so the conflict email can pick the
+    // right refund language (captured charge vs released preauth). After
+    // rollbackPayment runs, the row moves to 'refunded' and the original type
+    // is no longer directly readable.
+    const { data: preRollbackPayment } = await supabaseAdmin
+      .from('payments')
+      .select('payment_status')
+      .eq('booking_id', bookingId)
+      .in('payment_status', [
+        PaymentStatus.Pending,
+        PaymentStatus.Preauthorized,
+        PaymentStatus.Completed
+      ])
+      .maybeSingle();
+    const conflictPaymentType: 'preauthorized' | 'completed' | null =
+      preRollbackPayment?.payment_status === PaymentStatus.Completed
+        ? 'completed'
+        : preRollbackPayment?.payment_status === PaymentStatus.Preauthorized
+          ? 'preauthorized'
+          : null;
+
     try {
       await rollbackPayment(bookingId);
     } catch (rollbackErr: unknown) {
@@ -287,7 +308,8 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
     const conflictEmail = bookingConflictRejectionEmail({
       guestName: booking.guest_name,
       bookingId,
-      locale: booking.locale
+      locale: booking.locale,
+      paymentType: conflictPaymentType
     });
     await sendEmail(booking.guest_email, conflictEmail.subject, conflictEmail.html);
 
@@ -413,6 +435,26 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
   // leave stale blocks behind that desync the widget from the admin view.
   await unblockWidgetDates(bookingId);
 
+  // Capture the pre-rollback payment status so the guest email can explain
+  // exactly what to expect on their statement (captured refund vs released
+  // hold). Read before rollback because the row flips to 'refunded' after.
+  const { data: preRollbackPayment } = await supabaseAdmin
+    .from('payments')
+    .select('payment_status')
+    .eq('booking_id', bookingId)
+    .in('payment_status', [
+      PaymentStatus.Pending,
+      PaymentStatus.Preauthorized,
+      PaymentStatus.Completed
+    ])
+    .maybeSingle();
+  const rejectPaymentType: 'preauthorized' | 'completed' | null =
+    preRollbackPayment?.payment_status === PaymentStatus.Completed
+      ? 'completed'
+      : preRollbackPayment?.payment_status === PaymentStatus.Preauthorized
+        ? 'preauthorized'
+        : null;
+
   try {
     await rollbackPayment(bookingId);
   } catch (rollbackErr: unknown) {
@@ -424,7 +466,8 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
     guestName: booking.guest_name,
     reason: req.body.rejection_reason,
     bookingId,
-    locale: booking.locale
+    locale: booking.locale,
+    paymentType: rejectPaymentType
   });
   await sendEmail(booking.guest_email, rejectedEmail.subject, rejectedEmail.html);
 

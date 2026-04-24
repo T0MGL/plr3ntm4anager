@@ -4,8 +4,6 @@ import { bookingRateLimit } from '../middleware/rate-limit.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { dateSchema, emailSchema, phoneSchema } from '../utils/validation.utils';
 import { createBookingRequest, getPublicBookingDetails } from '../services/booking.service';
-import { sendEmail } from '../services/email.service';
-import { bookingRequestEmail } from '../templates/emails';
 
 const router = Router();
 
@@ -46,12 +44,12 @@ router.post('/booking-request', bookingRateLimit, validate(bookingSchema), async
       locale: payload.locale
     });
 
-    // Respond immediately, email is non-blocking (SMTP may timeout).
+    // Do NOT send a "request received" email here. The guest has not entered
+    // their card yet and the language "pending review" contradicts the real
+    // flow. The single authoritative email is sent after the payment step,
+    // based on the actual path: paymentConfirmedEmail (auto), underReview
+    // (manual preauth), paymentFailed, or conflictRejection.
     res.json({ booking_id: result.bookingId, status: 'pending' });
-
-    const email = bookingRequestEmail({ guestName: payload.guest_name, bookingId: result.bookingId, locale: payload.locale });
-    sendEmail(payload.guest_email, email.subject, email.html)
-      .catch(() => { /* logged inside sendEmail */ });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create booking request';
     return res.status(400).json({ error: message });
