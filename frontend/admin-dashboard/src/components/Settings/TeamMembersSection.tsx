@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
-import { FiLoader, FiMoreHorizontal, FiUserPlus } from 'react-icons/fi';
+import { FiChevronDown, FiLoader, FiMoreHorizontal, FiUserPlus } from 'react-icons/fi';
 import {
   AdminUserApiError,
   adminUsersApi,
@@ -11,6 +11,8 @@ import {
 } from '../../services/admin-users';
 import InviteMemberModal from './InviteMemberModal';
 import ConfirmActionModal from './ConfirmActionModal';
+import RolePill from './RolePill';
+import StatusPill from './StatusPill';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 
@@ -18,17 +20,6 @@ interface PendingAction {
   kind: 'reinvite' | 'reset' | 'deactivate' | 'reactivate';
   user: AdminUser;
 }
-
-const ROLE_BADGE: Record<AdminRole, string> = {
-  admin: 'bg-violet-50 text-violet-700 border-violet-200',
-  staff: 'bg-slate-50 text-slate-700 border-slate-200',
-};
-
-const STATUS_BADGE: Record<AdminUser['status'] | 'pending', string> = {
-  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  inactive: 'bg-slate-100 text-slate-500 border-slate-200',
-  pending: 'bg-amber-50 text-amber-700 border-amber-200',
-};
 
 // Status semantics:
 //   active    auth_id linked, can sign in
@@ -51,8 +42,10 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
   const [loadError, setLoadError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openRoleId, setOpenRoleId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const roleMenuRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = async () => {
     try {
@@ -81,6 +74,16 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [openMenuId]);
+
+  // Close role dropdown on outside click.
+  useEffect(() => {
+    if (!openRoleId) return;
+    const onClick = (e: MouseEvent) => {
+      if (roleMenuRef.current && !roleMenuRef.current.contains(e.target as Node)) setOpenRoleId(null);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [openRoleId]);
 
   const handleInvite = async (input: { name: string; email: string; role: AdminRole }) => {
     const created = await adminUsersApi.invite(input);
@@ -232,23 +235,64 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <select
-                          value={user.role}
-                          onChange={(e) => void handleRoleChange(user, e.target.value as AdminRole)}
-                          disabled={eff === 'inactive'}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/30 disabled:opacity-60 ${ROLE_BADGE[user.role]}`}
-                          aria-label={t('team.changeRoleAriaLabel', { name: user.name })}
+                        <div
+                          className="relative inline-block"
+                          ref={openRoleId === user.id ? roleMenuRef : null}
                         >
-                          <option value="staff">{t('team.roleStaff')}</option>
-                          <option value="admin">{t('team.roleAdmin')}</option>
-                        </select>
+                          <button
+                            type="button"
+                            disabled={eff === 'inactive'}
+                            onClick={() =>
+                              setOpenRoleId((cur) => (cur === user.id ? null : user.id))
+                            }
+                            aria-haspopup="menu"
+                            aria-expanded={openRoleId === user.id}
+                            aria-label={t('team.changeRoleAriaLabel', { name: user.name })}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                user.role === 'admin' ? 'bg-violet-500' : 'bg-slate-400'
+                              }`}
+                              aria-hidden="true"
+                            />
+                            {user.role === 'admin' ? t('team.roleAdmin') : t('team.roleStaff')}
+                            <FiChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                          </button>
+                          {openRoleId === user.id ? (
+                            <div
+                              role="menu"
+                              className="absolute left-0 z-30 mt-1 w-40 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                            >
+                              {(['staff', 'admin'] as AdminRole[]).map((r) => (
+                                <button
+                                  key={r}
+                                  type="button"
+                                  role="menuitemradio"
+                                  aria-checked={user.role === r}
+                                  onClick={() => {
+                                    setOpenRoleId(null);
+                                    void handleRoleChange(user, r);
+                                  }}
+                                  className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50 ${
+                                    user.role === r ? 'text-slate-900' : 'text-slate-600'
+                                  }`}
+                                >
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${
+                                      r === 'admin' ? 'bg-violet-500' : 'bg-slate-400'
+                                    }`}
+                                    aria-hidden="true"
+                                  />
+                                  {r === 'admin' ? t('team.roleAdmin') : t('team.roleStaff')}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3 align-top">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_BADGE[eff]}`}
-                        >
-                          {t(`team.status_${eff}`)}
-                        </span>
+                        <StatusPill status={eff} />
                       </td>
                       <td className="px-4 py-3 align-top text-xs text-slate-500">
                         {renderRelative(user.createdAt)}
@@ -358,16 +402,8 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
                       <div className="font-medium text-slate-900 truncate">{user.name}</div>
                       <div className="text-xs text-slate-500 truncate">{user.email}</div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 font-medium ${ROLE_BADGE[user.role]}`}
-                        >
-                          {t(`team.role${user.role === 'admin' ? 'Admin' : 'Staff'}`)}
-                        </span>
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 font-medium ${STATUS_BADGE[eff]}`}
-                        >
-                          {t(`team.status_${eff}`)}
-                        </span>
+                        <RolePill role={user.role} />
+                        <StatusPill status={eff} />
                       </div>
                     </div>
                   </div>

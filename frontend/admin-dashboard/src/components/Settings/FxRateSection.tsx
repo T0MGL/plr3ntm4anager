@@ -142,13 +142,13 @@ export default function FxRateSection() {
         : status.source;
 
   const StatusBadge = status.fallback || status.stale ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-      <FiAlertTriangle className="h-3 w-3" aria-hidden="true" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+      <FiAlertTriangle className="h-3 w-3 text-amber-500" aria-hidden="true" />
       {status.fallback ? t('fxRate.badgeFallback') : t('fxRate.badgeStale')}
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-      <FiCheckCircle className="h-3 w-3" aria-hidden="true" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+      <FiCheckCircle className="h-3 w-3 text-emerald-500" aria-hidden="true" />
       {t('fxRate.badgeFresh')}
     </span>
   );
@@ -289,7 +289,7 @@ export default function FxRateSection() {
             type="button"
             onClick={() => void saveOverride()}
             disabled={!overrideInput.trim() || savingOverride}
-            className="inline-flex items-center gap-2 rounded-full bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
           >
             {savingOverride ? (
               <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
