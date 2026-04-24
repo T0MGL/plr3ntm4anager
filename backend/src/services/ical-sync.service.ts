@@ -215,6 +215,140 @@ function parseBlockedDates(icsText: string): string[] {
   return parseIcal(icsText).blockedDates;
 }
 
+// Dependency injection seam for alias snapshot/restore, mirroring the
+// pattern used in approval-routing.service.ts. Tests swap these with
+// in-memory stubs so snapshot/restore can be exercised end-to-end without
+// Supabase.
+type SupabaseLike = {
+  from: (table: string) => {
+    select: (cols: string) => {
+      eq: (column: string, value: unknown) => {
+        eq: (column: string, value: unknown) => {
+          not: (column: string, op: string, value: unknown) => {
+            not: (column: string, op: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>;
+          };
+        };
+      };
+    };
+    update: (
+      payload: Record<string, unknown>,
+      options?: { count?: string }
+    ) => {
+      eq: (column: string, value: unknown) => {
+        eq: (column: string, value: unknown) => {
+          eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null; count: number | null }>;
+        };
+      };
+    };
+  };
+};
+
+let aliasDbClient: SupabaseLike = supabaseAdmin as unknown as SupabaseLike;
+
+/** @internal test hook */
+export function __setAliasDbClientForTests(client: unknown): void {
+  aliasDbClient = client as SupabaseLike;
+}
+
+/** @internal test hook */
+export function __resetAliasDbClient(): void {
+  aliasDbClient = supabaseAdmin as unknown as SupabaseLike;
+}
+
+/**
+ * Snapshot guest_alias keyed by external_ref BEFORE sync_availability runs.
+ *
+ * The sync_availability RPC (production/004_triggers_and_functions.sql) does
+ * DELETE + INSERT on availability rows. Any alias written by the admin lives
+ * on those rows and would be wiped on every re-sync without this snapshot.
+ *
+ * Pairing alias with external_ref (Airbnb reservation code, stable across
+ * re-syncs) is the right anchor: if the reservation stays in the iCal feed,
+ * we reapply the alias. If the reservation is cancelled (drops from the
+ * feed) the alias disappears with the range, which is the correct behaviour.
+ */
+export async function snapshotGuestAliases(unitId: string): Promise<Map<string, string>> {
+  const result = await aliasDbClient
+    .from('availability')
+    .select('external_ref, guest_alias')
+    .eq('unit_id', unitId)
+    .eq('source', 'airbnb')
+    .not('guest_alias', 'is', null)
+    .not('external_ref', 'is', null);
+
+  const { data, error } = result as { data: { external_ref: string | null; guest_alias: string | null }[] | null; error: { message: string } | null };
+
+  if (error) {
+    logger.warn('snapshotGuestAliases: read failed, alias may be lost on re-sync', {
+      unitId,
+      error: error.message
+    });
+    return new Map();
+  }
+
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    if (row.external_ref && row.guest_alias) {
+      // Dedup by external_ref: a multi-night reservation has the same alias
+      // on every night, first-seen wins and they are all equal anyway.
+      if (!map.has(row.external_ref)) {
+        map.set(row.external_ref, row.guest_alias);
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Reapply the alias snapshot AFTER the RPC has run and classification has
+ * stamped external_kind / external_ref / guest_last4 on the freshly inserted
+ * rows. Keyed on external_ref so a range that shifted by a night (Airbnb
+ * edits the reservation) still picks up the right alias.
+ *
+ * Returns the number of rows updated across all ranges. Errors are logged
+ * but do not throw because alias loss is a degraded-UX failure, not a
+ * data-integrity failure.
+ */
+export async function restoreGuestAliases(
+  unitId: string,
+  aliasByRef: Map<string, string>,
+  ranges: ClassifiedRange[]
+): Promise<{ updated: number }> {
+  if (aliasByRef.size === 0 || ranges.length === 0) return { updated: 0 };
+
+  let updated = 0;
+  const seenRefs = new Set<string>();
+
+  for (const range of ranges) {
+    if (!range.externalRef) continue;
+    if (seenRefs.has(range.externalRef)) continue;
+    seenRefs.add(range.externalRef);
+
+    const alias = aliasByRef.get(range.externalRef);
+    if (!alias) continue;
+
+    const updateResult = await aliasDbClient
+      .from('availability')
+      .update({ guest_alias: alias }, { count: 'exact' })
+      .eq('unit_id', unitId)
+      .eq('source', 'airbnb')
+      .eq('external_ref', range.externalRef);
+    const { error, count } = updateResult as { error: { message: string } | null; count: number | null };
+
+    if (error) {
+      logger.warn('restoreGuestAliases: update failed for ref', {
+        unitId,
+        externalRef: range.externalRef,
+        error: error.message
+      });
+      continue;
+    }
+    updated += count ?? 0;
+  }
+
+  return { updated };
+}
+
 async function callSyncAvailability(unitId: string, blockedDates: string[]): Promise<SyncAvailabilityDiff> {
   const { data, error } = await supabaseAdmin.rpc('sync_availability', {
     p_unit_id: unitId,
@@ -401,6 +535,19 @@ export async function syncUnit(unitId: string, fallbackIcalUrl?: string): Promis
 
     const icsText = bufToUtf8(bodyBuf);
     const { blockedDates, ranges } = parseIcal(icsText);
+
+    // Alias preservation across re-sync.
+    //
+    // sync_availability RPC does DELETE + INSERT per unit, so any guest_alias
+    // the admin typed in the UI is wiped every time Airbnb changes the feed.
+    // Snapshot before, restore after, keyed on external_ref (Airbnb's
+    // reservation code, stable as long as the reservation exists).
+    //
+    // Snapshot runs before the RPC so we capture rows that are about to be
+    // deleted. Restore runs after classification so external_ref is already
+    // stamped on the freshly inserted rows.
+    const aliasSnapshot = await snapshotGuestAliases(unitId);
+
     const diff = await callSyncAvailability(unitId, blockedDates);
 
     // Classification sidecar: stamp external_kind / external_ref / guest_last4
@@ -420,6 +567,22 @@ export async function syncUnit(unitId: string, fallbackIcalUrl?: string): Promis
       logger.warn('syncUnit: classification step threw', {
         unitId,
         error: classifyErr instanceof Error ? classifyErr.message : 'unknown'
+      });
+    }
+
+    // Restore aliases after classification so external_ref is in place.
+    try {
+      const restoration = await restoreGuestAliases(unitId, aliasSnapshot, ranges);
+      if (aliasSnapshot.size > 0 && restoration.updated === 0) {
+        logger.warn('syncUnit: alias snapshot had entries but nothing was restored', {
+          unitId,
+          snapshotSize: aliasSnapshot.size
+        });
+      }
+    } catch (restoreErr) {
+      logger.warn('syncUnit: alias restoration threw', {
+        unitId,
+        error: restoreErr instanceof Error ? restoreErr.message : 'unknown'
       });
     }
 

@@ -41,6 +41,22 @@ export interface Unit {
   updated_at: string;
 }
 
+export type AvailabilitySource = 'airbnb' | 'manual' | 'widget';
+export type AvailabilityExternalKind = 'reserved' | 'not_available' | 'blocked' | 'unknown';
+
+export interface Availability {
+  id: string;
+  unit_id: string;
+  blocked_date: string;
+  source: AvailabilitySource;
+  external_kind: AvailabilityExternalKind | null;
+  external_ref: string | null;
+  guest_last4: string | null;
+  guest_alias: string | null;
+  booking_id: string | null;
+  created_at: string;
+}
+
 export interface BookingRequest {
   id: string;
   unit_id: string;

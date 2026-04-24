@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.routes';
 import paymentRoutes from './routes/payment.routes';
 import icalRoutes from './routes/ical.routes';
 import airbnbSyncRoutes from './routes/airbnbSync.routes';
+import availabilityRoutes from './routes/availability.routes';
 import { startIcalCron } from './jobs/ical-cron';
 import { startStuckPreauthAlertCron } from './jobs/stuck-preauth-alert';
 import { startAbandonedBookingCleanupCron } from './jobs/abandoned-booking-cleanup';
@@ -137,6 +138,7 @@ app.use('/api/units', unitsRoutes);
 app.use('/api', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', airbnbSyncRoutes);
+app.use('/api/admin', availabilityRoutes);
 app.use('/api/payments', paymentRoutes);
 
 app.use((_req, res) => {

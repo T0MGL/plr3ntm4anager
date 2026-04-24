@@ -166,7 +166,7 @@ router.get('/calendar', async (req, res) => {
       .order('check_in_date', { ascending: true }),
     supabaseAdmin
       .from('availability')
-      .select('unit_id, blocked_date, source, external_kind, external_ref, guest_last4, units(name)')
+      .select('id, unit_id, blocked_date, source, external_kind, external_ref, guest_last4, guest_alias, units(name)')
       .in('source', ['airbnb', 'manual'])
       .gte('blocked_date', from)
       .lte('blocked_date', to)
@@ -959,6 +959,275 @@ router.get('/sync-logs', async (req, res) => {
   }
 
   return res.json(data ?? []);
+});
+
+// ============================================================================
+// GET /admin/ops-overview
+//
+// Operational snapshot for the sticky block above /bookings. Returns the four
+// mobile-first widgets in a single call so the UI does not fan out to three
+// endpoints on mount:
+//
+//   1. upcoming_checkins   next 7 Asuncion days, widget + airbnb unified
+//   2. upcoming_checkouts  next 7 Asuncion days, widget + airbnb unified
+//   3. turnover_today      units that have a check-out AND a check-in today
+//   4. vacant_now          units with no occupancy for today
+//
+// Every row carries the minimum needed to render: unit name, guest display
+// label, date, and (for airbnb rows) an availability_id so the UI can open
+// the alias editor. We deliberately do not ship guest_email or guest_phone
+// here; the expanded list card is where full details live.
+//
+// Timezone: all date math is string-based against todayInAsuncion() to avoid
+// UTC drift at 21:00 local. A check-in on 2026-05-10 is 2026-05-10 in
+// Asuncion, always.
+// ============================================================================
+router.get('/ops-overview', async (_req, res) => {
+  const todayStr = todayInAsuncion();
+  const horizonStr = addDaysStrUtil(todayStr, 7);
+
+  // Pull everything we need in parallel. Scope widget + airbnb rows to the
+  // window so we do not pull months of data every request. Units are pulled
+  // once because the vacant widget needs the active set.
+  const [bookingsRes, blocksRes, unitsRes] = await Promise.all([
+    supabaseAdmin
+      .from('booking_requests')
+      .select('id, unit_id, guest_name, check_in_date, check_out_date, status, units(name)')
+      .in('status', ['approved', 'paid', 'checked_in'])
+      .or(`and(check_in_date.gte.${todayStr},check_in_date.lte.${horizonStr}),and(check_out_date.gte.${todayStr},check_out_date.lte.${horizonStr})`)
+      .order('check_in_date', { ascending: true }),
+    supabaseAdmin
+      .from('availability')
+      .select('id, unit_id, blocked_date, source, external_kind, external_ref, guest_last4, guest_alias, units(name)')
+      .eq('source', 'airbnb')
+      .gte('blocked_date', addDaysStrUtil(todayStr, -1))
+      .lte('blocked_date', horizonStr)
+      .order('blocked_date', { ascending: true }),
+    supabaseAdmin.from('units').select('id, name, status').eq('status', 'active').order('name', { ascending: true })
+  ]);
+
+  if (bookingsRes.error) {
+    logger.error('ops-overview: bookings fetch failed', { error: bookingsRes.error.message });
+    return res.status(500).json({ error: 'Failed to load operations overview' });
+  }
+  if (blocksRes.error) {
+    logger.error('ops-overview: availability fetch failed', { error: blocksRes.error.message });
+    return res.status(500).json({ error: 'Failed to load operations overview' });
+  }
+  if (unitsRes.error) {
+    logger.error('ops-overview: units fetch failed', { error: unitsRes.error.message });
+    return res.status(500).json({ error: 'Failed to load operations overview' });
+  }
+
+  interface UnitJoin {
+    name?: string | null;
+  }
+  type BookingRow = {
+    id: string;
+    unit_id: string;
+    guest_name: string;
+    check_in_date: string;
+    check_out_date: string;
+    status: string;
+    units?: UnitJoin | null;
+  };
+  type BlockRow = {
+    id: string;
+    unit_id: string;
+    blocked_date: string;
+    source: 'airbnb';
+    external_kind: string | null;
+    external_ref: string | null;
+    guest_last4: string | null;
+    guest_alias: string | null;
+    units?: UnitJoin | null;
+  };
+  type UnitRow = { id: string; name: string; status: string };
+
+  const bookings = (bookingsRes.data ?? []) as BookingRow[];
+  const blocks = (blocksRes.data ?? []) as BlockRow[];
+  const units = (unitsRes.data ?? []) as UnitRow[];
+
+  // Collapse airbnb per-night rows into reservations (first night = check-in,
+  // last night + 1 = check-out). Group by unit_id + external_ref + external_kind
+  // to mirror the calendar's grouping.
+  type AirbnbReservation = {
+    unit_id: string;
+    unit_name: string;
+    external_ref: string | null;
+    external_kind: string | null;
+    check_in: string;
+    check_out: string;
+    guest_alias: string | null;
+    guest_last4: string | null;
+    first_night_id: string;
+  };
+
+  const groups = new Map<string, BlockRow[]>();
+  for (const b of blocks) {
+    const key = `${b.unit_id}::${b.external_ref ?? 'none'}::${b.external_kind ?? 'none'}`;
+    const list = groups.get(key) ?? [];
+    list.push(b);
+    groups.set(key, list);
+  }
+
+  const airbnbReservations: AirbnbReservation[] = [];
+  for (const rows of groups.values()) {
+    rows.sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
+    // Split on gaps larger than 1 day, so a cancelled-then-rebooked range
+    // (same external_ref, different window) renders as two reservations.
+    let runStart = rows[0].blocked_date;
+    let prev = runStart;
+    let firstNight = rows[0];
+    const emit = (end: string, first: BlockRow) => {
+      airbnbReservations.push({
+        unit_id: first.unit_id,
+        unit_name: first.units?.name ?? 'Unit',
+        external_ref: first.external_ref,
+        external_kind: first.external_kind,
+        check_in: runStart,
+        check_out: addDaysStrUtil(end, 1),
+        guest_alias: first.guest_alias,
+        guest_last4: first.guest_last4,
+        first_night_id: first.id
+      });
+    };
+    for (let i = 1; i < rows.length; i++) {
+      const curr = rows[i].blocked_date;
+      const gapMs = new Date(curr).getTime() - new Date(prev).getTime();
+      if (gapMs > 86_400_000) {
+        emit(prev, firstNight);
+        runStart = curr;
+        firstNight = rows[i];
+      }
+      prev = curr;
+    }
+    emit(prev, firstNight);
+  }
+
+  // Only reservations (real guests) belong in check-in/out/turnover widgets.
+  // Airbnb "not_available" / "blocked" hold ranges should not surface as
+  // guest events.
+  const airbnbGuestStays = airbnbReservations.filter((r) => r.external_kind === 'reserved');
+
+  type Event = {
+    date: string;
+    unit_id: string;
+    unit_name: string;
+    guest_label: string;
+    source: 'widget' | 'airbnb';
+    availability_id: string | null;
+    booking_id: string | null;
+  };
+
+  const labelForAirbnb = (r: AirbnbReservation): string => {
+    if (r.guest_alias) return r.guest_alias;
+    if (r.guest_last4) return `**** ${r.guest_last4}`;
+    return 'Airbnb';
+  };
+
+  const checkins: Event[] = [];
+  const checkouts: Event[] = [];
+
+  for (const b of bookings) {
+    if (b.check_in_date >= todayStr && b.check_in_date <= horizonStr) {
+      checkins.push({
+        date: b.check_in_date,
+        unit_id: b.unit_id,
+        unit_name: b.units?.name ?? 'Unit',
+        guest_label: b.guest_name,
+        source: 'widget',
+        availability_id: null,
+        booking_id: b.id
+      });
+    }
+    if (b.check_out_date >= todayStr && b.check_out_date <= horizonStr) {
+      checkouts.push({
+        date: b.check_out_date,
+        unit_id: b.unit_id,
+        unit_name: b.units?.name ?? 'Unit',
+        guest_label: b.guest_name,
+        source: 'widget',
+        availability_id: null,
+        booking_id: b.id
+      });
+    }
+  }
+  for (const r of airbnbGuestStays) {
+    if (r.check_in >= todayStr && r.check_in <= horizonStr) {
+      checkins.push({
+        date: r.check_in,
+        unit_id: r.unit_id,
+        unit_name: r.unit_name,
+        guest_label: labelForAirbnb(r),
+        source: 'airbnb',
+        availability_id: r.first_night_id,
+        booking_id: null
+      });
+    }
+    if (r.check_out >= todayStr && r.check_out <= horizonStr) {
+      checkouts.push({
+        date: r.check_out,
+        unit_id: r.unit_id,
+        unit_name: r.unit_name,
+        guest_label: labelForAirbnb(r),
+        source: 'airbnb',
+        availability_id: r.first_night_id,
+        booking_id: null
+      });
+    }
+  }
+
+  checkins.sort((a, b) => a.date.localeCompare(b.date) || a.unit_name.localeCompare(b.unit_name));
+  checkouts.sort((a, b) => a.date.localeCompare(b.date) || a.unit_name.localeCompare(b.unit_name));
+
+  // Turnover: a unit has both a check-out and a check-in today.
+  const checkoutsToday = new Map<string, Event>();
+  for (const e of checkouts) if (e.date === todayStr) checkoutsToday.set(e.unit_id, e);
+  const checkinsToday = new Map<string, Event>();
+  for (const e of checkins) if (e.date === todayStr) checkinsToday.set(e.unit_id, e);
+  const turnoverUnits: Array<{
+    unit_id: string;
+    unit_name: string;
+    outgoing: Event;
+    incoming: Event;
+  }> = [];
+  for (const [unitId, outgoing] of checkoutsToday) {
+    const incoming = checkinsToday.get(unitId);
+    if (incoming) {
+      turnoverUnits.push({
+        unit_id: unitId,
+        unit_name: outgoing.unit_name,
+        outgoing,
+        incoming
+      });
+    }
+  }
+
+  // Vacant now: active unit with no occupancy covering today. Occupancy =
+  // widget booking where today is in [check_in, check_out) OR airbnb row
+  // with blocked_date = today.
+  const occupiedToday = new Set<string>();
+  for (const b of bookings) {
+    if (b.check_in_date <= todayStr && todayStr < b.check_out_date) {
+      occupiedToday.add(b.unit_id);
+    }
+  }
+  for (const block of blocks) {
+    if (block.blocked_date === todayStr) occupiedToday.add(block.unit_id);
+  }
+  const vacantNow = units
+    .filter((u) => !occupiedToday.has(u.id))
+    .map((u) => ({ unit_id: u.id, unit_name: u.name }));
+
+  return res.json({
+    today: todayStr,
+    horizon: horizonStr,
+    upcoming_checkins: checkins,
+    upcoming_checkouts: checkouts,
+    turnover_today: turnoverUnits,
+    vacant_now: vacantNow
+  });
 });
 
 router.get('/dashboard-stats', async (req, res) => {
