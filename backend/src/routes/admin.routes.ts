@@ -242,7 +242,8 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
     unit.id,
     unit.airbnb_ical_url ?? null,
     booking.check_in_date,
-    booking.check_out_date
+    booking.check_out_date,
+    bookingId
   );
 
   if (!recheck.available) {
@@ -281,7 +282,7 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
     // Release the widget-sourced availability rows so the guest-facing calendar
     // re-opens those nights on the next fetch. Without this, rejected bookings
     // leave stale blocks behind that desync the widget from the admin view.
-    await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
+    await unblockWidgetDates(bookingId);
 
     const conflictEmail = bookingConflictRejectionEmail({
       guestName: booking.guest_name,
@@ -410,7 +411,7 @@ router.post('/booking-requests/:id/reject', validate(rejectSchema), async (req, 
   // Release the widget-sourced availability rows so the guest-facing calendar
   // re-opens those nights on the next fetch. Without this, rejected bookings
   // leave stale blocks behind that desync the widget from the admin view.
-  await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
+  await unblockWidgetDates(bookingId);
 
   try {
     await rollbackPayment(bookingId);
@@ -458,7 +459,7 @@ router.post('/booking-requests/:id/cancel', async (req, res) => {
     return res.status(500).json({ error: 'Failed to cancel booking' });
   }
 
-  await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
+  await unblockWidgetDates(bookingId);
 
   if ([BookingStatus.Pending, BookingStatus.Approved].includes(booking.status as BookingStatus)) {
     try {

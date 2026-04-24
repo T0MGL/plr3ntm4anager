@@ -111,7 +111,7 @@ export async function runAbandonedBookingCleanup(): Promise<{ expired: number; r
       continue;
     }
 
-    await unblockWidgetDates(booking.unit_id, booking.check_in_date, booking.check_out_date);
+    await unblockWidgetDates(booking.id);
     released++;
 
     logger.info('Abandoned cleanup: expired booking released', {

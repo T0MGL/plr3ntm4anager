@@ -9,6 +9,10 @@
 //   3. Conflict pre-sync:  dates overlap at time of decision
 //   4. Conflict post-sync: inline sync fails, so we route manual for safety
 //   5. No sync recorded:   no successful sync exists, route to manual
+//   6. Self-conflict:      widget rows owned by the booking itself must not
+//                          trigger manual routing. The decider passes its
+//                          excludeBookingId through so the availability check
+//                          filters them out.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,6 +31,7 @@ interface Harness {
   availability: 'free' | 'conflict' | 'error';
   inlineOutcome: 'success' | 'fail';
   inlineCalls: number;
+  lastExcludeBookingId: string | null;
 }
 
 function makeHarness(overrides: Partial<Harness> = {}): Harness {
@@ -35,6 +40,7 @@ function makeHarness(overrides: Partial<Harness> = {}): Harness {
     availability: 'free',
     inlineOutcome: 'success',
     inlineCalls: 0,
+    lastExcludeBookingId: null,
     ...overrides
   };
 }
@@ -48,7 +54,10 @@ function installHarness(h: Harness): void {
       }
     },
     getLastSyncAt: async () => h.lastSync,
-    checkAvailabilityRange: async () => h.availability
+    checkAvailabilityRange: async (_unitId, _checkIn, _checkOut, excludeBookingId) => {
+      h.lastExcludeBookingId = excludeBookingId;
+      return h.availability;
+    }
   });
 }
 
@@ -56,7 +65,8 @@ const BASE_INPUT = {
   unitId: '00000000-0000-0000-0000-000000000001',
   unitIcalUrl: 'https://airbnb.com/calendar.ics',
   checkIn: '2026-06-01',
-  checkOut: '2026-06-05'
+  checkOut: '2026-06-05',
+  excludeBookingId: '00000000-0000-0000-0000-000000000002'
 };
 
 test('auto happy path: fresh sync, dates free, sync succeeds', async () => {
@@ -139,6 +149,50 @@ test('manual path when availability check errors', async () => {
     const decision = await decideApprovalPath(BASE_INPUT);
     assert.equal(decision.path, 'manual');
     assert.equal(decision.reason, 'availability_check_failed');
+  } finally {
+    __resetApprovalRoutingDeps();
+  }
+});
+
+test('self-conflict regression: decider forwards excludeBookingId to availability check', async () => {
+  // The widget inserts rows into `availability` with source='widget' and
+  // booking_id = <this booking> before /preauth is called. Without the
+  // exclusion, the check returned 'conflict' on every auto-path booking. This
+  // test locks in the contract: decideApprovalPath MUST hand its
+  // excludeBookingId down so the check can filter self-owned rows.
+  const h = makeHarness({
+    lastSync: FIVE_MINUTES_AGO(),
+    availability: 'free',
+    inlineOutcome: 'success'
+  });
+  installHarness(h);
+  try {
+    const decision = await decideApprovalPath(BASE_INPUT);
+    assert.equal(h.lastExcludeBookingId, BASE_INPUT.excludeBookingId);
+    assert.equal(decision.path, 'auto');
+    assert.equal(decision.reason, 'fresh_sync_dates_free');
+  } finally {
+    __resetApprovalRoutingDeps();
+  }
+});
+
+test('self-conflict regression: availability returns conflict when the booking is NOT excluded', async () => {
+  // Inverse of the previous test. If the check treats the self-owned rows as
+  // conflicts (which is what happens today when excludeBookingId is missing
+  // or the filter is wrong), we route to manual. This guards against a
+  // regression where someone drops the filter and the check silently stops
+  // excluding self rows.
+  const h = makeHarness({
+    lastSync: FIVE_MINUTES_AGO(),
+    availability: 'conflict',
+    inlineOutcome: 'success'
+  });
+  installHarness(h);
+  try {
+    const decision = await decideApprovalPath(BASE_INPUT);
+    assert.equal(decision.path, 'manual');
+    assert.equal(decision.reason, 'dates_conflict');
+    assert.equal(h.lastExcludeBookingId, BASE_INPUT.excludeBookingId);
   } finally {
     __resetApprovalRoutingDeps();
   }

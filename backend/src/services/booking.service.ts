@@ -156,22 +156,30 @@ export async function createBookingRequest(params: {
 
   // Immediately block dates in availability so Airbnb sees them on next iCal poll.
   // source = 'widget' ensures these survive Airbnb re-syncs (see migration 002).
-  // Uses ON CONFLICT DO NOTHING — if Airbnb already blocked a date, we skip it silently.
-  await blockWidgetDates(params.unitId, params.checkIn, params.checkOut);
+  // booking_id links the rows to the owning booking so the approval decider can
+  // exclude them when checking its own range (see migration 006). Uses
+  // ON CONFLICT DO NOTHING, if Airbnb already blocked a date we skip it silently.
+  await blockWidgetDates(booking.id, params.unitId, params.checkIn, params.checkOut);
 
   return { bookingId: booking.id, totalPrice, lastSyncAt };
 }
 
 /**
- * Inserts every night of a booking range into `availability` with source='widget'.
- * Dates are check-in inclusive, check-out exclusive (standard hotel convention).
- * Failures are logged but non-fatal — the booking was already created.
+ * Inserts every night of a booking range into `availability` with source='widget'
+ * and booking_id set to the owning booking. Dates are check-in inclusive,
+ * check-out exclusive (standard hotel convention). Failures are logged but
+ * non-fatal, the booking was already created.
  */
-async function blockWidgetDates(unitId: string, checkIn: string, checkOut: string): Promise<void> {
+async function blockWidgetDates(
+  bookingId: string,
+  unitId: string,
+  checkIn: string,
+  checkOut: string
+): Promise<void> {
   const checkInDate = parseISO(checkIn);
   const checkOutDate = parseISO(checkOut);
 
-  // checkOut is the departure day — guests are not occupying that night
+  // checkOut is the departure day, guests are not occupying that night
   const lastNight = new Date(checkOutDate.getTime() - 24 * 60 * 60 * 1000);
 
   if (lastNight < checkInDate) {
@@ -182,7 +190,8 @@ async function blockWidgetDates(unitId: string, checkIn: string, checkOut: strin
   const rows = days.map((day) => ({
     unit_id: unitId,
     blocked_date: format(day, 'yyyy-MM-dd'),
-    source: 'widget'
+    source: 'widget',
+    booking_id: bookingId
   }));
 
   const { error } = await supabaseAdmin
@@ -201,43 +210,27 @@ async function blockWidgetDates(unitId: string, checkIn: string, checkOut: strin
 }
 
 /**
- * Releases widget-sourced blocks for a booking range. Must be called whenever a
+ * Releases widget-sourced blocks owned by a booking. Must be called whenever a
  * booking_request transitions to `rejected` (manual reject, conflict-on-approve,
  * or abandoned-pending cleanup). Without this, stale widget blocks accumulate
  * and leak into the guest-facing DatePicker, desyncing from the admin calendar
  * (which filters source IN ('airbnb','manual')).
  *
- * Scope is intentionally narrow: only rows with source='widget' for the given
- * unit and the check-in inclusive / check-out exclusive range. Airbnb- and
- * manual-sourced rows are never touched.
+ * Scope is narrow by booking_id: only rows owned by the booking are deleted,
+ * so two overlapping pending bookings never trample each other's rows.
+ * Airbnb- and manual-sourced rows are never touched.
  */
-export async function unblockWidgetDates(
-  unitId: string,
-  checkIn: string,
-  checkOut: string
-): Promise<void> {
-  const checkInDate = parseISO(checkIn);
-  const checkOutDate = parseISO(checkOut);
-
-  const lastNight = new Date(checkOutDate.getTime() - 24 * 60 * 60 * 1000);
-  if (lastNight < checkInDate) {
-    return;
-  }
-
+export async function unblockWidgetDates(bookingId: string): Promise<void> {
   const { error } = await supabaseAdmin
     .from('availability')
     .delete()
-    .eq('unit_id', unitId)
-    .eq('source', 'widget')
-    .gte('blocked_date', format(checkInDate, 'yyyy-MM-dd'))
-    .lte('blocked_date', format(lastNight, 'yyyy-MM-dd'));
+    .eq('booking_id', bookingId)
+    .eq('source', 'widget');
 
   if (error) {
     logger.error('unblockWidgetDates: failed to delete availability rows', {
       error: error.message,
-      unitId,
-      checkIn,
-      checkOut
+      bookingId
     });
   }
 }

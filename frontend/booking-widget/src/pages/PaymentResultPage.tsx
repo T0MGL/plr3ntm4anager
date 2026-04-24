@@ -118,10 +118,44 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
   const firstName =
     booking.guest_first_name.charAt(0).toUpperCase() + booking.guest_first_name.slice(1);
 
-  const isPaid =
-    booking.status === "paid" ||
-    booking.payment_status === "completed" ||
-    booking.payment_status === "preauthorized";
+  // Three result states:
+  // - paid: card captured, booking confirmed. Final state.
+  // - preauthorized: card held, admin will review and capture. Temporary state.
+  //                  Shown to guests whose booking routed to manual path so the
+  //                  on-screen copy matches the "we are verifying" email.
+  // - pending: guest has no active payment yet (rare path, usually loading flicker).
+  const isPaid = booking.status === "paid" || booking.payment_status === "completed";
+  const isHeld = !isPaid && booking.payment_status === "preauthorized";
+
+  const badgeLabel = isPaid
+    ? t("payment.confirmedBadge")
+    : isHeld
+      ? t("payment.heldBadge")
+      : t("payment.receivedBadge");
+
+  const headingLine = isHeld ? t("payment.underReview") : t("payment.stayReserved");
+
+  const emailNotice = isHeld
+    ? t("payment.emailNoticeHeld")
+    : t("payment.emailNotice");
+
+  const amountLabel = isPaid
+    ? t("payment.totalPaid")
+    : isHeld
+      ? t("payment.cardHold")
+      : t("payment.totalDue");
+
+  const amountNote = isPaid
+    ? t("payment.secureProcessed")
+    : isHeld
+      ? t("payment.holdNote")
+      : t("payment.secureProcessed");
+
+  const statusValue = isPaid
+    ? t("payment.confirmed")
+    : isHeld
+      ? t("payment.underReviewStatus")
+      : t("payment.pending");
 
   return (
     <section className="pl-container py-16 md:py-24 print:py-0">
@@ -146,15 +180,15 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
           <span className="pl-gold-rule" />
           <div className="mt-6 flex items-center gap-3 text-[0.6875rem] font-medium uppercase tracking-[0.25em] text-gold">
             <CheckIcon className="h-3.5 w-3.5" />
-            {isPaid ? t("payment.confirmedBadge") : t("payment.receivedBadge")}
+            {badgeLabel}
           </div>
           <h1 className="font-display mt-5 text-4xl leading-[1.05] text-charcoal md:text-[3.5rem]">
             {t("payment.thanks", { name: firstName })}
             <br />
-            {t("payment.stayReserved")}
+            {headingLine}
           </h1>
           <p className="mt-6 max-w-xl text-base leading-relaxed text-charcoal-500">
-            {t("payment.emailNotice")}
+            {emailNotice}
           </p>
         </div>
 
@@ -202,7 +236,7 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
 
             <aside className="border-l-0 border-t border-stone pt-8 md:border-l md:border-t-0 md:pl-12 md:pt-0">
               <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-charcoal-400">
-                {t("payment.totalPaid")}
+                {amountLabel}
               </div>
               <div className="font-display mt-3 flex items-baseline gap-2 text-charcoal">
                 <span className="text-5xl leading-none md:text-6xl">
@@ -211,14 +245,14 @@ function ResultSuccess({ booking }: { booking: PublicBookingDetails }) {
                 <span className="text-base text-charcoal-400">USD</span>
               </div>
               <p className="mt-4 text-xs leading-relaxed text-charcoal-500">
-                {t("payment.secureProcessed")}
+                {amountNote}
               </p>
 
               <div className="mt-8 space-y-3 text-sm text-charcoal-500">
                 <SummaryLine label={t("payment.guest")} value={firstName} />
                 <SummaryLine
                   label={t("payment.status")}
-                  value={isPaid ? t("payment.confirmed") : t("payment.pending")}
+                  value={statusValue}
                   accent={isPaid}
                 />
               </div>

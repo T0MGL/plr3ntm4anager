@@ -47,6 +47,10 @@ export interface DecideApprovalPathInput {
   unitIcalUrl: string | null;
   checkIn: string;
   checkOut: string;
+  // UUID of the booking_request being decided. Widget insertions into
+  // `availability` tag their rows with this id so the decider can exclude
+  // self-owned blocks and avoid a guaranteed dates_conflict. Required.
+  excludeBookingId: string;
 }
 
 // Dependency injection seam for tests. The routing decider reaches into iCal
@@ -58,7 +62,8 @@ interface ApprovalRoutingDeps {
   checkAvailabilityRange: (
     unitId: string,
     checkIn: string,
-    checkOut: string
+    checkOut: string,
+    excludeBookingId: string | null
   ) => Promise<'free' | 'conflict' | 'error'>;
 }
 
@@ -109,7 +114,8 @@ export async function decideApprovalPath(input: DecideApprovalPathInput): Promis
   const availability = await activeDeps.checkAvailabilityRange(
     input.unitId,
     input.checkIn,
-    input.checkOut
+    input.checkOut,
+    input.excludeBookingId
   );
 
   if (availability === 'error') {
@@ -159,10 +165,11 @@ export async function recheckAvailabilityOrFail(
   unitId: string,
   unitIcalUrl: string | null,
   checkIn: string,
-  checkOut: string
+  checkOut: string,
+  excludeBookingId: string
 ): Promise<{ synced: boolean; available: true } | { synced: boolean; available: false; reason: 'dates_conflict' | 'availability_check_failed' }> {
   const inlineSyncStatus = await runInlineSyncWithTimeout(unitId, unitIcalUrl);
-  const availability = await activeDeps.checkAvailabilityRange(unitId, checkIn, checkOut);
+  const availability = await activeDeps.checkAvailabilityRange(unitId, checkIn, checkOut, excludeBookingId);
 
   if (availability === 'error') {
     return { synced: inlineSyncStatus === 'success', available: false, reason: 'availability_check_failed' };
@@ -211,15 +218,27 @@ async function safeGetLastSyncAt(unitId: string): Promise<string | null> {
 async function defaultCheckAvailabilityRange(
   unitId: string,
   checkIn: string,
-  checkOut: string
+  checkOut: string,
+  excludeBookingId: string | null
 ): Promise<'free' | 'conflict' | 'error'> {
   try {
-    const { data, error } = await supabaseAdmin
+    // Self-owned widget rows are excluded so the booking under decision does
+    // not conflict with its own pre-payment block. Airbnb and manual rows have
+    // booking_id = NULL and are always counted as conflicts. If another
+    // pending booking already grabbed these nights, its widget rows keep a
+    // different booking_id and will register as a conflict.
+    let query = supabaseAdmin
       .from('availability')
-      .select('blocked_date, source')
+      .select('blocked_date, source, booking_id')
       .eq('unit_id', unitId)
       .gte('blocked_date', checkIn)
       .lt('blocked_date', checkOut);
+
+    if (excludeBookingId) {
+      query = query.or(`booking_id.is.null,booking_id.neq.${excludeBookingId}`);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       logger.error('Availability check errored', { unit_id: unitId, error: error.message });

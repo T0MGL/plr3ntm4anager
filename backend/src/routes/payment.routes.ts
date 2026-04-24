@@ -79,7 +79,8 @@ router.post('/preauth', paymentCreateRateLimit, validate(preauthSchema), async (
       unitId: unit.id,
       unitIcalUrl: unit.airbnb_ical_url ?? null,
       checkIn: booking.check_in_date,
-      checkOut: booking.check_out_date
+      checkOut: booking.check_out_date,
+      excludeBookingId: booking.id
     });
 
     logger.info('Approval path decided', {
