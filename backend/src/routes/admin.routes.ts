@@ -1446,30 +1446,13 @@ router.post(
   },
 );
 
-router.post(
-  '/users/:id/send-password-reset',
-  requireAdmin,
-  adminWriteLimiter,
-  validate(userIdSchema),
-  async (req, res) => {
-    try {
-      const result = await adminUserService.sendPasswordResetEmail(req.params.id);
-      return res.json({ ok: true, email: result.email });
-    } catch (err: unknown) {
-      const code = (err as NodeJS.ErrnoException).code;
-      const msg = err instanceof Error ? err.message : 'Failed to send reset email';
-      if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
-      if (code === 'PRECONDITION_FAILED') return res.status(400).json({ error: msg });
-      logger.error('POST /admin/users/:id/send-password-reset failed', { error: msg, id: req.params.id });
-      return res.status(500).json({ error: msg });
-    }
-  },
-);
-
 // Self-service reset for the currently signed-in user. Only requireAuth here:
 // any active admin_users row should be able to reset their own password
 // without an admin having to click through the team table. Sends through
 // Resend (sendEmail), not Supabase's built-in mailer.
+//
+// MUST be registered before the /users/:id/send-password-reset variant or
+// Express will match "me" as the :id param and fail UUID validation.
 router.post(
   '/users/me/send-password-reset',
   adminWriteLimiter,
@@ -1489,6 +1472,26 @@ router.post(
         error: msg,
         authId: sessionUser.id,
       });
+      return res.status(500).json({ error: msg });
+    }
+  },
+);
+
+router.post(
+  '/users/:id/send-password-reset',
+  requireAdmin,
+  adminWriteLimiter,
+  validate(userIdSchema),
+  async (req, res) => {
+    try {
+      const result = await adminUserService.sendPasswordResetEmail(req.params.id);
+      return res.json({ ok: true, email: result.email });
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const msg = err instanceof Error ? err.message : 'Failed to send reset email';
+      if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+      if (code === 'PRECONDITION_FAILED') return res.status(400).json({ error: msg });
+      logger.error('POST /admin/users/:id/send-password-reset failed', { error: msg, id: req.params.id });
       return res.status(500).json({ error: msg });
     }
   },

@@ -208,11 +208,11 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
       ) : null}
 
       {status === 'ready' && users.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="rounded-2xl border border-slate-200 bg-white">
           <div className="hidden md:block">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
+              <thead className="text-xs uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-slate-100 bg-slate-50/60 [&>th:first-child]:rounded-tl-2xl [&>th:last-child]:rounded-tr-2xl">
                   <th className="px-4 py-3 font-medium">{t('team.colMember')}</th>
                   <th className="px-4 py-3 font-medium">{t('team.colRole')}</th>
                   <th className="px-4 py-3 font-medium">{t('team.colStatus')}</th>
