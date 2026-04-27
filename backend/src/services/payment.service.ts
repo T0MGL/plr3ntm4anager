@@ -11,6 +11,7 @@ import {
   paymentConfirmedEmail,
   paymentFailedEmail
 } from '../templates/emails';
+import { unblockWidgetDates } from './booking.service';
 
 // Bancard VPOS 2.0 Token Generation (MD5)
 // Spec: Token is always MD5 (32 chars). Numbers must be strings with 2 decimals.
@@ -392,6 +393,12 @@ export async function verifyAndMarkBancardConfirmation(
         response_code: operation.response_code
       })
       .eq('id', payment.id);
+
+    // Release the widget-sourced availability blocks so the guest can retry
+    // immediately with a different card. The booking_request stays in `pending`
+    // so the guest can resume via the session token on the frontend without
+    // creating a duplicate booking.
+    await unblockWidgetDates(payment.booking_id);
   }
 
   return {

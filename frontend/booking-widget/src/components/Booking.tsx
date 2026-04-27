@@ -16,6 +16,13 @@ import LoadingOverlay from "./common/LoadingOverlay";
 import CachedImage from "./common/CachedImage";
 import BancardCheckout from "./BancardCheckout";
 import toast from "react-hot-toast";
+import { checkBookingResumable } from "../api/bookings";
+
+// Session storage key for the in-progress booking. Stores the booking_id so
+// that if the guest's payment fails and they return, we can resume the same
+// booking rather than creating a duplicate (which would fail with "dates not
+// available" because the previous widget blocks may still be present).
+const SESSION_KEY = "pl_booking_draft";
 
 interface BookingProps {
   open: boolean;
@@ -96,20 +103,40 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
 
     setIsLoading(true);
     try {
-      const bookingPayload = {
-        unit_id: bookingData.listing.id,
-        guest_name: userInfo.name,
-        guest_email: userInfo.email,
-        guest_phone: userInfo.phone,
-        guest_address: userInfo.address,
-        check_in_date: dates.checkIn,
-        check_out_date: dates.checkOut,
-        special_requests: "",
-        locale: i18n.language,
-      };
+      let bookingId: string | null = null;
 
-      const bookingRes = await api.post("/booking-request", bookingPayload);
-      const bookingId = bookingRes.data.booking_id;
+      // Check if there is an in-progress booking for this session that can be
+      // resumed. This handles the case where payment failed or the modal was
+      // closed before completing: the backend released the availability blocks
+      // on failure, so re-running /payments/preauth is safe.
+      const draft = sessionStorage.getItem(SESSION_KEY);
+      if (draft) {
+        try {
+          const { id: draftId } = JSON.parse(draft) as { id: string };
+          const check = await checkBookingResumable(draftId);
+          if (check.resumable) {
+            bookingId = draftId;
+          }
+        } catch {
+          // Stale or corrupt draft — ignore and create a fresh booking.
+        }
+      }
+
+      if (!bookingId) {
+        const bookingRes = await api.post("/booking-request", {
+          unit_id: bookingData.listing.id,
+          guest_name: userInfo.name,
+          guest_email: userInfo.email,
+          guest_phone: userInfo.phone,
+          guest_address: userInfo.address,
+          check_in_date: dates.checkIn,
+          check_out_date: dates.checkOut,
+          special_requests: "",
+          locale: i18n.language,
+        });
+        bookingId = bookingRes.data.booking_id as string;
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: bookingId }));
+      }
 
       const paymentRes = await api.post("/payments/preauth", {
         booking_id: bookingId,
@@ -125,7 +152,6 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
         throw new Error(t("booking.errors.missingProcessId"));
       }
     } catch (err: unknown) {
-      console.error("Booking error:", err);
       const fallback = t("booking.errors.createFailed");
       const message =
         err && typeof err === "object" && "response" in err
@@ -135,6 +161,12 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Clear the session draft once a payment completes (success or terminal failure).
+  const handleBancardClose = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    setBancardCheckout(null);
   };
 
   const inputClasses =
@@ -543,7 +575,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
         <BancardCheckout
           processId={bancardCheckout.processId}
           bancardUrl={bancardCheckout.bancardUrl}
-          onClose={() => setBancardCheckout(null)}
+          onClose={handleBancardClose}
         />
       )}
     </>

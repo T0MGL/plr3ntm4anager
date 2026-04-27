@@ -4,6 +4,8 @@ import { bookingRateLimit } from '../middleware/rate-limit.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { dateSchema, emailSchema, phoneSchema } from '../utils/validation.utils';
 import { createBookingRequest, getPublicBookingDetails } from '../services/booking.service';
+import { supabaseAdmin } from '../config/supabase';
+import { BookingStatus, PaymentStatus } from '../types';
 
 const router = Router();
 
@@ -54,6 +56,54 @@ router.post('/booking-request', bookingRateLimit, validate(bookingSchema), async
     const message = error instanceof Error ? error.message : 'Failed to create booking request';
     return res.status(400).json({ error: message });
   }
+});
+
+// GET /booking-request/:id/resumable
+//
+// Returns a minimal status object for a booking the client already holds
+// a session token for. The frontend calls this on the payment step to
+// determine whether to resume (re-run /payments/preauth) or create fresh.
+//
+// Returns:
+//   { resumable: true, status: 'pending' } — booking is still open, no active payment
+//   { resumable: false, reason: string }  — booking is in a terminal/active state
+//
+// Access is intentionally open (UUID is a secret by construction). We only
+// return a boolean + enum, never guest PII.
+
+const resumableParamsSchema = z.object({
+  params: z.object({ id: z.string().uuid() })
+});
+
+router.get('/booking-request/:id/resumable', validate(resumableParamsSchema), async (req, res) => {
+  const { data: booking, error } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id, status')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error || !booking) {
+    return res.status(404).json({ resumable: false, reason: 'not_found' });
+  }
+
+  if (booking.status !== BookingStatus.Pending) {
+    return res.json({ resumable: false, reason: booking.status });
+  }
+
+  // Check for a payment that is already active (pending or preauthorized).
+  // If one exists, the Bancard iframe is already open elsewhere; don't resume.
+  const { data: activePayment } = await supabaseAdmin
+    .from('payments')
+    .select('id')
+    .eq('booking_id', req.params.id)
+    .in('payment_status', [PaymentStatus.Pending, PaymentStatus.Preauthorized])
+    .maybeSingle();
+
+  if (activePayment) {
+    return res.json({ resumable: false, reason: 'payment_in_progress' });
+  }
+
+  return res.json({ resumable: true, status: booking.status });
 });
 
 // GET /booking-request/:id/public

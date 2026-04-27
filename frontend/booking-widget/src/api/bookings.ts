@@ -28,6 +28,14 @@ export type PublicBookingDetails = {
   payment_completed_at: string | null;
 };
 
+export type ResumableResponse =
+  | { resumable: true; status: string }
+  | { resumable: false; reason: string };
+
 export async function getPublicBookingDetails(bookingId: string): Promise<PublicBookingDetails> {
   return requestJson<PublicBookingDetails>(`/booking-request/${bookingId}/public`);
+}
+
+export async function checkBookingResumable(bookingId: string): Promise<ResumableResponse> {
+  return requestJson<ResumableResponse>(`/booking-request/${bookingId}/resumable`);
 }
