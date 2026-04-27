@@ -39,3 +39,25 @@ export async function getPublicBookingDetails(bookingId: string): Promise<Public
 export async function checkBookingResumable(bookingId: string): Promise<ResumableResponse> {
   return requestJson<ResumableResponse>(`/booking-request/${bookingId}/resumable`);
 }
+
+export type CancelBookingResponse =
+  | { cancelled: true; reason: string }
+  | { cancelled: false; reason: string };
+
+export async function cancelBookingRequest(bookingId: string): Promise<CancelBookingResponse> {
+  const API_BASE_URL =
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+    (import.meta.env.VITE_API_URL as string | undefined) ??
+    "http://localhost:3000/api";
+
+  const res = await fetch(`${API_BASE_URL}/booking-request/${bookingId}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+
+  if (!res.ok) {
+    return { cancelled: false, reason: `http_${res.status}` };
+  }
+
+  return (await res.json()) as CancelBookingResponse;
+}

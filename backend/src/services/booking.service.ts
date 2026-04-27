@@ -210,6 +210,70 @@ async function blockWidgetDates(
 }
 
 /**
+ * Guest-initiated cancellation. Called when the guest closes the Bancard modal
+ * without completing payment (dismiss, network error, etc.). Marks the booking
+ * as `cancelled` and releases its widget availability blocks immediately, so
+ * the dates open back up without waiting for the cron.
+ *
+ * Only acts on `pending` bookings with no active payment (pending or
+ * preauthorized). Returns the outcome so the route can respond accordingly.
+ */
+export async function cancelBookingRequest(
+  bookingId: string
+): Promise<{ cancelled: boolean; reason: string }> {
+  const { data: booking, error: bookingError } = await supabaseAdmin
+    .from('booking_requests')
+    .select('id, status')
+    .eq('id', bookingId)
+    .maybeSingle();
+
+  if (bookingError || !booking) {
+    return { cancelled: false, reason: 'not_found' };
+  }
+
+  if (booking.status !== BookingStatus.Pending) {
+    return { cancelled: false, reason: booking.status };
+  }
+
+  // Refuse to cancel if there is an active payment: the Bancard confirmation
+  // webhook may still be in flight, and cancelling now would orphan it.
+  const { data: activePayment } = await supabaseAdmin
+    .from('payments')
+    .select('id')
+    .eq('booking_id', bookingId)
+    .in('payment_status', [PaymentStatus.Pending, PaymentStatus.Preauthorized])
+    .maybeSingle();
+
+  if (activePayment) {
+    return { cancelled: false, reason: 'payment_in_progress' };
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('booking_requests')
+    .update({
+      status: BookingStatus.Cancelled,
+      rejection_reason: 'Guest dismissed payment without completing',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', bookingId)
+    .eq('status', BookingStatus.Pending);
+
+  if (updateError) {
+    logger.error('cancelBookingRequest: failed to mark booking cancelled', {
+      booking_id: bookingId,
+      error: updateError.message
+    });
+    return { cancelled: false, reason: 'db_error' };
+  }
+
+  await unblockWidgetDates(bookingId);
+
+  logger.info('cancelBookingRequest: booking cancelled by guest', { booking_id: bookingId });
+
+  return { cancelled: true, reason: 'guest_dismiss' };
+}
+
+/**
  * Releases widget-sourced blocks owned by a booking. Must be called whenever a
  * booking_request transitions to `rejected` (manual reject, conflict-on-approve,
  * or abandoned-pending cleanup). Without this, stale widget blocks accumulate

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import toast from "react-hot-toast";
+import { cancelBookingRequest } from "../api/bookings";
 
 declare global {
   interface Window {
@@ -16,12 +17,14 @@ declare global {
 }
 
 interface BancardCheckoutProps {
+  bookingId: string;
   processId: string;
   bancardUrl: string;
   onClose: () => void;
 }
 
 const BancardCheckout: React.FC<BancardCheckoutProps> = ({
+  bookingId,
   processId,
   bancardUrl,
   onClose,
@@ -30,6 +33,9 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentResult, setPaymentResult] = useState<"success" | "cancelled" | null>(null);
+  // Track whether a successful payment event was received. Used to skip the
+  // cancel call when the modal closes after a confirmed payment.
+  const didCompletePayment = useRef(false);
 
   const isStub = processId.startsWith("stub_");
 
@@ -38,6 +44,7 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
     (event: MessageEvent) => {
       if (event.data?.type === "bancard_payment_complete") {
         if (event.data.status === "success") {
+          didCompletePayment.current = true;
           setPaymentResult("success");
         } else {
           setPaymentResult("cancelled");
@@ -60,6 +67,21 @@ const BancardCheckout: React.FC<BancardCheckoutProps> = ({
       return () => clearTimeout(timer);
     }
   }, [paymentResult, onClose]);
+
+  // Fire cancel when the modal is dismissed without a completed payment.
+  // Uses a cleanup function so it runs on unmount regardless of how the
+  // component is removed (X button, Escape, parent unmount, tab close via
+  // the parent's beforeunload handler).
+  useEffect(() => {
+    return () => {
+      if (!didCompletePayment.current) {
+        cancelBookingRequest(bookingId).catch(() => {
+          // Fire-and-forget. The abandoned-booking cron is the fallback.
+        });
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingId]);
 
   // Stub mode: simulate payment without loading Bancard JS
   useEffect(() => {

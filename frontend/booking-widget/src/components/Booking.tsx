@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   IoClose,
@@ -16,7 +16,7 @@ import LoadingOverlay from "./common/LoadingOverlay";
 import CachedImage from "./common/CachedImage";
 import BancardCheckout from "./BancardCheckout";
 import toast from "react-hot-toast";
-import { checkBookingResumable } from "../api/bookings";
+import { checkBookingResumable, cancelBookingRequest } from "../api/bookings";
 
 // Session storage key for the in-progress booking. Stores the booking_id so
 // that if the guest's payment fails and they return, we can resume the same
@@ -73,6 +73,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
   const [editGuestsOpen, setEditGuestsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [bancardCheckout, setBancardCheckout] = useState<{
+    bookingId: string;
     processId: string;
     bancardUrl: string;
   } | null>(null);
@@ -145,6 +146,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
       const { process_id, bancard_url } = paymentRes.data;
       if (process_id) {
         setBancardCheckout({
+          bookingId: bookingId as string,
           processId: process_id,
           bancardUrl: bancard_url,
         });
@@ -163,8 +165,36 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
     }
   };
 
+  // Track whether the guest completed payment. If they close the tab while the
+  // Bancard modal is open, beforeunload fires a cancel via sendBeacon so the
+  // dates are released even if the cleanup effect in BancardCheckout cannot run.
+  const paymentCompleted = useRef(false);
+
+  useEffect(() => {
+    if (!bancardCheckout) return;
+
+    const API_BASE_URL =
+      (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+      (import.meta.env.VITE_API_URL as string | undefined) ??
+      "http://localhost:3000/api";
+
+    const handler = () => {
+      if (!paymentCompleted.current) {
+        navigator.sendBeacon(
+          `${API_BASE_URL}/booking-request/${bancardCheckout.bookingId}/cancel`
+        );
+      }
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [bancardCheckout]);
+
   // Clear the session draft once a payment completes (success or terminal failure).
-  const handleBancardClose = () => {
+  const handleBancardClose = (completed = false) => {
+    if (completed) {
+      paymentCompleted.current = true;
+    }
     sessionStorage.removeItem(SESSION_KEY);
     setBancardCheckout(null);
   };
@@ -573,6 +603,7 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
 
       {bancardCheckout && (
         <BancardCheckout
+          bookingId={bancardCheckout.bookingId}
           processId={bancardCheckout.processId}
           bancardUrl={bancardCheckout.bancardUrl}
           onClose={handleBancardClose}

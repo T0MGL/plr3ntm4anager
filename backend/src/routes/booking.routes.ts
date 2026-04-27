@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { bookingRateLimit } from '../middleware/rate-limit.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { dateSchema, emailSchema, phoneSchema } from '../utils/validation.utils';
-import { createBookingRequest, getPublicBookingDetails } from '../services/booking.service';
+import { createBookingRequest, getPublicBookingDetails, cancelBookingRequest } from '../services/booking.service';
 import { supabaseAdmin } from '../config/supabase';
 import { BookingStatus, PaymentStatus } from '../types';
 
@@ -129,6 +129,31 @@ router.get('/booking-request/:id/public', validate(publicBookingParamsSchema), a
   } catch {
     return res.status(500).json({ error: 'Failed to fetch booking' });
   }
+});
+
+// POST /booking-request/:id/cancel
+//
+// Guest-initiated cancellation fired when the Bancard modal is dismissed
+// without a completed payment (X button, network error, script load failure).
+// Immediately releases the widget availability blocks so the dates reopen
+// without waiting for the 1h abandoned-booking cron.
+//
+// Access is intentionally unauthenticated: the UUID is unguessable and we
+// only allow cancellation of `pending` bookings with no active payment, so
+// a replayed request against a paid booking is a safe no-op.
+
+const cancelParamsSchema = z.object({
+  params: z.object({ id: z.string().uuid() })
+});
+
+router.post('/booking-request/:id/cancel', validate(cancelParamsSchema), async (req, res) => {
+  const result = await cancelBookingRequest(req.params.id);
+
+  if (result.reason === 'not_found') {
+    return res.status(404).json({ error: 'Booking not found' });
+  }
+
+  return res.json(result);
 });
 
 export default router;
