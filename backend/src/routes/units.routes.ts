@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { differenceInMinutes } from 'date-fns';
 import { supabasePublic } from '../config/supabase';
 import { validate } from '../middleware/validate.middleware';
 import { dateSchema } from '../utils/validation.utils';
 import { getLastSyncAt } from '../services/booking.service';
 import { logger } from '../config/logger';
+import { syncUnit } from '../services/ical-sync.service';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -92,6 +95,16 @@ router.get('/:id/availability', validate(availabilitySchema), async (req, res) =
     }
 
     const lastSync = await getLastSyncAt(unitId);
+
+    const syncAgeMinutes = lastSync ? differenceInMinutes(new Date(), new Date(lastSync)) : null;
+    if (syncAgeMinutes === null || syncAgeMinutes > env.AVAILABILITY_SYNC_TTL_MIN) {
+      syncUnit(unitId).catch((err) => {
+        logger.warn('Background availability sync failed', {
+          unitId,
+          message: err instanceof Error ? err.message : String(err)
+        });
+      });
+    }
 
     return res.json({
       blocked_dates: (data ?? []).map((row) => row.blocked_date),

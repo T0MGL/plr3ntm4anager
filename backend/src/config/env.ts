@@ -32,6 +32,12 @@ const envSchema = z.object({
   // polling faster than this is waste. The cron spreads units across a
   // [0, UNIT_SYNC_CADENCE_MINUTES) window via unit.sync_offset_minutes.
   UNIT_SYNC_CADENCE_MINUTES: z.coerce.number().int().min(15).max(360).default(120),
+  // Demand-driven sync TTL. When a guest hits the availability endpoint and the
+  // unit's last successful sync is older than this threshold, a background sync
+  // fires asynchronously before the response returns. This keeps calendar data
+  // fresh for browsing users without polling units that nobody is looking at.
+  // Works alongside UNIT_SYNC_CADENCE_MINUTES (the background safety net).
+  AVAILABILITY_SYNC_TTL_MIN: z.coerce.number().int().min(5).max(240).default(30),
   // Dual-path approval threshold. A booking whose most recent successful Airbnb
   // sync is younger than this (measured at decision time) is eligible for the
   // auto path, which captures the card immediately. Older syncs route to the
