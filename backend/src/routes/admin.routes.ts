@@ -25,6 +25,7 @@ import {
 } from '../templates/emails';
 import { syncAllUnits, syncUnit } from '../services/ical-sync.service';
 import { unblockWidgetDates } from '../services/booking.service';
+import { notifyAdminsNewBooking } from '../services/admin-notification.service';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 import { nightsBetween, todayInAsuncion, addDaysStr as addDaysStrUtil, asuncionYearMonth } from '../utils/date.utils';
@@ -385,6 +386,25 @@ router.post('/booking-requests/:id/approve', validate(approveSchema), async (req
       locale: booking.locale
     });
     await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);
+
+    // Manual-path booking just confirmed: alert opted-in admins.
+    notifyAdminsNewBooking({
+      bookingId,
+      guestName: booking.guest_name,
+      guestEmail: booking.guest_email,
+      unitName: unit.name ?? 'Park Lofts',
+      checkIn: booking.check_in_date,
+      checkOut: booking.check_out_date,
+      nights,
+      totalUsd: Number(booking.total_price_usd),
+      approvalPath: 'manual',
+      dashboardUrl: env.ADMIN_DASHBOARD_URL,
+    }).catch((err: unknown) => {
+      logger.error('Manual-path approve: admin notification fanout failed', {
+        error: err instanceof Error ? err.message : 'unknown',
+        booking_id: bookingId,
+      });
+    });
   } else {
     const approvedEmail = bookingApprovedEmail({ guestName: booking.guest_name, bookingId, locale: booking.locale });
     await sendEmail(booking.guest_email, approvedEmail.subject, approvedEmail.html);
@@ -1809,6 +1829,56 @@ router.post(
     }
   },
 );
+
+// PATCH /api/admin/users/me/preferences
+// Lets any authenticated admin update their own per-user notification prefs.
+// No requireAdmin gate: every user manages their own settings.
+
+const mePreferencesSchema = z.object({
+  body: z.object({
+    notify_new_booking: z.boolean().optional(),
+  }).refine((b) => Object.keys(b).length > 0, { message: 'No fields provided' }),
+});
+
+router.patch(
+  '/users/me/preferences',
+  adminWriteLimiter,
+  validate(mePreferencesSchema),
+  async (req, res) => {
+    const sessionUser = res.locals.user as { id?: string } | undefined;
+    if (!sessionUser?.id) return res.status(401).json({ error: 'Unauthorized' });
+
+    const body = req.body as { notify_new_booking?: boolean };
+
+    try {
+      const updated = await adminUserService.updatePreferences(sessionUser.id, {
+        notifyNewBooking: body.notify_new_booking,
+      });
+      return res.json(updated);
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const msg = err instanceof Error ? err.message : 'Failed to update preferences';
+      if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+      logger.error('PATCH /admin/users/me/preferences failed', { error: msg, authId: sessionUser.id });
+      return res.status(500).json({ error: msg });
+    }
+  },
+);
+
+// GET /api/admin/users/me
+// Returns the admin_users row for the current session. Used on page load to
+// hydrate per-user preferences (e.g. notification settings) without a second
+// round-trip to the users list.
+
+router.get('/users/me', async (_req, res) => {
+  const sessionUser = res.locals.user as { id?: string } | undefined;
+  if (!sessionUser?.id) return res.status(401).json({ error: 'Unauthorized' });
+
+  const me = await adminUserService.getByAuthId(sessionUser.id);
+  if (!me) return res.status(404).json({ error: 'Admin user not found for this session' });
+
+  return res.json(me);
+});
 
 // ============================================================================
 // Per-unit revenue drilldown

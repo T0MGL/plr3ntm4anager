@@ -475,6 +475,11 @@ const en = {
     sendResetCta: 'Send password reset',
     resetSent: 'Reset link emailed to {{email}}',
     resetFailed: 'Could not send reset email. Try again.',
+    notifyNewBookingLabel: 'Receive new booking notifications',
+    notifyNewBookingHint: 'We will email you each time a new booking is confirmed.',
+    notifyNewBookingEnabled: 'Notifications enabled',
+    notifyNewBookingDisabled: 'Notifications disabled',
+    notifyNewBookingSaveFailed: 'Could not save preference. Try again.',
   },
   systemInfo: {
     sectionTitle: 'System information',

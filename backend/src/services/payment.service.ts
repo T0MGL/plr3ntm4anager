@@ -12,6 +12,7 @@ import {
   paymentFailedEmail
 } from '../templates/emails';
 import { unblockWidgetDates } from './booking.service';
+import { notifyAdminsNewBooking } from './admin-notification.service';
 
 // Bancard VPOS 2.0 Token Generation (MD5)
 // Spec: Token is always MD5 (32 chars). Numbers must be strings with 2 decimals.
@@ -481,6 +482,26 @@ export function processBancardConfirmationBackground(
         locale: booking.locale
       });
       await sendEmail(booking.guest_email, confirmed.subject, confirmed.html);
+
+      // Fan out new-booking alert to opted-in admins. Fire-and-forget: the
+      // guest already has their receipt; admin failures should never affect that.
+      notifyAdminsNewBooking({
+        bookingId: result.bookingId,
+        guestName: booking.guest_name,
+        guestEmail: booking.guest_email,
+        unitName,
+        checkIn: booking.check_in_date,
+        checkOut: booking.check_out_date,
+        nights,
+        totalUsd: booking.total_price_usd,
+        approvalPath: 'auto',
+        dashboardUrl: env.ADMIN_DASHBOARD_URL,
+      }).catch((err: unknown) => {
+        logger.error('Auto-path: admin notification fanout failed', {
+          error: err instanceof Error ? err.message : 'unknown',
+          booking_id: result.bookingId,
+        });
+      });
     } catch (err) {
       logger.error('Bancard confirmation background job failed', {
         error: err instanceof Error ? err.message : 'unknown',

@@ -482,6 +482,11 @@ const es = {
     sendResetCta: 'Enviar reseteo',
     resetSent: 'Link de reseteo enviado a {{email}}',
     resetFailed: 'No se pudo enviar el email. Intentá de nuevo.',
+    notifyNewBookingLabel: 'Recibir notificaciones de nuevos bookings',
+    notifyNewBookingHint: 'Te enviamos un email cada vez que se confirma una nueva reserva.',
+    notifyNewBookingEnabled: 'Notificaciones activadas',
+    notifyNewBookingDisabled: 'Notificaciones desactivadas',
+    notifyNewBookingSaveFailed: 'No se pudo guardar la preferencia. Intentá de nuevo.',
   },
   systemInfo: {
     sectionTitle: 'Información del sistema',

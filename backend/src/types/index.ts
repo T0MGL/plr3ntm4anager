@@ -84,6 +84,7 @@ export interface AdminUserRow {
   email: string;
   role: 'admin' | 'staff';
   status: 'active' | 'inactive';
+  notify_new_booking: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +96,7 @@ export interface AdminUser {
   email: string;
   role: 'admin' | 'staff';
   status: 'active' | 'inactive';
+  notifyNewBooking: boolean;
   createdAt: string;
   updatedAt: string;
 }

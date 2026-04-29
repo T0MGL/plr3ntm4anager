@@ -548,6 +548,42 @@ export function adminPasswordResetEmail(params: {
   return { subject: 'Recuperación de contraseña - Park Lofts Admin', html };
 }
 
+export function adminNewBookingAlertEmail(params: {
+  bookingId: string;
+  guestName: string;
+  guestEmail: string;
+  unitName: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  totalUsd: number;
+  approvalPath: 'auto' | 'manual';
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const reference = params.bookingId.slice(0, 8).toUpperCase();
+  const pathLabel = params.approvalPath === 'auto' ? 'Auto-aprobada' : 'Requiere revisión manual';
+  const subject = `[Park Lofts] Nueva reserva: ${params.unitName} · ${params.checkIn}`;
+
+  const html = wrap('es', [
+    heading('Nueva solicitud de reserva'),
+    paragraph(`Se recibió una reserva que ${params.approvalPath === 'auto' ? 'fue procesada automáticamente.' : 'requiere tu aprobación en el dashboard.'}`),
+    `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:8px 0 16px;border-collapse:collapse;">`,
+    detailRow('Referencia', `<span style="font-family:monospace;letter-spacing:0.05em;">${reference}</span>`),
+    detailRow('Huésped', escapeHtml(params.guestName)),
+    detailRow('Email', escapeHtml(params.guestEmail)),
+    detailRow('Unidad', escapeHtml(params.unitName)),
+    detailRow('Check-in', params.checkIn),
+    detailRow('Check-out', params.checkOut),
+    detailRow('Noches', String(params.nights)),
+    detailRow('Total', `$${params.totalUsd.toFixed(2)} USD`),
+    detailRow('Ruta', pathLabel, true),
+    `</table>`,
+    `<p style="margin:24px 0 0;"><a href="${params.dashboardUrl}/bookings" style="display:inline-block;padding:12px 20px;background-color:${COLORS.charcoal};color:${COLORS.cream};text-decoration:none;border-radius:6px;font-size:14px;font-weight:600;">Ver en dashboard</a></p>`,
+  ].join(''));
+
+  return { subject, html };
+}
+
 export function stuckPreauthInternalAlertEmail(params: {
   bookings: Array<{
     bookingId: string;

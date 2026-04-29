@@ -8,7 +8,7 @@ import type { AdminUser, AdminUserRow } from '../types';
 
 const ADMIN_USER_CAP = 10;
 
-const COLUMNS = 'id, auth_id, name, email, role, status, created_at, updated_at';
+const COLUMNS = 'id, auth_id, name, email, role, status, notify_new_booking, created_at, updated_at';
 
 function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -24,6 +24,7 @@ function toApi(row: AdminUserRow): AdminUser {
     email: row.email,
     role: row.role,
     status: row.status,
+    notifyNewBooking: row.notify_new_booking ?? true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -229,6 +230,44 @@ class AdminUserService {
     }
 
     return toApi(data as AdminUserRow);
+  }
+
+  async updatePreferences(
+    authId: string,
+    prefs: { notifyNewBooking?: boolean },
+  ): Promise<AdminUser> {
+    const patch: Partial<{ notify_new_booking: boolean }> = {};
+    if (prefs.notifyNewBooking !== undefined) patch.notify_new_booking = prefs.notifyNewBooking;
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_users')
+      .update(patch)
+      .eq('auth_id', authId)
+      .select(COLUMNS)
+      .single();
+
+    if (error || !data) {
+      const err = new Error('Admin user not found for this session');
+      (err as NodeJS.ErrnoException).code = 'NOT_FOUND';
+      throw err;
+    }
+
+    return toApi(data as AdminUserRow);
+  }
+
+  async getByAuthId(authId: string): Promise<AdminUser | null> {
+    const { data, error } = await supabaseAdmin
+      .from('admin_users')
+      .select(COLUMNS)
+      .eq('auth_id', authId)
+      .maybeSingle();
+
+    if (error) {
+      logger.error('Failed to fetch admin user by auth_id', { error: error.message });
+      return null;
+    }
+
+    return data ? toApi(data as AdminUserRow) : null;
   }
 
   async setPassword(userId: string, newPassword: string): Promise<AdminUser> {

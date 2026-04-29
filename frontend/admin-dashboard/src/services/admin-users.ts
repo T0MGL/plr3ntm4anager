@@ -13,6 +13,7 @@ export const adminUserSchema = z.object({
   email: z.string().email(),
   role: adminRoleSchema,
   status: adminStatusSchema,
+  notifyNewBooking: z.boolean().default(true),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -125,6 +126,26 @@ export const adminUsersApi = {
         '/admin/users/me/send-password-reset',
       );
       return { email: data.email };
+    } catch (err) {
+      unwrap(err);
+    }
+  },
+
+  async getMe(): Promise<AdminUser> {
+    try {
+      const { data } = await api.get<unknown>('/admin/users/me');
+      return adminUserSchema.parse(data);
+    } catch (err) {
+      unwrap(err);
+    }
+  },
+
+  async updateMyPreferences(prefs: { notifyNewBooking?: boolean }): Promise<AdminUser> {
+    try {
+      const { data } = await api.patch<unknown>('/admin/users/me/preferences', {
+        notify_new_booking: prefs.notifyNewBooking,
+      });
+      return adminUserSchema.parse(data);
     } catch (err) {
       unwrap(err);
     }
