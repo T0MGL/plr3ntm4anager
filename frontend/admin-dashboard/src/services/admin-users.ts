@@ -90,10 +90,20 @@ export const adminUsersApi = {
 
   async update(
     userId: string,
-    patch: Partial<{ name: string; role: AdminRole; status: AdminStatus }>,
+    patch: Partial<{
+      name: string;
+      role: AdminRole;
+      status: AdminStatus;
+      notifyNewBooking: boolean;
+    }>,
   ): Promise<AdminUser> {
+    const body: Record<string, unknown> = {};
+    if (patch.name !== undefined) body.name = patch.name;
+    if (patch.role !== undefined) body.role = patch.role;
+    if (patch.status !== undefined) body.status = patch.status;
+    if (patch.notifyNewBooking !== undefined) body.notify_new_booking = patch.notifyNewBooking;
     try {
-      const { data } = await api.put<unknown>(`/admin/users/${userId}`, patch);
+      const { data } = await api.put<unknown>(`/admin/users/${userId}`, body);
       return adminUserSchema.parse(data);
     } catch (err) {
       unwrap(err);

@@ -1688,7 +1688,8 @@ const updateUserSchema = z.object({
     name: z.string().min(2).max(200).optional(),
     role: z.enum(['admin', 'staff']).optional(),
     status: z.enum(['active', 'inactive']).optional(),
-  }),
+    notify_new_booking: z.boolean().optional(),
+  }).refine((b) => Object.keys(b).length > 0, { message: 'No fields provided' }),
 });
 
 const userIdSchema = z.object({

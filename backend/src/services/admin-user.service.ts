@@ -214,7 +214,12 @@ class AdminUserService {
 
   async update(
     userId: string,
-    patch: Partial<Pick<CreateAdminUserInput, 'name' | 'role'> & { status: 'active' | 'inactive' }>,
+    patch: Partial<
+      Pick<CreateAdminUserInput, 'name' | 'role'> & {
+        status: 'active' | 'inactive';
+        notify_new_booking: boolean;
+      }
+    >,
   ): Promise<AdminUser> {
     const { data, error } = await supabaseAdmin
       .from('admin_users')

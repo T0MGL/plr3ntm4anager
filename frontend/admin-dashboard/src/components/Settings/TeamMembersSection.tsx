@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
-import { FiChevronDown, FiLoader, FiMoreHorizontal, FiUserPlus } from 'react-icons/fi';
+import { FiBell, FiChevronDown, FiLoader, FiMoreHorizontal, FiUserPlus } from 'react-icons/fi';
 import {
   AdminUserApiError,
   adminUsersApi,
@@ -44,6 +44,7 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openRoleId, setOpenRoleId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const roleMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -90,6 +91,31 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
     setUsers((prev) => [created, ...prev]);
     toast.success(t('team.inviteSent', { email: created.email }));
     return created;
+  };
+
+  const handleNotifyToggle = async (user: AdminUser) => {
+    if (savingNotifyId) return;
+    if (effectiveStatus(user) !== 'active') return;
+    const next = !user.notifyNewBooking;
+    setSavingNotifyId(user.id);
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, notifyNewBooking: next } : u)));
+    try {
+      const updated = await adminUsersApi.update(user.id, { notifyNewBooking: next });
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    } catch (err) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, notifyNewBooking: !next } : u)),
+      );
+      const msg =
+        err instanceof AdminUserApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : t('team.notifyUpdateFailed');
+      toast.error(msg);
+    } finally {
+      setSavingNotifyId(null);
+    }
   };
 
   const handleRoleChange = async (user: AdminUser, nextRole: AdminRole) => {
@@ -216,6 +242,7 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
                   <th className="px-4 py-3 font-medium">{t('team.colMember')}</th>
                   <th className="px-4 py-3 font-medium">{t('team.colRole')}</th>
                   <th className="px-4 py-3 font-medium">{t('team.colStatus')}</th>
+                  <th className="px-4 py-3 font-medium">{t('team.colNotify')}</th>
                   <th className="px-4 py-3 font-medium">{t('team.colCreated')}</th>
                   <th className="px-4 py-3 font-medium" aria-label="Actions" />
                 </tr>
@@ -293,6 +320,30 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
                       </td>
                       <td className="px-4 py-3 align-top">
                         <StatusPill status={eff} />
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={user.notifyNewBooking}
+                          aria-label={t('team.notifyAriaLabel', { name: user.name })}
+                          title={
+                            eff === 'active'
+                              ? t('team.notifyHint')
+                              : t('team.notifyDisabledHint')
+                          }
+                          disabled={eff !== 'active' || savingNotifyId === user.id}
+                          onClick={() => void handleNotifyToggle(user)}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            user.notifyNewBooking ? 'bg-slate-900' : 'bg-slate-200'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                              user.notifyNewBooking ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
                       </td>
                       <td className="px-4 py-3 align-top text-xs text-slate-500">
                         {renderRelative(user.createdAt)}
@@ -406,6 +457,27 @@ export default function TeamMembersSection({ currentUserEmail }: TeamMembersSect
                         <StatusPill status={eff} />
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={user.notifyNewBooking}
+                      aria-label={t('team.notifyAriaLabel', { name: user.name })}
+                      disabled={eff !== 'active' || savingNotifyId === user.id}
+                      onClick={() => void handleNotifyToggle(user)}
+                      className={`relative mt-1 inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        user.notifyNewBooking ? 'bg-slate-900' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                          user.notifyNewBooking ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <FiBell className="h-3 w-3" aria-hidden="true" />
+                    {user.notifyNewBooking ? t('team.notifyOn') : t('team.notifyOff')}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {eff === 'pending' ? (
