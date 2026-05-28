@@ -355,7 +355,25 @@ export async function verifyAndMarkBancardConfirmation(
     throw new Error(`Payment not found for shop_process_id: ${operation.shop_process_id}`);
   }
 
-  const approved = operation.response === 'S';
+  // `response` only reports whether Bancard processed the message ("S"), not
+  // whether the bank approved the charge. A denied card (e.g. response_code
+  // "12" COMERCIO NO ACEPTA TARJETA INTERNACIONAL) still returns "S" with a
+  // null authorization_number. Approval requires response_code "00" plus a
+  // real authorization_number. Anything else is a failed payment.
+  const approved =
+    operation.response === 'S' &&
+    operation.response_code === '00' &&
+    !!operation.authorization_number;
+
+  if (!approved) {
+    logger.warn('Bancard transaction not approved', {
+      shop_process_id: operation.shop_process_id,
+      response: operation.response,
+      response_code: operation.response_code,
+      extended_response_description: operation.extended_response_description,
+      authorization_number: operation.authorization_number ?? null
+    });
+  }
 
   if (approved) {
     const newStatus = payment.is_preauthorization
@@ -389,7 +407,10 @@ export async function verifyAndMarkBancardConfirmation(
         payment_status: PaymentStatus.Failed,
         failed_at: new Date().toISOString(),
         failure_reason:
-          operation.response_description || operation.response_details || 'Payment denied',
+          operation.extended_response_description ||
+          operation.response_description ||
+          operation.response_details ||
+          'Payment denied',
         bancard_response: operation as unknown as Record<string, unknown>,
         response_code: operation.response_code
       })
