@@ -2,7 +2,11 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.middleware';
 import { requireAuth } from '../middleware/auth.middleware';
-import { paymentCreateRateLimit, openPaymentRateLimit } from '../middleware/rate-limit.middleware';
+import {
+  paymentCreateRateLimit,
+  openPaymentRateLimit,
+  publicReadRateLimit
+} from '../middleware/rate-limit.middleware';
 import { supabaseAdmin } from '../config/supabase';
 import {
   createSingleBuy,
@@ -165,10 +169,9 @@ router.post('/confirmation', async (req, res) => {
     logger.info('Bancard confirmation received', {
       shop_process_id: req.body?.operation?.shop_process_id,
       response: req.body?.operation?.response,
+      response_code: req.body?.operation?.response_code,
       amount: req.body?.operation?.amount,
-      currency: req.body?.operation?.currency,
-      token_received: req.body?.operation?.token,
-      full_body: JSON.stringify(req.body)
+      currency: req.body?.operation?.currency
     });
 
     const result = await verifyAndMarkBancardConfirmation(req.body);
@@ -253,7 +256,7 @@ const linkParamsSchema = z.object({
   params: z.object({ id: z.string().uuid() })
 });
 
-router.get('/links/:id', validate(linkParamsSchema), async (req, res) => {
+router.get('/links/:id', publicReadRateLimit, validate(linkParamsSchema), async (req, res) => {
   try {
     const link = await getPublicPaymentLink(req.params.id);
     if (!link) {
@@ -273,7 +276,7 @@ router.get('/links/:id', validate(linkParamsSchema), async (req, res) => {
 // pending or failed charge and we answer 404, so a receipt can never leak for an
 // unpaid link. The id is the same unguessable UUID the public lookup uses, so no
 // auth, matching the rest of the public link surface.
-router.get('/links/:id/receipt', validate(linkParamsSchema), async (req, res) => {
+router.get('/links/:id/receipt', publicReadRateLimit, validate(linkParamsSchema), async (req, res) => {
   try {
     const data = await getLinkReceiptData(req.params.id);
     if (!data) {
@@ -328,7 +331,7 @@ router.post(
 // equivalent before the user pays. Render-only: the authoritative charge amount
 // is always recomputed server-side at Single Buy time, never trusted from here.
 
-router.get('/fx', async (_req, res) => {
+router.get('/fx', publicReadRateLimit, async (_req, res) => {
   try {
     const status = await getCurrentFxRate();
     return res.json({ effective_rate: status.effectiveRate });

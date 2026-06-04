@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useNoIndex } from "../hooks/useNoIndex";
 
 const PaymentCancelledPage = () => {
+  useNoIndex();
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get("booking");

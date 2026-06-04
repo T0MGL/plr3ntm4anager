@@ -7,6 +7,7 @@ import {
   getPublicBookingDetails,
   type PublicBookingDetails,
 } from "../api/bookings";
+import { useNoIndex } from "../hooks/useNoIndex";
 
 type FetchState =
   | { status: "loading" }
@@ -14,6 +15,7 @@ type FetchState =
   | { status: "error"; message: string };
 
 const PaymentResultPage = () => {
+  useNoIndex();
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get("booking");

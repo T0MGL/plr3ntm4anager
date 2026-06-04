@@ -42,6 +42,20 @@ export const openPaymentRateLimit = rateLimit({
   message: { error: 'Too many payment attempts, please wait a few minutes.' }
 });
 
+// Public read endpoints on the payment surface: link lookup, FX preview, and
+// the receipt PDF. These take an unguessable UUID and leak nothing on a miss,
+// but the receipt path renders a PDF (CPU + memory) per call, so an uncapped
+// hammer is a cheap DoS vector. 60 reads per minute per IP is far above any
+// legitimate payer polling the link status while never letting a script grind
+// the PDF generator. Booking/open payment creation keep their own tighter caps.
+export const publicReadRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please wait a moment.' }
+});
+
 // Protects admin user write operations (password set/reset, invite). Generous
 // enough for normal admin use but blocks automated abuse.
 export const adminWriteLimiter = rateLimit({

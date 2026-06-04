@@ -9,6 +9,7 @@ import {
   type PublicPaymentLink,
 } from "../api/payment-links";
 import { PayCheckout } from "../components/PayCheckout";
+import { useNoIndex } from "../hooks/useNoIndex";
 
 const PYG = new Intl.NumberFormat("es-PY", {
   style: "currency",
@@ -73,6 +74,7 @@ const POLL_ATTEMPTS = 8;
 const OPEN_CONCEPT = "Pago a Park Lofts";
 
 const PayPage = () => {
+  useNoIndex();
   const { amount: param } = useParams<{ amount: string }>();
   const [searchParams] = useSearchParams();
   const source = useMemo(() => resolveSource(param), [param]);

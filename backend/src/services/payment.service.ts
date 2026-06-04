@@ -333,12 +333,8 @@ export async function verifyAndMarkBancardConfirmation(
     // format, currency casing, etc). Remove once Bancard certifies.
     logger.warn('Invalid confirmation token', {
       shop_process_id: operation.shop_process_id,
-      token_received: operation.token,
-      token_expected: expectedToken,
       amount_used: operation.amount,
-      currency_used: operation.currency,
-      private_key_prefix: env.BANCARD_PRIVATE_KEY.slice(0, 8) + '...',
-      formula: 'md5(private_key + shop_process_id + "confirm" + amount + currency)'
+      currency_used: operation.currency
     });
     throw new Error('Invalid confirmation token');
   }

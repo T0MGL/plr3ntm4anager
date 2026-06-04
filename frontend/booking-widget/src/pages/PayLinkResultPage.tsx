@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { getPaymentLink, receiptUrl } from "../api/payment-links";
+import { useNoIndex } from "../hooks/useNoIndex";
 
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -24,6 +25,7 @@ type View =
   | { status: "missing" };
 
 const PayLinkResultPage = () => {
+  useNoIndex();
   const [searchParams] = useSearchParams();
   const linkId = searchParams.get("link");
   const bancardStatus = searchParams.get("status");
