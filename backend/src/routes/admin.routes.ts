@@ -15,6 +15,7 @@ import {
   setManualOverride,
   setMarkupPct
 } from '../services/fx-rate.service';
+import { createPaymentLink, listPaymentLinks } from '../services/payment-link.service';
 import { recheckAvailabilityOrFail } from '../services/approval-routing.service';
 import { sendEmail } from '../services/email.service';
 import {
@@ -2502,5 +2503,62 @@ router.post('/fx/refresh', requireAdmin, adminWriteLimiter, async (_req, res) =>
     return res.status(502).json({ error: msg });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Payment links. Admin creates a fixed-amount card payment link and shares the
+// public URL. requireAdmin on top of the router-wide requireAuth: minting a
+// charge link is a privileged action, same posture as FX tuning.
+// ---------------------------------------------------------------------------
+
+router.get('/payment-links', requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit ?? 100), 200);
+    const offset = Math.max(Number(req.query.offset ?? 0), 0);
+    const links = await listPaymentLinks(limit, offset);
+    return res.json(links);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to list payment links';
+    logger.error('GET /admin/payment-links failed', { error: msg });
+    return res.status(500).json({ error: msg });
+  }
+});
+
+const createPaymentLinkSchema = z.object({
+  body: z.object({
+    amount_usd: z.number().positive().max(1_000_000),
+    concept: z.string().trim().min(2).max(200),
+    booking_id: z.string().uuid().optional(),
+    expires_at: z.string().datetime().optional()
+  })
+});
+
+router.post(
+  '/payment-links',
+  requireAdmin,
+  adminWriteLimiter,
+  validate(createPaymentLinkSchema),
+  async (req, res) => {
+    try {
+      const body = req.body as {
+        amount_usd: number;
+        concept: string;
+        booking_id?: string;
+        expires_at?: string;
+      };
+      const link = await createPaymentLink({
+        amountUsd: body.amount_usd,
+        concept: body.concept,
+        bookingId: body.booking_id ?? null,
+        expiresAt: body.expires_at ?? null
+      });
+      logger.info('Payment link created', { link_id: link.id, amount_usd: link.amount_usd });
+      return res.status(201).json(link);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create payment link';
+      logger.error('POST /admin/payment-links failed', { error: msg });
+      return res.status(400).json({ error: msg });
+    }
+  }
+);
 
 export default router;
