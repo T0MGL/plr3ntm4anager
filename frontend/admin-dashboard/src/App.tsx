@@ -1,6 +1,6 @@
 import { Toaster } from 'react-hot-toast';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { FiCalendar, FiCompass, FiCreditCard, FiHome, FiRefreshCw, FiSettings } from 'react-icons/fi';
+import { FiCalendar, FiCompass, FiCreditCard, FiHome, FiLink, FiRefreshCw, FiSettings } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
 import Login from './components/Auth/Login';
 import AppLayout from './components/layout/AppLayout';
@@ -11,6 +11,7 @@ import UnitStats from './pages/UnitStats';
 import Bookings from './pages/Bookings';
 import Sync from './pages/Sync';
 import Payments from './pages/Payments';
+import PaymentLinks from './pages/PaymentLinks';
 import Settings from './pages/Settings';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -21,6 +22,7 @@ const routes = [
   { path: '/bookings', element: <Bookings /> },
   { path: '/sync', element: <Sync /> },
   { path: '/payments', element: <Payments /> },
+  { path: '/payment-links', element: <PaymentLinks /> },
   { path: '/settings', element: <Settings /> },
 ] as const;
 
@@ -68,6 +70,13 @@ function Shell() {
       icon: FiCreditCard,
       title: t('nav.paymentsReconciliation'),
       description: t('nav.paymentsReconciliationDesc'),
+    },
+    {
+      label: t('nav.paymentLinks'),
+      path: '/payment-links',
+      icon: FiLink,
+      title: t('nav.paymentLinksTitle'),
+      description: t('nav.paymentLinksDesc'),
     },
     {
       label: t('nav.settings'),

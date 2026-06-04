@@ -29,6 +29,7 @@ import UnitDetailPage from "./pages/UnitDetailPage";
 import ContactPage from "./pages/ContactPage";
 import PaymentResultPage from "./pages/PaymentResultPage";
 import PaymentCancelledPage from "./pages/PaymentCancelledPage";
+import PayPage from "./pages/PayPage";
 
 interface BWConfig {
   unitId?: string;
@@ -105,6 +106,7 @@ const routes = [
     children: [
       { path: "/", element: <UnitListingPage /> },
       { path: "/contacto", element: <ContactPage /> },
+      { path: "/pay/:id", element: <PayPage /> },
       { path: "/:unitId", element: <UnitDetailPage /> },
       { path: "/payment/result", element: <PaymentResultPage /> },
       { path: "/payment/cancelled", element: <PaymentCancelledPage /> },

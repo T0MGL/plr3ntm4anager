@@ -11,6 +11,10 @@ import {
   rollbackPayment,
   getPaymentConfirmation
 } from '../services/payment.service';
+import {
+  createSingleBuyForLink,
+  getPublicPaymentLink
+} from '../services/payment-link.service';
 import { decideApprovalPath } from '../services/approval-routing.service';
 import { logger } from '../config/logger';
 import { BookingStatus } from '../types';
@@ -235,5 +239,56 @@ router.post('/check-status', requireAuth, validate(checkStatusSchema), async (re
     return res.status(400).json({ error: message });
   }
 });
+
+// GET /payments/links/:id
+// Public lookup for the /pay/:id page. Returns only render-safe fields. The
+// UUID is unguessable by construction so no auth is required, matching the
+// public booking lookup posture in booking.routes.ts.
+
+const linkParamsSchema = z.object({
+  params: z.object({ id: z.string().uuid() })
+});
+
+router.get('/links/:id', validate(linkParamsSchema), async (req, res) => {
+  try {
+    const link = await getPublicPaymentLink(req.params.id);
+    if (!link) {
+      return res.status(404).json({ error: 'Payment link not found' });
+    }
+    return res.json(link);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load payment link';
+    logger.error('GET /payments/links/:id failed', { error: message, id: req.params.id });
+    return res.status(500).json({ error: message });
+  }
+});
+
+// POST /payments/links/:id/pay
+// Starts a Bancard Single Buy for a payment link and returns the process_id the
+// frontend feeds to the Bancard Checkout iframe. Rate limited the same as
+// booking checkouts to stay under the Bancard per-card attempt block.
+
+router.post(
+  '/links/:id/pay',
+  paymentCreateRateLimit,
+  validate(linkParamsSchema),
+  async (req, res) => {
+    try {
+      const result = await createSingleBuyForLink(req.params.id);
+      return res.json({
+        process_id: result.process_id,
+        shop_process_id: result.shop_process_id,
+        bancard_url: result.bancard_url
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Payment initiation failed';
+      logger.error('POST /payments/links/:id/pay failed', {
+        error: message,
+        id: req.params.id
+      });
+      return res.status(400).json({ error: message });
+    }
+  }
+);
 
 export default router;

@@ -13,6 +13,7 @@ import {
 } from '../templates/emails';
 import { unblockWidgetDates } from './booking.service';
 import { notifyAdminsNewBooking } from './admin-notification.service';
+import { markPaymentLinkPaid } from './payment-link.service';
 
 // Bancard VPOS 2.0 Token Generation (MD5)
 // Spec: Token is always MD5 (32 chars). Numbers must be strings with 2 decimals.
@@ -306,7 +307,8 @@ export async function createSingleBuy(
 
 interface BancardConfirmationResult {
   paymentId: string;
-  bookingId: string;
+  bookingId: string | null;
+  paymentLinkId: string | null;
   approved: boolean;
 }
 
@@ -343,7 +345,7 @@ export async function verifyAndMarkBancardConfirmation(
 
   const { data: payment, error: paymentError } = await supabaseAdmin
     .from('payments')
-    .select('id, booking_id, amount_pyg, is_preauthorization')
+    .select('id, booking_id, payment_link_id, amount_pyg, is_preauthorization')
     .eq('shop_process_id', String(operation.shop_process_id))
     .single();
 
@@ -391,7 +393,11 @@ export async function verifyAndMarkBancardConfirmation(
       })
       .eq('id', payment.id);
 
-    if (!payment.is_preauthorization) {
+    if (payment.payment_link_id) {
+      // Payment link path: a captured charge marks the link paid. There is no
+      // booking to flip and no preauthorization variant for links.
+      await markPaymentLinkPaid(payment.payment_link_id);
+    } else if (payment.booking_id && !payment.is_preauthorization) {
       await supabaseAdmin
         .from('booking_requests')
         .update({
@@ -416,16 +422,20 @@ export async function verifyAndMarkBancardConfirmation(
       })
       .eq('id', payment.id);
 
-    // Release the widget-sourced availability blocks so the guest can retry
-    // immediately with a different card. The booking_request stays in `pending`
-    // so the guest can resume via the session token on the frontend without
-    // creating a duplicate booking.
-    await unblockWidgetDates(payment.booking_id);
+    // Booking path only: release the widget-sourced availability blocks so the
+    // guest can retry immediately with a different card. The booking_request
+    // stays in `pending` so the guest can resume via the session token without
+    // creating a duplicate booking. Payment links have no dates to release; the
+    // link stays `active` and reusable for a retry automatically.
+    if (payment.booking_id) {
+      await unblockWidgetDates(payment.booking_id);
+    }
   }
 
   return {
     paymentId: payment.id,
     bookingId: payment.booking_id,
+    paymentLinkId: payment.payment_link_id,
     approved
   };
 }
@@ -440,8 +450,16 @@ export function processBancardConfirmationBackground(
         shop_process_id: payload.operation.shop_process_id,
         approved: result.approved,
         booking_id: result.bookingId,
+        payment_link_id: result.paymentLinkId,
         response_code: payload.operation.response_code
       });
+
+      // Payment link path has no guest record and no booking emails. The link
+      // status is already settled in the critical path; the public /pay page
+      // reflects the result on its return_url redirect. Nothing else to do.
+      if (result.paymentLinkId || !result.bookingId) {
+        return;
+      }
 
       const { data: booking } = await supabaseAdmin
         .from('booking_requests')
