@@ -316,6 +316,37 @@ export async function createSingleBuyForLink(linkId: string): Promise<SingleBuyR
   }
 }
 
+// Open payment from the public /pay/:amount route. The amount in USD comes from
+// the URL, is validated at the route layer, and is converted to PYG here at the
+// day's FX (the same snapshot path as admin links). We never accept a PYG amount
+// from the client: the authoritative charge is derived server-side from the USD
+// value. Each open payment materializes one payment_link row so the existing
+// Single Buy, return_url, retry-on-denial and confirmation webhook all apply
+// unchanged. The link id is unguessable and only lives for this one charge.
+export interface OpenPaymentResult extends SingleBuyResult {
+  link_id: string;
+  amount_usd: number;
+  amount_pyg: number;
+}
+
+const OPEN_PAYMENT_CONCEPT = 'Pago a Park Lofts';
+
+export async function createOpenPayment(amountUsd: number): Promise<OpenPaymentResult> {
+  const link = await createPaymentLink({
+    amountUsd,
+    concept: OPEN_PAYMENT_CONCEPT
+  });
+
+  const singleBuy = await createSingleBuyForLink(link.id);
+
+  return {
+    ...singleBuy,
+    link_id: link.id,
+    amount_usd: Number(link.amount_usd),
+    amount_pyg: Number(link.amount_pyg)
+  };
+}
+
 // Marks the link paid on an approved charge. Called from the shared
 // confirmation handler. Idempotent: a replayed webhook on an already-paid link
 // is a no-op.

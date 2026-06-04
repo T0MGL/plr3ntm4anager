@@ -13,8 +13,10 @@ import {
 } from '../services/payment.service';
 import {
   createSingleBuyForLink,
+  createOpenPayment,
   getPublicPaymentLink
 } from '../services/payment-link.service';
+import { getCurrentFxRate } from '../services/fx-rate.service';
 import { decideApprovalPath } from '../services/approval-routing.service';
 import { logger } from '../config/logger';
 import { BookingStatus } from '../types';
@@ -285,6 +287,73 @@ router.post(
       logger.error('POST /payments/links/:id/pay failed', {
         error: message,
         id: req.params.id
+      });
+      return res.status(400).json({ error: message });
+    }
+  }
+);
+
+// GET /payments/fx
+// Public effective USD -> PYG rate for the open /pay page so it can show the PYG
+// equivalent before the user pays. Render-only: the authoritative charge amount
+// is always recomputed server-side at Single Buy time, never trusted from here.
+
+router.get('/fx', async (_req, res) => {
+  try {
+    const status = await getCurrentFxRate();
+    return res.json({ effective_rate: status.effectiveRate });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load FX rate';
+    logger.error('GET /payments/fx failed', { error: message });
+    return res.status(500).json({ error: message });
+  }
+});
+
+// POST /payments/open
+// Open card payment for the public rent.parkloftsparaguay.com/pay/:amount page.
+// The amount in USD arrives in the request body (parsed from the URL by the
+// widget) and is validated here: positive, at least 1 USD, at most 50000 USD,
+// and no more than 2 decimals. We convert to PYG server-side at the day's FX and
+// fire a Bancard Single Buy. The PYG amount the card is charged is derived from
+// this USD value, never sent by the client.
+
+const MAX_OPEN_PAYMENT_USD = 50_000;
+
+const openPaymentSchema = z.object({
+  body: z.object({
+    amount_usd: z
+      .number({ invalid_type_error: 'amount_usd must be a number' })
+      .finite('amount_usd must be a finite number')
+      .gt(0, 'amount_usd must be greater than 0')
+      .min(1, 'El monto mínimo es 1 USD')
+      .max(MAX_OPEN_PAYMENT_USD, `El monto máximo es ${MAX_OPEN_PAYMENT_USD} USD`)
+      .refine(
+        (value) => Math.round(value * 100) === value * 100,
+        'El monto admite hasta 2 decimales'
+      )
+  })
+});
+
+router.post(
+  '/open',
+  paymentCreateRateLimit,
+  validate(openPaymentSchema),
+  async (req, res) => {
+    try {
+      const result = await createOpenPayment(req.body.amount_usd);
+      return res.json({
+        process_id: result.process_id,
+        shop_process_id: result.shop_process_id,
+        bancard_url: result.bancard_url,
+        link_id: result.link_id,
+        amount_usd: result.amount_usd,
+        amount_pyg: result.amount_pyg
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Payment initiation failed';
+      logger.error('POST /payments/open failed', {
+        error: message,
+        amount_usd: req.body?.amount_usd
       });
       return res.status(400).json({ error: message });
     }

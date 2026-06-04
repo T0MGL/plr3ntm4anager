@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import toast from "react-hot-toast";
 import {
+  getFxRate,
   getPaymentLink,
-  startPaymentLinkCheckout,
-  type PublicPaymentLink,
+  startOpenPayment,
 } from "../api/payment-links";
 import { PayCheckout } from "../components/PayCheckout";
 
@@ -19,29 +19,51 @@ const USD = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
+const MIN_USD = 1;
+const MAX_USD = 50_000;
+
+// Parse the USD amount out of the /pay/:amount path. Accepts whole numbers and
+// up to two decimals (1, 300, 1.5, 49.99). Rejects anything else: zero,
+// negatives, more than two decimals, or non-numeric junk like /pay/abc. The
+// backend revalidates this same range, so the page check is purely for instant
+// feedback, never the authority on what gets charged.
+function parseAmount(raw: string | undefined): number | null {
+  if (!raw) return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(raw)) return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return null;
+  if (value < MIN_USD || value > MAX_USD) return null;
+  return value;
+}
+
 type View =
   | { status: "loading" }
-  | { status: "ready"; link: PublicPaymentLink }
-  | { status: "paid"; link: PublicPaymentLink }
-  | { status: "expired" }
-  | { status: "not_found" }
-  | { status: "error"; message: string };
+  | { status: "ready"; amountUsd: number }
+  | { status: "paid"; amountUsd: number }
+  | { status: "invalid" };
 
 interface Checkout {
+  linkId: string;
   processId: string;
   bancardUrl: string;
 }
 
-// Poll the link after the iframe reports completion. The Bancard confirmation
-// webhook is the source of truth: an approved charge flips the link to `paid`,
-// a denied card (response_code 12 and friends) leaves it `active` for a retry.
+// After the iframe reports completion we poll the link the charge created. The
+// Bancard confirmation webhook is the source of truth: an approved charge flips
+// the link to `paid`, a denied card (response_code 12 and friends) leaves it
+// `active` and we tell the payer to try another card.
 const POLL_INTERVAL_MS = 1500;
 const POLL_ATTEMPTS = 8;
 
 const PayPage = () => {
-  const { id } = useParams<{ id: string }>();
+  const { amount: amountParam } = useParams<{ amount: string }>();
   const [searchParams] = useSearchParams();
-  const [view, setView] = useState<View>({ status: "loading" });
+  const amountUsd = useMemo(() => parseAmount(amountParam), [amountParam]);
+
+  const [view, setView] = useState<View>(() =>
+    amountUsd === null ? { status: "invalid" } : { status: "ready", amountUsd },
+  );
+  const [pygPreview, setPygPreview] = useState<number | null>(null);
   const [checkout, setCheckout] = useState<Checkout | null>(null);
   const [starting, setStarting] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -54,42 +76,41 @@ const PayPage = () => {
     };
   }, []);
 
-  const load = useCallback(async () => {
-    if (!id) {
-      setView({ status: "not_found" });
-      return;
-    }
-    try {
-      const link = await getPaymentLink(id);
-      if (!mounted.current) return;
-      if (link.status === "paid") {
-        setView({ status: "paid", link });
-      } else if (link.status === "expired" || link.expired) {
-        setView({ status: "expired" });
-      } else {
-        setView({ status: "ready", link });
-      }
-    } catch (err) {
-      if (!mounted.current) return;
-      const message = err instanceof Error ? err.message : "No se pudo cargar el pago.";
-      if (message.toLowerCase().includes("not found") || message.includes("404")) {
-        setView({ status: "not_found" });
-      } else {
-        setView({ status: "error", message });
-      }
-    }
-  }, [id]);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    setView(
+      amountUsd === null ? { status: "invalid" } : { status: "ready", amountUsd },
+    );
+    setPygPreview(null);
+  }, [amountUsd]);
+
+  // Show the PYG equivalent at the day's FX so the payer sees what the card is
+  // charged. This is render-only; the backend recomputes the authoritative PYG
+  // when it fires the Single Buy.
+  useEffect(() => {
+    if (amountUsd === null) return;
+    let active = true;
+    getFxRate()
+      .then((rate) => {
+        if (active) setPygPreview(Math.round(amountUsd * rate.effective_rate));
+      })
+      .catch(() => {
+        if (active) setPygPreview(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [amountUsd]);
 
   const handleStart = async () => {
-    if (!id || starting) return;
+    if (amountUsd === null || starting) return;
     setStarting(true);
     try {
-      const result = await startPaymentLinkCheckout(id);
-      setCheckout({ processId: result.process_id, bancardUrl: result.bancard_url });
+      const result = await startOpenPayment(amountUsd);
+      setCheckout({
+        linkId: result.link_id,
+        processId: result.process_id,
+        bancardUrl: result.bancard_url,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "No se pudo iniciar el pago.";
       toast.error(message);
@@ -98,86 +119,85 @@ const PayPage = () => {
     }
   };
 
-  const handleSuccess = useCallback(async () => {
-    setCheckout(null);
-    setVerifying(true);
+  const verifyCharge = useCallback(
+    async (linkId: string) => {
+      setCheckout(null);
+      setVerifying(true);
 
-    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
-      try {
-        const link = await getPaymentLink(id ?? "");
-        if (!mounted.current) return;
-        if (link.status === "paid") {
-          setVerifying(false);
-          setView({ status: "paid", link });
-          return;
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt++) {
+        try {
+          const link = await getPaymentLink(linkId);
+          if (!mounted.current) return;
+          if (link.status === "paid") {
+            setVerifying(false);
+            setView({ status: "paid", amountUsd: link.amount_usd });
+            return;
+          }
+        } catch {
+          // transient: keep polling
         }
-      } catch {
-        // transient: keep polling
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    }
 
-    if (!mounted.current) return;
-    setVerifying(false);
-    toast.error(
-      "El pago no pudo procesarse con esta tarjeta. Probá con otra tarjeta o contactanos.",
-    );
-    void load();
-  }, [id, load]);
+      if (!mounted.current) return;
+      setVerifying(false);
+      toast.error(
+        "El pago no pudo procesarse con esta tarjeta. La tarjeta fue rechazada, probá con otra.",
+      );
+    },
+    [],
+  );
 
-  // Bancard returns to /pay/:id?status=... When this renders INSIDE the
-  // checkout iframe, bridge the result up to the parent window so the open
-  // PayCheckout drives the verification, then stop. When it renders at the top
-  // level (return_url loaded directly), verify here.
+  // Bancard returns to /pay/{linkId}?status=... When this page renders INSIDE
+  // the checkout iframe (the return_url load), bridge the result up to the
+  // parent window so the open PayCheckout drives verification, then render
+  // nothing. The :amount param here is the link id, not a real amount, so we
+  // must never fall through to the normal UI in that case.
+  const inIframeReturn =
+    typeof window !== "undefined" &&
+    window.parent !== window &&
+    searchParams.get("status") !== null;
+
   useEffect(() => {
     const status = searchParams.get("status");
     if (!status) return;
-
     if (window.parent !== window) {
       window.parent.postMessage(
-        { type: "bancard_payment_complete", status: status === "success" ? "success" : "cancelled" },
+        {
+          type: "bancard_payment_complete",
+          status: status === "success" ? "success" : "cancelled",
+        },
         "*",
       );
-      return;
-    }
-
-    if (status === "success") {
-      void handleSuccess();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (inIframeReturn) {
+    return null;
+  }
+
   return (
     <section className="pl-container py-16 md:py-24">
       <div className="mx-auto max-w-xl">
-        {view.status === "loading" || verifying ? <PaySkeleton /> : null}
+        {verifying ? <PaySkeleton /> : null}
 
-        {view.status === "ready" && !verifying ? (
+        {!verifying && view.status === "ready" ? (
           <ReadyView
-            link={view.link}
+            amountUsd={view.amountUsd}
+            amountPyg={pygPreview}
             onPay={handleStart}
             starting={starting}
           />
         ) : null}
 
-        {view.status === "paid" && !verifying ? <PaidView link={view.link} /> : null}
+        {!verifying && view.status === "paid" ? <PaidView amountUsd={view.amountUsd} /> : null}
 
-        {view.status === "expired" && !verifying ? (
+        {!verifying && view.status === "invalid" ? (
           <NoticeView
-            title="Este enlace de pago expiró"
-            body="El enlace ya no está disponible. Contactanos para que generemos uno nuevo."
+            title="Monto de pago inválido"
+            body="El enlace no incluye un monto válido. Usá un enlace con el formato /pay/300 o contactanos para que te enviemos el correcto."
           />
-        ) : null}
-
-        {view.status === "not_found" && !verifying ? (
-          <NoticeView
-            title="Enlace de pago no encontrado"
-            body="El enlace no existe o fue revocado. Verificá el link o contactanos."
-          />
-        ) : null}
-
-        {view.status === "error" && !verifying ? (
-          <NoticeView title="Algo salió mal" body={view.message} />
         ) : null}
       </div>
 
@@ -186,7 +206,7 @@ const PayPage = () => {
           processId={checkout.processId}
           bancardUrl={checkout.bancardUrl}
           onClose={() => setCheckout(null)}
-          onSuccess={handleSuccess}
+          onSuccess={() => verifyCharge(checkout.linkId)}
         />
       ) : null}
     </section>
@@ -194,11 +214,13 @@ const PayPage = () => {
 };
 
 function ReadyView({
-  link,
+  amountUsd,
+  amountPyg,
   onPay,
   starting,
 }: {
-  link: PublicPaymentLink;
+  amountUsd: number;
+  amountPyg: number | null;
   onPay: () => void;
   starting: boolean;
 }) {
@@ -220,18 +242,20 @@ function ReadyView({
         <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-charcoal-400">
           Concepto
         </div>
-        <p className="mt-3 text-lg font-medium text-charcoal">{link.concept}</p>
+        <p className="mt-3 text-lg font-medium text-charcoal">Pago a Park Lofts</p>
 
         <div className="mt-10 border-t border-stone pt-8">
           <div className="text-[0.625rem] font-medium uppercase tracking-[0.25em] text-charcoal-400">
             Total a pagar
           </div>
           <div className="font-display mt-3 flex items-baseline gap-2 text-charcoal">
-            <span className="text-5xl leading-none md:text-6xl">{USD.format(link.amount_usd)}</span>
+            <span className="text-5xl leading-none md:text-6xl">{USD.format(amountUsd)}</span>
             <span className="text-base text-charcoal-400">USD</span>
           </div>
           <p className="mt-3 text-sm text-charcoal-500">
-            Se cobrará {PYG.format(link.amount_pyg)} al tipo de cambio del día.
+            {amountPyg !== null
+              ? `Se cobrará ${PYG.format(amountPyg)} al tipo de cambio del día.`
+              : "El monto se cobra en guaraníes al tipo de cambio del día."}
           </p>
         </div>
 
@@ -255,7 +279,7 @@ function ReadyView({
   );
 }
 
-function PaidView({ link }: { link: PublicPaymentLink }) {
+function PaidView({ amountUsd }: { amountUsd: number }) {
   return (
     <div className="text-center">
       <span className="pl-gold-rule" />
@@ -267,8 +291,7 @@ function PaidView({ link }: { link: PublicPaymentLink }) {
         Gracias, recibimos tu pago
       </h1>
       <p className="mt-4 text-sm leading-relaxed text-charcoal-500">
-        Pagaste {USD.format(link.amount_usd)} por {link.concept}. Guardá esta página como
-        comprobante.
+        Pagaste {USD.format(amountUsd)} a Park Lofts. Guardá esta página como comprobante.
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
         <button type="button" onClick={() => window.print()} className="pl-btn-primary">
