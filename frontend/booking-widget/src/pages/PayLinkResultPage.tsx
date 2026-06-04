@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { getPaymentLink } from "../api/payment-links";
+import { getPaymentLink, receiptUrl } from "../api/payment-links";
 
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -18,7 +18,7 @@ const POLL_ATTEMPTS = 10;
 
 type View =
   | { status: "verifying" }
-  | { status: "paid"; amountUsd: number }
+  | { status: "paid"; amountUsd: number; linkId: string }
   | { status: "cancelled" }
   | { status: "failed" }
   | { status: "missing" };
@@ -66,7 +66,7 @@ const PayLinkResultPage = () => {
         const link = await getPaymentLink(id);
         if (!mounted.current) return;
         if (link.status === "paid") {
-          setView({ status: "paid", amountUsd: link.amount_usd });
+          setView({ status: "paid", amountUsd: link.amount_usd, linkId: id });
           return;
         }
       } catch {
@@ -86,7 +86,9 @@ const PayLinkResultPage = () => {
     <section className="pl-container py-16 md:py-24">
       <div className="mx-auto max-w-xl">
         {view.status === "verifying" ? <VerifyingView /> : null}
-        {view.status === "paid" ? <PaidView amountUsd={view.amountUsd} /> : null}
+        {view.status === "paid" ? (
+          <PaidView amountUsd={view.amountUsd} linkId={view.linkId} />
+        ) : null}
         {view.status === "cancelled" ? <CancelledView /> : null}
         {view.status === "failed" ? <FailedView /> : null}
         {view.status === "missing" ? <MissingView /> : null}
@@ -113,7 +115,7 @@ function VerifyingView() {
   );
 }
 
-function PaidView({ amountUsd }: { amountUsd: number }) {
+function PaidView({ amountUsd, linkId }: { amountUsd: number; linkId: string }) {
   return (
     <div className="text-center">
       <span className="pl-gold-rule" />
@@ -125,12 +127,13 @@ function PaidView({ amountUsd }: { amountUsd: number }) {
         Gracias, recibimos tu pago
       </h1>
       <p className="mt-4 text-sm leading-relaxed text-charcoal-500">
-        Pagaste {USD.format(amountUsd)} a Park Lofts. Guardá esta página como comprobante.
+        Pagaste {USD.format(amountUsd)} a Park Lofts. Descargá tu comprobante para tus registros.
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-        <button type="button" onClick={() => window.print()} className="pl-btn-primary">
-          Descargar comprobante
-        </button>
+        <a href={receiptUrl(linkId)} className="pl-btn-primary inline-flex items-center gap-2">
+          <DownloadIcon className="h-4 w-4" />
+          Descargar recibo
+        </a>
         <Link to="/" className="pl-btn-ghost">
           Ir al inicio
         </Link>
@@ -221,6 +224,25 @@ function CheckIcon({ className }: { className?: string }) {
       aria-hidden
     >
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }

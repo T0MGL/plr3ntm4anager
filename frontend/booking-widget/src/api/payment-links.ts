@@ -37,6 +37,42 @@ export async function getPaymentLink(id: string): Promise<PublicPaymentLink> {
   return requestJson<PublicPaymentLink>(`/payments/links/${id}`);
 }
 
+export interface LinkPaymentStart {
+  process_id: string;
+  shop_process_id: number;
+  bancard_url: string;
+}
+
+// Starts a Bancard Single Buy for an admin-created link. The amount and concept
+// are fixed server-side from the link, so the page only sends the id. Mirrors
+// startOpenPayment but for the /pay/:linkId entry the admin shares.
+export async function startLinkPayment(linkId: string): Promise<LinkPaymentStart> {
+  const res = await fetch(`${API_BASE_URL}/payments/links/${linkId}/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const payload = (await res.json().catch(() => ({}))) as
+    | LinkPaymentStart
+    | { error?: string };
+
+  if (!res.ok) {
+    const message =
+      "error" in payload && typeof payload.error === "string"
+        ? payload.error
+        : `No se pudo iniciar el pago (${res.status})`;
+    throw new Error(message);
+  }
+
+  return payload as LinkPaymentStart;
+}
+
+// Absolute URL for the server-rendered comprobante PDF. The endpoint emits only
+// when the link is paid, so it is safe to surface this on the result screen.
+export function receiptUrl(linkId: string): string {
+  return `${API_BASE_URL}/payments/links/${linkId}/receipt`;
+}
+
 // Starts an open card payment for the public /pay/:amount page. The USD amount
 // is parsed from the URL by the widget; the backend revalidates it, converts to
 // PYG at the day's FX, and returns the Bancard process to feed the iframe.

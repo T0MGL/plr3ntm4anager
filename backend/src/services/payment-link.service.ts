@@ -247,9 +247,14 @@ export async function createSingleBuyForLink(linkId: string): Promise<SingleBuyR
   // Bancard 3DS on international cards does a full top-level redirect to the
   // return_url, so it must resolve to a standalone result page, not back to
   // /pay/:amount (which would parse the link id as an amount and show "monto
-  // invalido"). The result page reads ?link and polls the link status, which
-  // the confirmation webhook is the source of truth for.
-  const returnUrl = `${env.FRONTEND_URL}/payment/link-result?link=${linkId}&status=success`;
+  // invalido"). The result page reads ?link and polls the link status, which is
+  // what the confirmation webhook is the source of truth for. We do not append
+  // our own status to the success return_url: Bancard tacks its own status param
+  // on, and sending one too produced the "?status=success&status=payment_success"
+  // duplicate. The page decides paid/failed by polling, not by the param, so the
+  // success target stays clean. Cancel still carries an explicit signal because
+  // a cancel never reaches the confirmation webhook.
+  const returnUrl = `${env.FRONTEND_URL}/payment/link-result?link=${linkId}`;
   const cancelUrl = `${env.FRONTEND_URL}/payment/link-result?link=${linkId}&status=cancelled`;
   const description = `Park Lofts ${linkId.substring(0, 8)}`.substring(0, 20);
 
@@ -366,4 +371,74 @@ export async function markPaymentLinkPaid(linkId: string): Promise<void> {
     logger.error('Failed to mark payment link paid', { error: error.message, link_id: linkId });
     throw new Error('Failed to mark payment link paid');
   }
+}
+
+// Receipt payload for a paid link. Only ever assembled from a completed payment:
+// the route returns 404 when this is null so a pending or failed charge can
+// never produce a comprobante. None of these fields are card data; the
+// authorization and ticket numbers are Bancard's own transaction references.
+export interface LinkReceiptData {
+  linkId: string;
+  concept: string;
+  amountUsd: number;
+  amountPyg: number;
+  authorizationNumber: string;
+  ticketNumber: string;
+  shopProcessId: string;
+  bancardProcessId: string;
+  paidAt: string;
+}
+
+export async function getLinkReceiptData(linkId: string): Promise<LinkReceiptData | null> {
+  const { data: link, error: linkError } = await supabaseAdmin
+    .from('payment_links')
+    .select('id, concept, amount_usd, amount_pyg, status')
+    .eq('id', linkId)
+    .maybeSingle();
+
+  if (linkError) {
+    logger.error('Failed to load link for receipt', { error: linkError.message, link_id: linkId });
+    throw new Error('Failed to load payment link');
+  }
+
+  if (!link || link.status !== 'paid') {
+    return null;
+  }
+
+  const { data: payment, error: paymentError } = await supabaseAdmin
+    .from('payments')
+    .select(
+      'authorization_number, shop_process_id, bancard_process_id, bancard_response, completed_at'
+    )
+    .eq('payment_link_id', linkId)
+    .eq('payment_status', PaymentStatus.Completed)
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (paymentError) {
+    logger.error('Failed to load payment for receipt', {
+      error: paymentError.message,
+      link_id: linkId
+    });
+    throw new Error('Failed to load payment');
+  }
+
+  if (!payment) {
+    return null;
+  }
+
+  const response = (payment.bancard_response ?? {}) as { ticket_number?: string };
+
+  return {
+    linkId: link.id,
+    concept: link.concept,
+    amountUsd: Number(link.amount_usd),
+    amountPyg: Number(link.amount_pyg),
+    authorizationNumber: payment.authorization_number ?? '',
+    ticketNumber: response.ticket_number ?? '',
+    shopProcessId: payment.shop_process_id ?? '',
+    bancardProcessId: payment.bancard_process_id ?? '',
+    paidAt: payment.completed_at ?? new Date().toISOString()
+  };
 }

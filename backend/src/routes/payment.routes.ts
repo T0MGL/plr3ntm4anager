@@ -14,8 +14,10 @@ import {
 import {
   createSingleBuyForLink,
   createOpenPayment,
-  getPublicPaymentLink
+  getPublicPaymentLink,
+  getLinkReceiptData
 } from '../services/payment-link.service';
+import { buildReceiptPdf } from '../services/receipt-pdf.service';
 import { getCurrentFxRate } from '../services/fx-rate.service';
 import { decideApprovalPath } from '../services/approval-routing.service';
 import { logger } from '../config/logger';
@@ -261,6 +263,34 @@ router.get('/links/:id', validate(linkParamsSchema), async (req, res) => {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to load payment link';
     logger.error('GET /payments/links/:id failed', { error: message, id: req.params.id });
+    return res.status(500).json({ error: message });
+  }
+});
+
+// GET /payments/links/:id/receipt
+// Streams the branded comprobante PDF for a paid link. Emits only when the link
+// is paid and a completed payment exists: getLinkReceiptData returns null for a
+// pending or failed charge and we answer 404, so a receipt can never leak for an
+// unpaid link. The id is the same unguessable UUID the public lookup uses, so no
+// auth, matching the rest of the public link surface.
+router.get('/links/:id/receipt', validate(linkParamsSchema), async (req, res) => {
+  try {
+    const data = await getLinkReceiptData(req.params.id);
+    if (!data) {
+      return res.status(404).json({ error: 'No hay un comprobante disponible para este pago' });
+    }
+
+    const pdf = await buildReceiptPdf(data);
+    const filename = `comprobante-park-lofts-${data.linkId.slice(0, 8)}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdf.length);
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.end(pdf);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'No se pudo generar el comprobante';
+    logger.error('GET /payments/links/:id/receipt failed', { error: message, id: req.params.id });
     return res.status(500).json({ error: message });
   }
 });
