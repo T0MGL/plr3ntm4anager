@@ -244,8 +244,13 @@ export async function createSingleBuyForLink(linkId: string): Promise<SingleBuyR
   }
 
   const token = tokenForSingleBuy(shopProcessId, amountStr, currency);
-  const returnUrl = `${env.FRONTEND_URL}/pay/${linkId}?status=success`;
-  const cancelUrl = `${env.FRONTEND_URL}/pay/${linkId}?status=cancelled`;
+  // Bancard 3DS on international cards does a full top-level redirect to the
+  // return_url, so it must resolve to a standalone result page, not back to
+  // /pay/:amount (which would parse the link id as an amount and show "monto
+  // invalido"). The result page reads ?link and polls the link status, which
+  // the confirmation webhook is the source of truth for.
+  const returnUrl = `${env.FRONTEND_URL}/payment/link-result?link=${linkId}&status=success`;
+  const cancelUrl = `${env.FRONTEND_URL}/payment/link-result?link=${linkId}&status=cancelled`;
   const description = `Park Lofts ${linkId.substring(0, 8)}`.substring(0, 20);
 
   const requestBody = {
