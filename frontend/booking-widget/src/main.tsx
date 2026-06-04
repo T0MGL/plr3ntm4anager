@@ -106,6 +106,7 @@ const routes = [
     children: [
       { path: "/", element: <UnitListingPage /> },
       { path: "/contacto", element: <ContactPage /> },
+      { path: "/pay", element: <PayPage /> },
       { path: "/pay/:id", element: <PayPage /> },
       { path: "/:unitId", element: <UnitDetailPage /> },
       { path: "/payment/result", element: <PaymentResultPage /> },

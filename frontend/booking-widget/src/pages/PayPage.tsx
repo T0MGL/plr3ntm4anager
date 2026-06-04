@@ -25,6 +25,7 @@ type View =
   | { status: "paid"; link: PublicPaymentLink }
   | { status: "expired" }
   | { status: "not_found" }
+  | { status: "invalid" }
   | { status: "error"; message: string };
 
 interface Checkout {
@@ -56,7 +57,7 @@ const PayPage = () => {
 
   const load = useCallback(async () => {
     if (!id) {
-      setView({ status: "not_found" });
+      setView({ status: "invalid" });
       return;
     }
     try {
@@ -173,6 +174,13 @@ const PayPage = () => {
           <NoticeView
             title="Enlace de pago no encontrado"
             body="El enlace no existe o fue revocado. Verificá el link o contactanos."
+          />
+        ) : null}
+
+        {view.status === "invalid" && !verifying ? (
+          <NoticeView
+            title="Link de pago inválido o incompleto"
+            body="Este enlace no incluye un pago válido. Pedí a Park Lofts el link completo o contactanos."
           />
         ) : null}
 
