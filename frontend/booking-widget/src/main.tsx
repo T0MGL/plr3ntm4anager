@@ -107,7 +107,7 @@ const routes = [
       { path: "/", element: <UnitListingPage /> },
       { path: "/contacto", element: <ContactPage /> },
       { path: "/pay", element: <PayPage /> },
-      { path: "/pay/:id", element: <PayPage /> },
+      { path: "/pay/:amount", element: <PayPage /> },
       { path: "/:unitId", element: <UnitDetailPage /> },
       { path: "/payment/result", element: <PaymentResultPage /> },
       { path: "/payment/cancelled", element: <PaymentCancelledPage /> },
