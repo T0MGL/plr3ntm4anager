@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.middleware';
 import { requireAuth } from '../middleware/auth.middleware';
-import { paymentCreateRateLimit } from '../middleware/rate-limit.middleware';
+import { paymentCreateRateLimit, openPaymentRateLimit } from '../middleware/rate-limit.middleware';
 import { supabaseAdmin } from '../config/supabase';
 import {
   createSingleBuy,
@@ -272,7 +272,7 @@ router.get('/links/:id', validate(linkParamsSchema), async (req, res) => {
 
 router.post(
   '/links/:id/pay',
-  paymentCreateRateLimit,
+  openPaymentRateLimit,
   validate(linkParamsSchema),
   async (req, res) => {
     try {
@@ -336,7 +336,7 @@ const openPaymentSchema = z.object({
 
 router.post(
   '/open',
-  paymentCreateRateLimit,
+  openPaymentRateLimit,
   validate(openPaymentSchema),
   async (req, res) => {
     try {

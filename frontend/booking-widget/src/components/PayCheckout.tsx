@@ -25,10 +25,16 @@ interface PayCheckoutProps {
 // BancardCheckout iframe loader but without the booking-cancel side effect:
 // a payment link has no availability blocks to release and stays reusable on
 // failure, so closing the modal is a clean no-op.
+const CONTAINER_ID = "bancard-pay-container";
+
 export function PayCheckout({ processId, bancardUrl, onClose, onSuccess }: PayCheckoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // createForm is only ever called once per mount. Without this guard a script
+  // already in the DOM plus a re-render could call it twice and Bancard would
+  // either throw or stack two iframes.
+  const formCreated = useRef(false);
 
   const isStub = processId.startsWith("stub_");
 
@@ -53,15 +59,27 @@ export function PayCheckout({ processId, bancardUrl, onClose, onSuccess }: PayCh
   }, [handleMessage]);
 
   const initCheckout = useCallback(() => {
-    setLoading(false);
+    if (formCreated.current) return;
 
     if (!window.Bancard) {
+      setLoading(false);
       setError("El sistema de pago no está disponible. Intentá de nuevo.");
       return;
     }
 
+    // The container must already be committed to the DOM before createForm
+    // runs: Bancard injects its iframe by element id and silently no-ops if the
+    // target is missing. The div is rendered unconditionally (hidden, never
+    // unmounted) so this is a safety assertion, not a race we expect to hit.
+    if (!document.getElementById(CONTAINER_ID)) {
+      setLoading(false);
+      setError("No se pudo inicializar el formulario de pago.");
+      return;
+    }
+
     try {
-      window.Bancard.Checkout.createForm("bancard-pay-container", processId, {
+      formCreated.current = true;
+      window.Bancard.Checkout.createForm(CONTAINER_ID, processId, {
         styles: {
           "form-background-color": "#FFFFFF",
           "button-background-color": "#1A1A1A",
@@ -73,7 +91,10 @@ export function PayCheckout({ processId, bancardUrl, onClose, onSuccess }: PayCh
           "input-placeholder-color": "#9CA3AF",
         },
       });
+      setLoading(false);
     } catch {
+      formCreated.current = false;
+      setLoading(false);
       setError("No se pudo inicializar el formulario de pago.");
     }
   }, [processId]);
@@ -102,10 +123,10 @@ export function PayCheckout({ processId, bancardUrl, onClose, onSuccess }: PayCh
     };
 
     document.head.appendChild(script);
-
-    return () => {
-      document.getElementById(scriptId)?.remove();
-    };
+    // The script tag is intentionally left in the DOM on unmount: it is shared
+    // with the booking BancardCheckout and is a cacheable third-party SDK.
+    // Removing it would force a re-download on the next open and could yank the
+    // SDK out from under the booking flow if both are used in one session.
   }, [bancardUrl, isStub, initCheckout]);
 
   return (
@@ -173,7 +194,7 @@ export function PayCheckout({ processId, bancardUrl, onClose, onSuccess }: PayCh
 
           {!isStub ? (
             <div
-              id="bancard-pay-container"
+              id={CONTAINER_ID}
               ref={containerRef}
               className={loading || error ? "hidden" : ""}
             />

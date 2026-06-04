@@ -16,13 +16,27 @@ export const manualSyncRateLimit = rateLimit({
   message: { error: 'Too many sync attempts, please try later.' }
 });
 
-// Protects Bancard single_buy creation against brute force and the 7-attempt
-// 30-day block documented in Bancard spec v1.22 pg 84. 3 create attempts per
-// IP every 5 minutes is generous for legitimate checkouts and aggressive for
-// abuse.
+// Protects the booking-flow Bancard single_buy creation against brute force.
+// A legitimate guest may retry after a declined card or a typo, so 3 in 5 min
+// was hostile to real use. 8 in 15 min still blocks scripted abuse while never
+// getting in a real payer's way. The per-card 7-attempt block in Bancard spec
+// v1.22 pg 84 is enforced by Bancard against the card, not by this IP limiter.
 export const paymentCreateRateLimit = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  limit: 3,
+  windowMs: 15 * 60 * 1000,
+  limit: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many payment attempts, please wait a few minutes.' }
+});
+
+// Public open/link payment portal (rent.parkloftsparaguay.com/pay/...). The
+// payer has no account and may legitimately retry several times: declined card,
+// wrong CVV, then a second card. A tight limit locks out a paying customer mid
+// checkout, which is worse than the marginal abuse risk on an unguessable link.
+// 12 attempts per 15 minutes per IP is the balance.
+export const openPaymentRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 12,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many payment attempts, please wait a few minutes.' }
