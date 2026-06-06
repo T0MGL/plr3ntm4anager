@@ -6,6 +6,7 @@ export type UnitSummary = {
   name: string;
   description: string | null;
   nightly_rate_usd: number;
+  cleaning_fee_usd?: number;
   max_guests: number;
   airbnb_listing_url?: string | null;
   airbnb_ical_url?: string | null;

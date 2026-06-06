@@ -10,6 +10,7 @@ export interface PublicBookingDetails {
   check_in_date: string;
   check_out_date: string;
   nights: number;
+  cleaning_fee_usd: number;
   total_price_usd: number;
   guest_first_name: string;
   unit_name: string;
@@ -26,7 +27,7 @@ export interface PublicBookingDetails {
 export async function getPublicBookingDetails(bookingId: string): Promise<PublicBookingDetails | null> {
   const { data: booking, error } = await supabaseAdmin
     .from('booking_requests')
-    .select('id, status, check_in_date, check_out_date, total_price_usd, guest_name, unit_id')
+    .select('id, status, check_in_date, check_out_date, cleaning_fee_usd, total_price_usd, guest_name, unit_id')
     .eq('id', bookingId)
     .maybeSingle();
 
@@ -61,6 +62,7 @@ export async function getPublicBookingDetails(bookingId: string): Promise<Public
     check_in_date: booking.check_in_date,
     check_out_date: booking.check_out_date,
     nights,
+    cleaning_fee_usd: Number(booking.cleaning_fee_usd ?? 0),
     total_price_usd: Number(booking.total_price_usd),
     guest_first_name: firstName,
     unit_name: unit?.name ?? 'Park Lofts',
@@ -68,6 +70,31 @@ export async function getPublicBookingDetails(bookingId: string): Promise<Public
     payment_status: (payment?.payment_status as PaymentStatus) ?? null,
     payment_completed_at: payment?.completed_at ?? null
   };
+}
+
+/**
+ * Reads the operator-configured cleaning fee (USD) from the settings table.
+ * Stored as a string under key 'cleaning_fee_usd' (see migration 020). Returns
+ * 0 when unset, malformed or negative, so a missing setting never blocks a
+ * booking, it just charges no cleaning fee.
+ */
+export async function getCleaningFeeUsd(): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from('settings')
+    .select('value')
+    .eq('key', 'cleaning_fee_usd')
+    .maybeSingle();
+
+  if (error) {
+    logger.warn('getCleaningFeeUsd: read failed, defaulting to 0', { error: error.message });
+    return 0;
+  }
+
+  const parsed = Number(data?.value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return parsed;
 }
 
 export async function getLastSyncAt(unitId: string): Promise<string | null> {
@@ -129,8 +156,17 @@ export async function createBookingRequest(params: {
   }
 
   const nights = nightsBetween(params.checkIn, params.checkOut);
-  const totalPrice = Number(unit.nightly_rate_usd) * nights;
-  const lastSyncAt = await getLastSyncAt(params.unitId);
+  const [cleaningFee, lastSyncAt] = await Promise.all([
+    getCleaningFeeUsd(),
+    getLastSyncAt(params.unitId)
+  ]);
+
+  // total = nightly rate * nights + one-off cleaning fee. The cleaning fee is
+  // snapshotted onto the booking row so a later Settings change never re-prices
+  // an existing booking. total_price_usd is what every downstream step charges:
+  // Bancard single-buy, FX snapshot, confirmation emails and the public page.
+  const accommodation = Number(unit.nightly_rate_usd) * nights;
+  const totalPrice = accommodation + cleaningFee;
 
   const { data: booking, error: bookingError } = await supabaseAdmin
     .from('booking_requests')
@@ -141,6 +177,7 @@ export async function createBookingRequest(params: {
       guest_phone: params.guestPhone,
       check_in_date: params.checkIn,
       check_out_date: params.checkOut,
+      cleaning_fee_usd: cleaningFee,
       total_price_usd: totalPrice,
       special_requests: params.specialRequests ?? null,
       locale: params.locale ?? 'es',

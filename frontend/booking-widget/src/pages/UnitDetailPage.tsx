@@ -119,6 +119,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
         id: unit?.id,
         title: unit?.name || "",
         pricePerNight: unit?.nightly_rate_usd ?? 0,
+        cleaningFee: unit?.cleaning_fee_usd ?? 0,
         image: images[0],
       },
       selectedDates: data.selectedDates,
@@ -204,6 +205,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
             <ReservationCard
               unitId={unit.id}
               nightlyRateUsd={unit.nightly_rate_usd ?? 0}
+              cleaningFeeUsd={unit.cleaning_fee_usd ?? 0}
               maxGuests={unit.max_guests}
               range={range}
               onSelectRange={setRange}
@@ -240,6 +242,7 @@ const UnitDetailPage = ({ unitIdOverride }: { unitIdOverride?: string }) => {
             <ReservationCard
               unitId={unit.id}
               nightlyRateUsd={unit.nightly_rate_usd ?? 0}
+              cleaningFeeUsd={unit.cleaning_fee_usd ?? 0}
               maxGuests={unit.max_guests}
               range={range}
               onSelectRange={setRange}

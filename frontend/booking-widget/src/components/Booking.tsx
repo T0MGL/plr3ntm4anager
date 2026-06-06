@@ -32,6 +32,7 @@ interface BookingProps {
       id?: string;
       title: string;
       pricePerNight: number;
+      cleaningFee?: number;
       image?: string;
     };
     selectedDates: {
@@ -88,7 +89,9 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
   };
 
   const totalNights = useMemo(() => computeNights(dates.checkIn, dates.checkOut), [dates]);
-  const totalPrice = (bookingData.listing.pricePerNight || 0) * totalNights;
+  const accommodation = (bookingData.listing.pricePerNight || 0) * totalNights;
+  const cleaningFee = bookingData.listing.cleaningFee || 0;
+  const totalPrice = accommodation + cleaningFee;
 
   const isInfoValid =
     userInfo.name.length > 2 &&
@@ -578,9 +581,19 @@ const Booking = ({ open, onClose, bookingData }: BookingProps) => {
                             })}
                           </span>
                           <span className="text-[15px] font-bold">
-                            ${totalPrice.toFixed(2)}
+                            ${accommodation.toFixed(2)}
                           </span>
                         </div>
+                        {cleaningFee > 0 && (
+                          <div className="flex justify-between items-center text-[#222222]">
+                            <span className="text-[15px] font-medium underline underline-offset-4 decoration-gray-200">
+                              {t("booking.summary.cleaningFee")}
+                            </span>
+                            <span className="text-[15px] font-bold">
+                              ${cleaningFee.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-100">
                         <span className="font-bold text-[19px]">

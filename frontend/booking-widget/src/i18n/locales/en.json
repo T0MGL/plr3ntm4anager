@@ -130,6 +130,7 @@
     "notCharged": "You will not be charged yet",
     "pricePerNights": "${{price}} x {{nights}} nights",
     "pricePerNight": "${{price}} x {{nights}} night",
+    "cleaningFee": "Cleaning fee",
     "totalPrice": "Total price",
     "adults": "Adults",
     "adultsSub": "Ages 13 and up",
@@ -183,6 +184,7 @@
       "totalGuests": "Total guests",
       "priceDetails": "Price details",
       "pricePerNights": "${{price}} x {{nights}} nights",
+      "cleaningFee": "Cleaning fee",
       "totalUsd": "Total (USD)"
     },
     "loading": "Preparing secure payment...",

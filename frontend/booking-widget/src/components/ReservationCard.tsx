@@ -16,6 +16,7 @@ type GuestState = {
 interface ReservationCardProps {
   unitId: string;
   nightlyRateUsd: number;
+  cleaningFeeUsd: number;
   maxGuests: number;
   range?: DateRange;
   onSelectRange: (range: DateRange | undefined) => void;
@@ -91,6 +92,7 @@ function CounterRow({
 const ReservationCard: React.FC<ReservationCardProps> = ({
   unitId,
   nightlyRateUsd,
+  cleaningFeeUsd,
   maxGuests,
   range,
   onSelectRange,
@@ -113,7 +115,9 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
   }, [range]);
 
   const hasValidDates = nights >= 1;
-  const totalPrice = hasValidDates ? nightlyRateUsd * nights : 0;
+  const accommodation = hasValidDates ? nightlyRateUsd * nights : 0;
+  const cleaningFee = hasValidDates ? cleaningFeeUsd : 0;
+  const totalPrice = accommodation + cleaningFee;
 
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
@@ -354,8 +358,16 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
                 <span className="underline decoration-gray-300 decoration-1 underline-offset-4 cursor-default">
                   {priceLine}
                 </span>
-                <span>${totalPrice.toFixed(2)}</span>
+                <span>${accommodation.toFixed(2)}</span>
               </div>
+              {cleaningFee > 0 && (
+                <div className="flex justify-between text-[16px] text-gray-600">
+                  <span className="underline decoration-gray-300 decoration-1 underline-offset-4 cursor-default">
+                    {t("reservationCard.cleaningFee")}
+                  </span>
+                  <span>${cleaningFee.toFixed(2)}</span>
+                </div>
+              )}
               <div className="pt-6 border-t border-gray-100 flex justify-between font-bold text-[18px] text-[#222222]">
                 <span>{t("reservationCard.totalPrice")}</span>
                 <span>${totalPrice.toFixed(2)}</span>

@@ -4,7 +4,7 @@ import { differenceInMinutes } from 'date-fns';
 import { supabasePublic } from '../config/supabase';
 import { validate } from '../middleware/validate.middleware';
 import { dateSchema } from '../utils/validation.utils';
-import { getLastSyncAt } from '../services/booking.service';
+import { getLastSyncAt, getCleaningFeeUsd } from '../services/booking.service';
 import { logger } from '../config/logger';
 import { syncUnit } from '../services/ical-sync.service';
 import { env } from '../config/env';
@@ -59,7 +59,13 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Unit not found' });
   }
 
-  return res.json(data);
+  // Cleaning fee is a global setting, not a unit column. Attach it to the unit
+  // payload so the booking widget can show the full price breakdown without a
+  // second request. The backend remains authoritative: createBookingRequest
+  // re-reads the live setting when it prices the booking.
+  const cleaningFeeUsd = await getCleaningFeeUsd();
+
+  return res.json({ ...data, cleaning_fee_usd: cleaningFeeUsd });
 });
 
 const availabilitySchema = z.object({
