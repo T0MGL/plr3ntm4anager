@@ -7,7 +7,7 @@ import ExportMenu from '../common/ExportMenu';
 
 interface PaymentRow {
   id: string;
-  booking_id: string;
+  booking_id: string | null;
   amount_usd: number;
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded' | string;
   payment_method: string | null;
@@ -75,7 +75,7 @@ export default function PaymentHistory() {
 
     return payments.filter((payment) => {
       return (
-        payment.booking_id.toLowerCase().includes(term) ||
+        (payment.booking_id ?? '').toLowerCase().includes(term) ||
         payment.id.toLowerCase().includes(term) ||
         (payment.bancard_transaction_id ?? '').toLowerCase().includes(term) ||
         (payment.payment_method ?? '').toLowerCase().includes(term)
@@ -204,7 +204,7 @@ export default function PaymentHistory() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap py-2 pr-4 font-medium text-slate-900">${payment.amount_usd}</td>
-                    <td className="max-w-[220px] py-2 pr-4 text-xs font-mono text-slate-600" title={payment.booking_id}>{payment.booking_id.slice(0, 8).toUpperCase()}</td>
+                    <td className="max-w-[220px] py-2 pr-4 text-xs font-mono text-slate-600" title={payment.booking_id ?? undefined}>{payment.booking_id ? payment.booking_id.slice(0, 8).toUpperCase() : '-'}</td>
                     <td className="py-2 pr-4 text-slate-600">{payment.payment_method ?? '-'}</td>
                     <td className="max-w-[220px] py-2 pr-4 text-xs text-slate-600" title={payment.bancard_transaction_id ?? '-'}>
                       {payment.bancard_transaction_id ?? '-'}
