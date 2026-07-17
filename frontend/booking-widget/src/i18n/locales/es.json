@@ -260,7 +260,9 @@
     "subtitle": "Check-in y check-out para ver la disponibilidad",
     "clearDates": "Limpiar fechas",
     "updating": "Actualizando disponibilidad",
-    "crossBlocked": "Las fechas elegidas cruzan un periodo no disponible. Intenta con un rango mas corto."
+    "crossBlocked": "Las fechas elegidas cruzan un periodo no disponible. Intenta con un rango mas corto.",
+    "prevMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente"
   },
   "common": {
     "close": "Cerrar"

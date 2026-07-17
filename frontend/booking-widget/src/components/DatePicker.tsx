@@ -91,6 +91,14 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
     return () => { isMounted = false; };
   }, [maxDate, today, unitId]);
 
+  // Jump the visible month to the check-in once picked, so mobile (single month)
+  // lands on the right month to select a cross-month checkout.
+  useEffect(() => {
+    if (!range?.from) return;
+    const target = startOfMonth(range.from);
+    setMonth((prev) => (prev.getTime() === target.getTime() ? prev : target));
+  }, [range?.from]);
+
   const isBlocked = useCallback((day: Date) => blockedKeys.has(toDateKey(day)), [blockedKeys]);
 
   const disabledDays = useMemo<Matcher[]>(
@@ -139,30 +147,34 @@ const DatePicker: React.FC<DatePickerProps> = ({ unitId, range, onSelectRange, h
 
   return (
     <div className="w-full bg-white date-picker-container">
-      {!hideHeader && (
-        <div className="flex items-center justify-between mb-8 px-2">
+      <div className={`flex items-center px-2 ${hideHeader ? "justify-end mb-4" : "justify-between mb-8"}`}>
+        {!hideHeader && (
           <div>
             <h2 className="text-2xl font-bold text-[#222222]">{t("datePicker.selectDates")}</h2>
             <p className="text-sm text-gray-500 mt-1">{t("datePicker.subtitle")}</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMonth(addMonths(month, -1))}
-              disabled={month <= minMonth}
-              className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center hover:bg-gray-50 disabled:opacity-20 transition-all active:scale-95 shadow-sm"
-            >
-              <IoChevronBack className="text-lg" />
-            </button>
-            <button
-              onClick={() => setMonth(addMonths(month, 1))}
-              disabled={month >= maxMonth}
-              className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center hover:bg-gray-50 disabled:opacity-20 transition-all active:scale-95 shadow-sm"
-            >
-              <IoChevronForward className="text-lg" />
-            </button>
-          </div>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMonth(addMonths(month, -1))}
+            disabled={month <= minMonth}
+            aria-label={t("datePicker.prevMonth")}
+            className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center hover:bg-gray-50 disabled:opacity-20 transition-all active:scale-95 shadow-sm"
+          >
+            <IoChevronBack className="text-lg" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMonth(addMonths(month, 1))}
+            disabled={month >= maxMonth}
+            aria-label={t("datePicker.nextMonth")}
+            className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center hover:bg-gray-50 disabled:opacity-20 transition-all active:scale-95 shadow-sm"
+          >
+            <IoChevronForward className="text-lg" />
+          </button>
         </div>
-      )}
+      </div>
 
       <div className="flex justify-center w-full">
         <DayPicker

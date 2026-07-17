@@ -260,7 +260,9 @@
     "subtitle": "Check-in and check-out to view availability",
     "clearDates": "Clear dates",
     "updating": "Updating availability",
-    "crossBlocked": "Those dates cross an unavailable range. Pick shorter dates."
+    "crossBlocked": "Those dates cross an unavailable range. Pick shorter dates.",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month"
   },
   "common": {
     "close": "Close"
